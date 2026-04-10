@@ -7,7 +7,8 @@
 format          = "a2ml"
 schema          = "ecosystem"
 schema-version  = "0.1"
-updated         = "2026-04-10"
+# ISO 8601 UTC timestamp (see STATE.a2ml for convention).
+updated         = "2026-04-10T20:00:00Z"
 
 [ecosystem]
 version = "0.1"

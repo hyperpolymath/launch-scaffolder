@@ -21,6 +21,10 @@ standards-canonical = "/var/mnt/eclipse/repos/standards/launcher/launcher-standa
 standards-vendored-fallback = "standards/launcher-standard.a2ml"
 templates = "templates/"
 examples = "examples/"
+docs = "docs/"
+ruleset-audit-archive = "docs/ruleset-audit-2026-04-10/"
+fixture-naming-rule = "examples/README.md"
+branch-protection-remediation = "docs/branch-protection-remediation-2026-04-10.md"
 
 [invariants]
 scm-files-location = ".machine_readable/ ONLY — never root"
@@ -30,6 +34,17 @@ license = "PMPL-1.0-or-later"
 language = "Rust (== Rust/SPARK per terminology rule)"
 no-secrets-in-files = true
 spdx-headers-required = true
+# Fixture-vs-live naming rule (see ADR-006 and examples/README.md):
+# live configs use `.launcher.a2ml`, test fixtures use
+# `.launcher.fixture.a2ml`. The discovery walker treats any file ending
+# in `.launcher.fixture.a2ml` as out-of-band for estate walks.
+fixture-suffix = "<app>.launcher.fixture.a2ml"
+live-suffix    = "<app>.launcher.a2ml"
+# Standard-loader precedence (see ADR-007):
+# flag → $LAUNCH_SCAFFOLDER_STANDARD → canonical path → baked fallback.
+# Every subcommand calls LauncherStandard::resolve; do not add
+# per-command copies.
+standard-loader-entry-point = "launch-scaffolder-common::standard::LauncherStandard::resolve"
 
 [standards-compliance]
 launcher-standard = "standards/rhodium-standard-repositories/spec/LANGUAGE-POLICY.adoc §Rust/SPARK"
@@ -64,8 +79,10 @@ non-goals = [
 
 [roadmap-phases]
 phase-1 = "DONE 2026-04-10 — config + standard + template + mint. 7 launchers migrated."
-phase-2 = "Wire remaining subcommands (provision, config, realign, standard)."
-phase-3 = "Golden-file regression tests + cross-platform CI matrix."
-phase-4 = "SPARK hook for integrity.rs via Zig FFI."
-phase-5 = "Migrate the 5 declared exceptions (hypatia, invariant-path, opsm, ambientops, idaptik) once template supports their extra modes."
-phase-6 = "Optional PanLL panel as a GUI layer over the CLI."
+phase-2 = "DONE 2026-04-10 — realign (bulk re-mint, estate walk, --dry-run/--check). Fixture-vs-live suffix convention introduced; ADR-006."
+phase-3 = "DONE 2026-04-10 — provision (native Rust integ/disinteg via launch-scaffolder-common::integration; ADR-008). Template delegation: generated scripts fast-path to the binary when on PATH."
+phase-4 = "DONE 2026-04-10 — config (get/set/validate) on the embedded @a2ml-metadata block. Hand-rolled parser per ADR-009."
+phase-5 = "IN PROGRESS — Golden-file regression tests + cross-platform CI matrix + macOS integration backend + `standard` subcommand."
+phase-6 = "SPARK hook for integrity.rs via Zig FFI."
+phase-7 = "Migrate the 5 declared exceptions (hypatia, invariant-path, opsm, ambientops, idaptik) once template supports their extra modes."
+phase-8 = "Optional PanLL panel as a GUI layer over the CLI."

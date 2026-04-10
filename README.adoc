@@ -8,9 +8,12 @@
 **Build cross-platform desktop launchers from a declarative A2ML spec.**
 
 image:https://img.shields.io/badge/License-PMPL--1.0--or--later-blue.svg[License: PMPL-1.0-or-later]
-image:https://img.shields.io/badge/rust-1.80%2B-orange.svg[Rust 1.80+]
+image:https://img.shields.io/badge/rust-1.85%2B-orange.svg[Rust 1.85+]
 image:https://img.shields.io/badge/status-alpha-yellow.svg[Status: alpha]
 image:https://img.shields.io/badge/mint-working-green.svg[Mint: working]
+image:https://img.shields.io/badge/realign-working-green.svg[Realign: working]
+image:https://img.shields.io/badge/provision-working-green.svg[Provision: working]
+image:https://img.shields.io/badge/config-working-green.svg[Config: working]
 
 == What it does
 
@@ -61,30 +64,62 @@ With this tool:
 
 == Commands
 
+All four working subcommands, in the order you're likely to use them:
+
 [source,bash]
 ----
-# Generate a brand-new launcher from a config
-launch-scaffolder mint examples/stapeln.launcher.a2ml
+# ─── mint ──────────────────────────────────────────────────────────────────
+# Generate a launcher script from a config. Writes
+# <config-parent>/<app-name>-launcher.sh by default.
+launch-scaffolder mint examples/stapeln.launcher.fixture.a2ml
+launch-scaffolder mint /path/to/burble.launcher.a2ml -o /tmp/out.sh
+launch-scaffolder mint /path/to/burble.launcher.a2ml --stdout
 
-# Install or remove an existing launcher on the current system
-launch-scaffolder provision install  ./stapeln-launcher.sh
-launch-scaffolder provision uninstall ./stapeln-launcher.sh
+# ─── realign ───────────────────────────────────────────────────────────────
+# Bulk re-mint: walk the estate (default = /var/mnt/eclipse/repos) and
+# re-render every live `<app>.launcher.a2ml` against the current standard
+# + template. Idempotent — unchanged scripts stay unchanged.
+launch-scaffolder realign                              # walk estate root
+launch-scaffolder realign --search-root ~/my-projects  # narrow walk
+launch-scaffolder realign /path/to/one.launcher.a2ml   # explicit configs
+launch-scaffolder realign --dry-run                    # preview only
+launch-scaffolder realign --check                      # CI mode: exit 1 on any diff
+launch-scaffolder realign --keep-going                 # don't stop on errors
 
-# Inspect or modify the config section of an existing launcher
-launch-scaffolder config get     ./stapeln-launcher.sh app-port
-launch-scaffolder config set     ./stapeln-launcher.sh app-port 4020
+# ─── provision ─────────────────────────────────────────────────────────────
+# Install (--integ) or uninstall (--disinteg) a launcher's desktop entry,
+# icon, and launcher binary on the current system. Writes .desktop files
+# directly from the Rust binary rather than going via the generated shell
+# script. Bulk runs (--all) prompt before touching $HOME.
+launch-scaffolder provision --integ    /path/to/burble.launcher.a2ml
+launch-scaffolder provision --disinteg /path/to/burble.launcher.a2ml
+launch-scaffolder provision --integ --all            # everything in the estate
+launch-scaffolder provision --integ --all --no-confirm --force
+launch-scaffolder provision --integ --all --dry-run  # preview only
+
+# ─── config ────────────────────────────────────────────────────────────────
+# Inspect or edit the `@a2ml-metadata` block embedded at the top of any
+# generated launcher script.
+launch-scaffolder config get      ./stapeln-launcher.sh version
+launch-scaffolder config get      ./stapeln-launcher.sh standards-compliance
 launch-scaffolder config validate ./stapeln-launcher.sh
-
-# Bulk realignment: re-mint one or more existing launchers against the
-# current standard, preserving their [exceptions] block. This is the
-# killer feature — one command to update every launcher in the estate
-# after a standard change.
-launch-scaffolder realign ~/.desktop-tools/*.launcher.a2ml
-
-# Meta: inspect or validate the launcher standard itself
-launch-scaffolder standard show
-launch-scaffolder standard validate
+launch-scaffolder config set      ./stapeln-launcher.sh version 0.2.0
+# NOTE: `config set` rewrites the generated script in place and warns
+# that `realign` will overwrite the change. The durable fix is to edit
+# the source <app>.launcher.a2ml and re-mint.
 ----
+
+=== Generated script → binary delegation
+
+Generated `<app>-launcher.sh` scripts carry their own `--integ` /
+`--disinteg` arms (the original, pure-bash implementation). They now
+also embed the absolute path of their source config as `CONFIG_FILE=...`
+and, on invocation, fast-path back to
+`launch-scaffolder provision --integ "$CONFIG_FILE"` when the binary is
+on `PATH`. If the binary isn't present, the in-script shell fallback
+runs instead. This means: the Rust binary is authoritative *when
+available*, without making itself a hard dependency for integrated
+launchers.
 
 == Architecture
 
@@ -93,32 +128,66 @@ launch-scaffolder standard validate
 launch-scaffolder/
 ├── Cargo.toml                    # Workspace root
 ├── crates/
-│   ├── launcher-common/          # Shared library
+│   ├── launcher-common/          # Shared library — all real logic
 │   │   └── src/
 │   │       ├── lib.rs            # Public API
 │   │       ├── standard.rs       # Parse launcher-standard.a2ml
+│   │       │                     #   + LauncherStandard::resolve (shared
+│   │       │                     #     3-step precedence: flag → canonical
+│   │       │                     #     → baked fallback)
 │   │       ├── config.rs         # Parse <app>.launcher.a2ml
-│   │       ├── template.rs       # Render via Tera
-│   │       ├── platform.rs       # Linux/macOS/Windows dispatch
-│   │       ├── integrity.rs      # SHA-256 manifests
-│   │       └── exceptions.rs     # Standard + config + exception merge
-│   └── launcher/                 # The one binary
+│   │       ├── template.rs       # Render via Tera (embeds CONFIG_FILE)
+│   │       ├── discovery.rs      # Walk + prune + fixture-suffix filter
+│   │       │                     #   (shared by realign + provision)
+│   │       ├── integration.rs    # Native Rust .desktop writer,
+│   │       │                     #   icon/launcher install, gio,
+│   │       │                     #   update-desktop-database
+│   │       ├── metadata_block.rs # Parser + in-place rewriter for the
+│   │       │                     #   embedded @a2ml-metadata block
+│   │       ├── platform.rs       # Linux/macOS/Windows dispatch (stub)
+│   │       ├── integrity.rs      # SHA-256 manifests (stub)
+│   │       └── exceptions.rs     # Standard + config + exception merge (stub)
+│   └── launcher/                 # Thin CLI binary
 │       └── src/
 │           ├── main.rs           # clap dispatch
-│           ├── cmd_mint.rs
-│           ├── cmd_provision.rs
-│           ├── cmd_config.rs
-│           ├── cmd_realign.rs
-│           └── cmd_standard.rs
+│           ├── cmd_mint.rs       # ✓ working
+│           ├── cmd_realign.rs    # ✓ working
+│           ├── cmd_provision.rs  # ✓ working (native Rust; option b)
+│           ├── cmd_config.rs     # ✓ working
+│           └── cmd_standard.rs   # stub
 ├── standards/
 │   └── launcher-standard.a2ml    # Canonical standard (baked into binary)
 ├── templates/
 │   └── launcher.sh.tera          # Bash launcher template rendered by Tera
 ├── examples/
-│   └── stapeln.launcher.a2ml     # Worked example: Stapeln's config
+│   ├── README.md                 # Fixture-vs-live naming convention
+│   └── stapeln.launcher.fixture.a2ml  # Worked example (fixture suffix!)
+├── docs/
+│   ├── launcher-exceptions-2026-04-10.md
+│   ├── compliance-audit-2026-04-10.md
+│   ├── branch-protection-remediation-2026-04-10.md
+│   └── ruleset-audit-2026-04-10/  # Audit artefacts (read-only record)
 └── tests/
-    └── regression/               # Golden-file regression fixtures
+    └── regression/               # Golden-file regression fixtures (planned)
 ----
+
+=== Fixture-vs-live naming convention
+
+To distinguish test fixtures from live, estate-owned launcher configs,
+**file-name suffixes carry the distinction** — directory names do not:
+
+[cols="1,2,1",options="header"]
+|===
+| Purpose | File-name suffix | Picked up by estate walks?
+| Live per-app config | `<app>.launcher.a2ml` | **Yes**
+| Fixture / worked example | `<app>.launcher.fixture.a2ml` | **No**
+|===
+
+The discovery code in `launch-scaffolder-common::discovery::is_live_config`
+enforces this rule. Fixture files can live anywhere — including inside
+a consumer repo's `examples/` directory — without being swept up by
+`realign` or `provision --all`. See `examples/README.md` for the full
+contributor-facing version of the rule.
 
 === Why Rust/SPARK
 
@@ -143,38 +212,41 @@ Per the hyperpolymath language policy (see `standards/rhodium-standard-repositor
 
 == Status
 
-**Alpha. `mint` is working end-to-end; other subcommands still stubs.**
-Last updated 2026-04-10.
+**Alpha, ~65% complete. Four of five subcommands fully wired end-to-end;
+one remains a stub (`standard`). Last updated 2026-04-10 (phase
+`phase-4-config-inspector`).**
 
-* [x] Cargo workspace layout
-* [x] `launch-scaffolder-common::standard` — loads canonical + baked fallback
-* [x] `launch-scaffolder-common::config` — parses `<app>.launcher.a2ml` (TOML) with runtime-kind validation
-* [x] `launch-scaffolder-common::template` — Tera renderer with full context
-* [x] `templates/launcher.sh.tera` — ported from `stapeln-launcher.sh`, parameterised over `runtime_kind ∈ {server-url, process, remote}`
-* [x] `mint` subcommand — positional config, `-o/--out`, `--stdout`, `--no-chmod`, `--standard` flag with precedence chain
-* [x] Baseline unit tests (4 passing: stapeln example parses, standard parses, 2 validation paths)
-* [x] 7 launchers migrated to scaffolder management (see `docs/launcher-exceptions-2026-04-10.md` for the 5 declared exceptions)
-* [ ] `launch-scaffolder-common::platform` — stub (platform dispatch is currently done at runtime inside the generated script)
-* [ ] `launch-scaffolder-common::integrity` — stub (pending SHA-256 manifest generator)
-* [ ] `launch-scaffolder-common::exceptions` — stub (pending `[exceptions]` merge logic for `realign`)
-* [ ] `provision` subcommand — stub
-* [ ] `config` subcommand — stub
-* [ ] `realign` subcommand — stub
-* [ ] `standard` subcommand — stub
-* [ ] Golden-file regression tests
+Implemented:
+
+* [x] Cargo workspace layout (two crates: `launch-scaffolder-common` + `launch-scaffolder`)
+* [x] `standard` module — parses `launcher-standard.a2ml`; `LauncherStandard::resolve` hosts the shared 3-step precedence (flag → canonical → baked)
+* [x] `config` module — parses `<app>.launcher.a2ml` (TOML) with runtime-kind validation
+* [x] `template` module — Tera renderer with full context; embeds `CONFIG_FILE` for in-script delegation
+* [x] `discovery` module — shared walk + prune + fixture-suffix filter
+* [x] `integration` module — native Rust `.desktop` writer, icon/launcher install, best-effort `gio` + `update-desktop-database` (Linux only; macOS/Windows return `IntegError::UnsupportedPlatform`)
+* [x] `metadata_block` module — hand-rolled parser and in-place rewriter for the embedded `@a2ml-metadata` block
+* [x] `templates/launcher.sh.tera` — parameterised over `runtime_kind ∈ {server-url, process, remote}`; `--integ` / `--disinteg` fast-path to `launch-scaffolder provision` when on PATH
+* [x] **`mint`** subcommand — positional config, `-o/--out`, `--stdout`, `--no-chmod`
+* [x] **`realign`** subcommand — estate walk with `--search-root` override, `--dry-run`, `--check` (CI), `--keep-going`, walk-error tolerant
+* [x] **`provision`** subcommand — `--integ` / `--disinteg` with `--all`, `--force`, `--no-confirm`, `--dry-run`; bulk mode prompts before touching `$HOME`
+* [x] **`config`** subcommand — `get` / `set` / `validate`; `set` preserves column alignment in the embedded metadata block
+* [x] 17 unit tests passing across both crates
+* [x] 7 launchers fully managed: aerie, burble, game-server-admin, nqc, panll, project-wharf, stapeln
+* [x] 5 declared exceptions documented in `docs/launcher-exceptions-2026-04-10.md`
+* [x] Fixture-vs-live file-naming convention documented and enforced
+* [x] All 7 managed launchers regenerated with template delegation arms (2026-04-10)
+
+Remaining work (ordered by current priority in STATE.a2ml):
+
+* [ ] Golden-file regression tests pinning mint output for the 7 managed launchers
+* [ ] macOS integration backend in `launch-scaffolder-common::integration`
+* [ ] SPARK integration hook for `integrity.rs` via Zig FFI
+* [ ] `standard` subcommand — still a scaffold stub
+* [ ] `platform` module — still a stub (runtime dispatch handled inside the generated script today)
+* [ ] `integrity` module — still a stub (pending SHA-256 manifest generator)
+* [ ] `exceptions` module — still a stub (per-app override merge)
 * [ ] Cross-platform CI (Linux/macOS/Windows matrix)
-* [ ] SPARK integration hook for `integrity.rs` (future phase)
-
-=== Working commands
-
-[source,bash]
-----
-# Mint a launcher from a config — this is the one command that actually
-# works today. Output defaults to <config-parent>/<app-name>-launcher.sh.
-launch-scaffolder mint /path/to/<app>.launcher.a2ml
-launch-scaffolder mint /path/to/<app>.launcher.a2ml -o /tmp/out.sh
-launch-scaffolder mint /path/to/<app>.launcher.a2ml --stdout
-----
+* [ ] Migration of the 5 declared exceptions once the template grows custom-mode hooks
 
 == Build
 

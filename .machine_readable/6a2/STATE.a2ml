@@ -11,7 +11,7 @@ schema-version  = "0.1"
 # `updated` is ISO 8601 UTC with a `Z` suffix. Same-day intermittent
 # writes are distinguished by the time component so git history
 # shows the progression of checkpoints.
-updated         = "2026-04-10T19:30:49Z"
+updated         = "2026-04-10T21:09:09Z"
 author          = "Jonathan D.A. Jewell"
 
 [project]
@@ -117,6 +117,18 @@ on   = "2026-04-10T19:30:49Z"
 [[completed]]
 item = "cmd_config (get/set/validate): thin CLI driver. `set` preserves column alignment and warns about realign overwrite. Smoke-tested against all 7 live launchers — 9 scalar keys, 1 list key each, all valid"
 on   = "2026-04-10T19:30:49Z"
+
+[[completed]]
+item = "Estate-wide ruleset drift audit: 315 non-archived repos classified (113 OK, 168 DRIFT, 29 MISSING, 5 ERROR-private). Raw data archived under docs/ruleset-audit-2026-04-10/"
+on   = "2026-04-10T20:30:00Z"
+
+[[completed]]
+item = "Wave 1 remediation: 21 MISSING repos brought to the 5-rule reference standard (29 MISSING minus 8 upstream forks intentionally skipped). launch-scaffolder itself was in the MISSING list and is now gated. Two repos required delete-and-recreate (MinixSDK.jl had a disabled kitchen-sink Base ruleset; thejeffparadox had an active-but-orphaned Base with include=[])"
+on   = "2026-04-10T21:00:00Z"
+
+[[completed]]
+item = "Documentation sweep: README.adoc commands + status overhauled, META.a2ml ADR-006/007/008/009 added, 0-AI-MANIFEST.a2ml fixture-suffix invariant added, ECOSYSTEM.a2ml timestamp refreshed, new docs/branch-protection-remediation-2026-04-10.md post-mortem, audit artefacts moved out of /tmp into docs/ruleset-audit-2026-04-10/"
+on   = "2026-04-10T21:09:09Z"
 
 [[next]]
 priority = 1

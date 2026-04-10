@@ -137,10 +137,7 @@ pub fn run(args: Args, standard_path: Option<&Path>) -> Result<()> {
     );
 
     if args.check && (updated > 0 || created > 0) {
-        anyhow::bail!(
-            "--check: {} launcher(s) would change",
-            updated + created
-        );
+        anyhow::bail!("--check: {} launcher(s) would change", updated + created);
     }
     if failed > 0 && !args.keep_going {
         anyhow::bail!("{} launcher(s) failed to realign", failed);
@@ -173,8 +170,7 @@ fn realign_one(
         return Ok(outcome);
     }
 
-    std::fs::write(&out, &script)
-        .with_context(|| format!("writing {}", out.display()))?;
+    std::fs::write(&out, &script).with_context(|| format!("writing {}", out.display()))?;
 
     if !no_chmod {
         #[cfg(unix)]
@@ -200,6 +196,5 @@ fn discover_configs(args: &Args) -> Result<Vec<PathBuf>> {
         .search_root
         .clone()
         .unwrap_or_else(|| PathBuf::from(discovery::ESTATE_ROOT));
-    discovery::walk_live_configs(&root)
-        .with_context(|| format!("walking {}", root.display()))
+    discovery::walk_live_configs(&root).with_context(|| format!("walking {}", root.display()))
 }

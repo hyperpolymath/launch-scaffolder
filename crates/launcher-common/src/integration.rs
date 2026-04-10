@@ -113,11 +113,7 @@ pub struct IntegReport {
 /// is copied into `~/.local/bin/<app>-launcher` as the actual runtime
 /// target — the pattern established by the reference stapeln launcher
 /// and preserved by the template.
-pub fn integ(
-    config: &LauncherConfig,
-    script_path: &Path,
-    opts: &IntegOpts,
-) -> Result<IntegReport> {
+pub fn integ(config: &LauncherConfig, script_path: &Path, opts: &IntegOpts) -> Result<IntegReport> {
     let platform = detect_platform();
     if platform != "linux" {
         return Err(IntegError::UnsupportedPlatform(platform).into());
@@ -135,24 +131,35 @@ pub fn integ(
     };
 
     if already && !opts.force {
-        report
-            .skipped
-            .push(format!("already integrated: {}", paths.desktop_file_target.display()));
+        report.skipped.push(format!(
+            "already integrated: {}",
+            paths.desktop_file_target.display()
+        ));
         return Ok(report);
     }
 
     if opts.dry_run {
-        report.actions.push(format!("mkdir -p {}", paths.apps_dir.display()));
-        report.actions.push(format!("mkdir -p {}", paths.icon_dir.display()));
-        report.actions.push(format!("mkdir -p {}", paths.bin_dir.display()));
         report
             .actions
-            .push(format!("cp {} {}", script_path.display(), paths.launcher_target.display()));
+            .push(format!("mkdir -p {}", paths.apps_dir.display()));
+        report
+            .actions
+            .push(format!("mkdir -p {}", paths.icon_dir.display()));
+        report
+            .actions
+            .push(format!("mkdir -p {}", paths.bin_dir.display()));
+        report.actions.push(format!(
+            "cp {} {}",
+            script_path.display(),
+            paths.launcher_target.display()
+        ));
         if let Some(icon_source) = icon_source_abs(config) {
             if icon_source.exists() {
-                report
-                    .actions
-                    .push(format!("cp {} {}", icon_source.display(), paths.icon_target.display()));
+                report.actions.push(format!(
+                    "cp {} {}",
+                    icon_source.display(),
+                    paths.icon_target.display()
+                ));
             }
         }
         report
@@ -229,7 +236,9 @@ pub fn integ(
             perms.set_mode(0o444);
             fs::set_permissions(target, perms)?;
         }
-        report.actions.push(format!("+ desktop: {}", target.display()));
+        report
+            .actions
+            .push(format!("+ desktop: {}", target.display()));
     }
 
     // -- Best-effort post-install niceties ---------------------------------
@@ -279,7 +288,9 @@ pub fn disinteg(config: &LauncherConfig, opts: &DisintegOpts) -> Result<IntegRep
             } else {
                 fs::remove_file(target)
                     .with_context(|| format!("removing {}", target.display()))?;
-                report.actions.push(format!("- removed {}", target.display()));
+                report
+                    .actions
+                    .push(format!("- removed {}", target.display()));
             }
         }
     }
@@ -305,11 +316,7 @@ pub fn disinteg(config: &LauncherConfig, opts: &DisintegOpts) -> Result<IntegRep
 }
 
 /// Render the body of a freedesktop `.desktop` file for one launcher.
-fn render_desktop_file(
-    config: &LauncherConfig,
-    paths: &InstallPaths,
-    icon_name: &str,
-) -> String {
+fn render_desktop_file(config: &LauncherConfig, paths: &InstallPaths, icon_name: &str) -> String {
     let generic = config
         .project
         .generic_name

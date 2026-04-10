@@ -91,18 +91,24 @@ pub fn run(args: Args, _standard: Option<&Path>) -> Result<()> {
         })
         .collect::<Result<Vec<_>>>()?;
 
-    let action = if args.integ { "integrate" } else { "disintegrate" };
+    let action = if args.integ {
+        "integrate"
+    } else {
+        "disintegrate"
+    };
     print_plan(action, &loaded, args.dry_run);
 
-    if !args.dry_run && loaded.len() > 1 && !args.no_confirm {
-        if !confirm(&format!(
+    if !args.dry_run
+        && loaded.len() > 1
+        && !args.no_confirm
+        && !confirm(&format!(
             "About to {action} {n} launcher(s). Proceed?",
             action = action,
             n = loaded.len()
-        ))? {
-            println!("aborted.");
-            return Ok(());
-        }
+        ))?
+    {
+        println!("aborted.");
+        return Ok(());
     }
 
     let mut ok = 0usize;
@@ -127,7 +133,10 @@ pub fn run(args: Args, _standard: Option<&Path>) -> Result<()> {
 
     println!(
         "\nprovision summary: {} {} ok, {} failed ({} total)",
-        ok, action, failed, loaded.len()
+        ok,
+        action,
+        failed,
+        loaded.len()
     );
 
     if failed > 0 {
@@ -136,11 +145,7 @@ pub fn run(args: Args, _standard: Option<&Path>) -> Result<()> {
     Ok(())
 }
 
-fn do_integ(
-    config_path: &Path,
-    cfg: &LauncherConfig,
-    args: &Args,
-) -> Result<IntegReport> {
+fn do_integ(config_path: &Path, cfg: &LauncherConfig, args: &Args) -> Result<IntegReport> {
     let script_path = sibling_script(config_path, cfg);
     let opts = IntegOpts {
         force: args.force,
@@ -204,8 +209,7 @@ fn resolve_configs(args: &Args) -> Result<Vec<PathBuf>> {
         .search_root
         .clone()
         .unwrap_or_else(|| PathBuf::from(discovery::ESTATE_ROOT));
-    discovery::walk_live_configs(&root)
-        .with_context(|| format!("walking {}", root.display()))
+    discovery::walk_live_configs(&root).with_context(|| format!("walking {}", root.display()))
 }
 
 /// Compute the sibling script path `<config-parent>/<app>-launcher.sh`.

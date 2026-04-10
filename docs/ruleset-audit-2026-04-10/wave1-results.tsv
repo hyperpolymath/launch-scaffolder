@@ -1,0 +1,23 @@
+affinescript-vite                OK      ruleset_id=14936587
+airborne-submarine-squadron      OK      ruleset_id=14936588
+befunge93-vault-cracker          OK      ruleset_id=14936589
+blue-screen-of-app               OK      ruleset_id=14936590
+candy-crash                      OK      ruleset_id=14936591
+dicti0nary-attack                OK      ruleset_id=14936592
+git-scripts                      OK      ruleset_id=14936593
+julia-the-viper                  OK      ruleset_id=14936594
+krl                              OK      ruleset_id=14936595
+KRLAdapter.jl                    OK      ruleset_id=14936596
+launch-scaffolder                OK      ruleset_id=14936597
+MinixSDK.jl                      FAIL    Validation Failed
+{"message":"Validation Failed","errors":["Name must be unique"],"documentation_url":"https://docs.github.com/rest/repos/rules#create-a-repository-ruleset","status":"422"}gh: Validation Failed (HTTP 422)
+nesy-solver                      OK      ruleset_id=14936598
+poly-k8s-mcp                     OK      ruleset_id=14936599
+pow-the-game                     OK      ruleset_id=14936600
+rescript-string-power            OK      ruleset_id=14936601
+safe-brute-force                 OK      ruleset_id=14936602
+somethings-fishy                 OK      ruleset_id=14936603
+tentacles-agentic-syllabus       OK      ruleset_id=14936605
+thejeffparadox                   FAIL    Validation Failed
+{"message":"Validation Failed","errors":["Name must be unique"],"documentation_url":"https://docs.github.com/rest/repos/rules#create-a-repository-ruleset","status":"422"}gh: Validation Failed (HTTP 422)
+tropical-resource-typing         OK      ruleset_id=14936606

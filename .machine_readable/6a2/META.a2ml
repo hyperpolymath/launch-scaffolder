@@ -8,7 +8,9 @@
 format          = "a2ml"
 schema          = "meta"
 schema-version  = "0.1"
-updated         = "2026-04-10"
+# ISO 8601 UTC with `Z` suffix — same-day intermittent writes stay
+# distinguishable in git history. See STATE.a2ml for the same convention.
+updated         = "2026-04-10T20:00:00Z"
 
 [project]
 name    = "launch-scaffolder"
@@ -127,6 +129,130 @@ consequences = """
 Most launchers fit one of the three shapes cleanly. 5 outliers are
 declared exceptions and stay hand-written until the scaffolder grows a
 custom-modes hook (see docs/launcher-exceptions-2026-04-10.md).
+"""
+
+[[architecture-decisions]]
+id       = "ADR-006"
+title    = "Fixture-vs-live file-name suffix convention"
+status   = "accepted"
+date     = "2026-04-10T20:00:00Z"
+context  = """
+Early on, cmd_realign pruned any directory named `examples/` from
+estate walks so that the scaffolder's own fixture
+(`examples/stapeln.launcher.a2ml`) wouldn't be double-counted alongside
+the real `stapeln/stapeln.launcher.a2ml`. That prune rule was too
+broad — it would silently hide a real launcher config living under a
+consumer repo's own `examples/` directory.
+"""
+decision = """
+Fixture vs live is distinguished at the **file-name** level, not the
+directory level. Live configs: `<app>.launcher.a2ml`. Fixtures and
+worked examples: `<app>.launcher.fixture.a2ml`. The discovery code in
+launch-scaffolder-common::discovery::is_live_config enforces the rule
+with a single suffix check. The prune list for walks now covers only
+build/dev noise (`target/`, `.git/`, `node_modules/`, `_exploratory/`,
+`.archive*/`) — never directories that might hold real work.
+The scaffolder's own `examples/stapeln.launcher.a2ml` was renamed to
+`examples/stapeln.launcher.fixture.a2ml` as the first consumer of the
+new rule, and the convention is documented in `examples/README.md`.
+"""
+consequences = """
+Fixtures can live anywhere, including inside consumer repos, without
+interfering with estate walks. Contributors must name new fixtures
+with the `.fixture.` infix — there is no directory-based safety net.
+The `examples/README.md` is the single contributor-facing source of
+truth for the rule.
+"""
+
+[[architecture-decisions]]
+id       = "ADR-007"
+title    = "Standard-loader precedence lives in LauncherStandard::resolve"
+status   = "accepted"
+date     = "2026-04-10T20:00:00Z"
+context  = """
+After cmd_mint and cmd_realign both needed the 3-step precedence
+(flag → canonical path → baked fallback), each kept its own copy of
+the load_standard helper. cmd_provision became the third potential
+caller, and the duplicated copies would have drifted.
+"""
+decision = """
+Extract the precedence into `LauncherStandard::resolve(flag:
+Option<&Path>)` on the library type itself. Every subcommand calls
+this one entry point. The canonical-path constant lives here too, so
+there is one place to change when the `standards/` monorepo moves.
+"""
+consequences = """
+New subcommands get standard-loading for free. Testing the precedence
+chain is a single-site concern. No caller-side branching on flag vs
+env-var vs fallback — clap already merges `--standard` and
+`$LAUNCH_SCAFFOLDER_STANDARD` into one `Option<&Path>` before resolve
+sees it.
+"""
+
+[[architecture-decisions]]
+id       = "ADR-008"
+title    = "Provision option (b): native Rust integ/disinteg with shell fallback"
+status   = "accepted"
+date     = "2026-04-10T20:00:00Z"
+context  = """
+`--integ` / `--disinteg` were originally implemented inside the
+generated shell script (one copy per launcher). Keeping that shape
+scales poorly: .desktop writing, icon install, gio calls, and
+update-desktop-database logic would drift across 7+ generated scripts.
+We also wanted testable integration code that doesn't require a
+rendered script first.
+"""
+decision = """
+Move the real work into `launch-scaffolder-common::integration`. The
+launcher crate exposes `launch-scaffolder provision --integ / --disinteg`
+as the authoritative path. The generated shell scripts still carry
+their own implementation as a fallback, but their `--integ` /
+`--disinteg` arms fast-path to `launch-scaffolder provision` when the
+binary is on `PATH`. The source config path is embedded in every
+generated script as `CONFIG_FILE=<abs-path>` so the shell arm knows
+which config to pass back.
+"""
+consequences = """
+The Rust binary is authoritative *when available* without being a hard
+dependency for integrated launchers. Tests don't need to render
+scripts first — they can call `integration::integ` directly with a
+`LauncherConfig`. Linux-only today; macOS/Windows return
+`IntegError::UnsupportedPlatform` so callers can match and fall
+through. Migration of the in-shell fallback will lag the Rust side;
+that's acceptable since the fallback is only exercised on boxes
+without the binary installed.
+"""
+
+[[architecture-decisions]]
+id       = "ADR-009"
+title    = "Hand-rolled metadata-block parser, not coerced TOML"
+status   = "accepted"
+date     = "2026-04-10T20:00:00Z"
+context  = """
+cmd_config needs to get/set/validate fields inside the
+`# @a2ml-metadata begin ... # @a2ml-metadata end` block embedded at the
+top of every generated launcher. The format is `#`-prefixed lines,
+wrapped in `(` / `)`, with scalar values in double quotes and list
+values on their own lines inside `[ ... ]`. It is neither standard
+TOML nor any other off-the-shelf format.
+"""
+decision = """
+Write a small hand-rolled scanner in
+`launch-scaffolder-common::metadata_block` instead of trying to
+pre-process the block into TOML and parse with the `toml` crate. The
+parser emits a `MetadataBlock` struct with ordered scalars + lists and
+the raw lines of the block, retained for lossless in-place rewrites.
+The `rewrite_scalar` function substitutes only the quoted value span
+of the target line, preserving column alignment and surrounding
+whitespace.
+"""
+consequences = """
+The format is 100% controlled by `launcher.sh.tera`, so brittleness is
+bounded. `REQUIRED_SCALAR_KEYS` is a module-level const — the single
+source of truth for what `config validate` enforces. List keys are
+read-only via `config get`; `config set` on a list key returns a
+structured error. Round-trip (parse → rewrite → reparse) is covered
+by tests.
 """
 
 # ---------------------------------------------------------------------------

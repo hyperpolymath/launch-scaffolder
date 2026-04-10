@@ -96,8 +96,8 @@ impl MetadataBlock {
 /// Returns `Ok(None)` if no block is present — callers decide whether
 /// that's an error.
 pub fn parse_from_script(path: &Path) -> Result<Option<MetadataBlock>> {
-    let text = std::fs::read_to_string(path)
-        .with_context(|| format!("reading {}", path.display()))?;
+    let text =
+        std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
     parse_from_text(&text)
 }
 
@@ -137,9 +137,7 @@ pub fn parse_from_text(text: &str) -> Result<Option<MetadataBlock>> {
 /// Parse the body lines (between `begin` and `end`). Skips `(` / `)`
 /// wrapper lines.
 #[allow(clippy::type_complexity)]
-fn parse_body(
-    raw_lines: &[String],
-) -> Result<(Vec<(String, String)>, Vec<(String, Vec<String>)>)> {
+fn parse_body(raw_lines: &[String]) -> Result<(Vec<(String, String)>, Vec<(String, Vec<String>)>)> {
     let mut scalars: Vec<(String, String)> = Vec::new();
     let mut lists: Vec<(String, Vec<String>)> = Vec::new();
     // State for multi-line lists: Some((key, accum)) while inside a `[ ... ]` block.
@@ -175,7 +173,11 @@ fn parse_body(
                 }
                 continue;
             }
-            bail!("unexpected line inside list body at line {}: {:?}", idx, trimmed);
+            bail!(
+                "unexpected line inside list body at line {}: {:?}",
+                idx,
+                trimmed
+            );
         }
 
         // key = "scalar" | key = [ ... | key = [ item item ... ]
@@ -190,9 +192,9 @@ fn parse_body(
             continue;
         }
 
-        if rhs.starts_with('[') {
+        if let Some(after) = rhs.strip_prefix('[') {
             // Either inline `[ "a" "b" ]` or multi-line open `[`.
-            let after = rhs[1..].trim();
+            let after = after.trim();
             if after.is_empty() {
                 pending_list = Some((key, Vec::new()));
                 continue;
@@ -254,11 +256,13 @@ fn unquote_owned(s: &str) -> Option<String> {
 /// in `text`, preserving the original formatting (column alignment,
 /// surrounding whitespace). Errors if `key` is absent or is a list key.
 pub fn rewrite_scalar(text: &str, key: &str, new_value: &str) -> Result<String> {
-    let block = parse_from_text(text)?
-        .context("no @a2ml-metadata block found in input")?;
+    let block = parse_from_text(text)?.context("no @a2ml-metadata block found in input")?;
     if block.scalar(key).is_none() {
         if block.list(key).is_some() {
-            bail!("key `{}` is a list, not a scalar — set not supported for lists", key);
+            bail!(
+                "key `{}` is a list, not a scalar — set not supported for lists",
+                key
+            );
         }
         bail!("key `{}` not present in metadata block", key);
     }
@@ -267,8 +271,7 @@ pub fn rewrite_scalar(text: &str, key: &str, new_value: &str) -> Result<String> 
     let mut patched = false;
 
     // Scan only the block range — we don't touch anything outside it.
-    for idx in block.start_line..=block.end_line {
-        let line = &lines[idx];
+    for line in &mut lines[block.start_line..=block.end_line] {
         let inner = strip_comment_prefix(line);
         let trimmed_inner = inner.trim();
         let Some(eq_idx) = trimmed_inner.find('=') else {
@@ -297,13 +300,16 @@ pub fn rewrite_scalar(text: &str, key: &str, new_value: &str) -> Result<String> 
         rewritten.push_str(&line[..value_start + 1]);
         rewritten.push_str(new_value);
         rewritten.push_str(&line[value_end..]);
-        lines[idx] = rewritten;
+        *line = rewritten;
         patched = true;
         break;
     }
 
     if !patched {
-        bail!("found key `{}` in parsed block but could not rewrite in-place", key);
+        bail!(
+            "found key `{}` in parsed block but could not rewrite in-place",
+            key
+        );
     }
 
     // Preserve trailing newline if the input had one.

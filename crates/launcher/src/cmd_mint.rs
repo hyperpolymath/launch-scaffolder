@@ -62,4 +62,3 @@ pub fn run(args: Args, standard_path: Option<&Path>) -> Result<()> {
     println!("✓ minted {} → {}", config.project.display, out.display());
     Ok(())
 }
-

@@ -74,11 +74,10 @@ fn cmd_get(script: &Path, key: &str) -> Result<()> {
 }
 
 fn cmd_set(script: &Path, key: &str, value: &str) -> Result<()> {
-    let text = std::fs::read_to_string(script)
-        .with_context(|| format!("reading {}", script.display()))?;
+    let text =
+        std::fs::read_to_string(script).with_context(|| format!("reading {}", script.display()))?;
     let rewritten = metadata_block::rewrite_scalar(&text, key, value)?;
-    std::fs::write(script, &rewritten)
-        .with_context(|| format!("writing {}", script.display()))?;
+    std::fs::write(script, &rewritten).with_context(|| format!("writing {}", script.display()))?;
     println!("✓ {}: {} = \"{}\"", script.display(), key, value);
     eprintln!(
         "⚠ realign will overwrite this change. Update the source <app>.launcher.a2ml \
