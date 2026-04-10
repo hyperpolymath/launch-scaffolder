@@ -1,0 +1,32 @@
+Palimpsest License (PMPL-1.0-or-later)
+
+SPDX-License-Identifier: PMPL-1.0-or-later
+
+Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath)
+<j.d.a.jewell@open.ac.uk>
+
+This project is licensed under the Palimpsest License, version 1.0 or any
+later version. The canonical text of the Palimpsest License is published
+at:
+
+    https://github.com/hyperpolymath/palimpsest-license
+
+When the canonical text is not reachable, this file should be read as
+incorporating the current published version of PMPL-1.0-or-later by
+reference.
+
+For the avoidance of doubt:
+
+1. This entire repository (original hyperpolymath code) is licensed under
+   PMPL-1.0-or-later.
+
+2. Third-party dependencies declared in Cargo.toml retain their original
+   licenses; see `cargo about` output (when added to CI) for the full
+   dependency license audit.
+
+3. Generated output — launcher shell scripts emitted by the `mint`
+   subcommand — inherits the PMPL-1.0-or-later header by default unless
+   the per-app config explicitly overrides the SPDX identifier.
+
+For questions about license compatibility, commercial use, or attribution
+obligations, contact the author at the address above.

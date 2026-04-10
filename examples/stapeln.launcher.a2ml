@@ -1,0 +1,66 @@
+# SPDX-License-Identifier: PMPL-1.0-or-later
+# Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
+#
+# examples/stapeln.launcher.a2ml — worked example per-app config.
+#
+# This is the input to `launch-scaffolder mint examples/stapeln.launcher.a2ml`.
+# The output is a compliant stapeln-launcher.sh (equivalent to the current
+# hand-written stapeln/scripts/stapeln-launcher.sh).
+#
+# Use this file as a reference when writing `.launcher.a2ml` configs for
+# other hyperpolymath projects.
+
+[project]
+name         = "stapeln"
+display      = "Stapeln"
+description  = "Visual Container Stack Designer — containers for people who hate containers"
+categories   = ["Development", "System", "Utility"]
+version      = "0.1.0"
+license      = "PMPL-1.0-or-later"
+
+[repo]
+# Canonical repo location. Used by the launcher to locate scripts/run.sh.
+path = "/var/mnt/eclipse/repos/stapeln"
+
+[runtime]
+# Runtime characteristics used by --start / --auto.
+port         = 4010
+url          = "http://localhost:4010"
+startup-command-search = [
+    "{repo-dir}/scripts/run.sh",
+    "{repo-dir}/dev.sh",
+]
+pid-file     = "/tmp/stapeln-server.pid"
+log-file     = "/tmp/stapeln-server.log"
+wait-for-url-timeout-seconds = 15
+
+[icon]
+# Path to the custom icon. Optional — falls back to the standard's
+# icon-fallback if the file is missing at --integ time.
+source = "{repo-dir}/assets/icon-256.png"
+
+[integration]
+# Per-platform overrides of the standard's defaults. Leave empty to use
+# the standard's [integration.linux] / [integration.macos] / [integration.windows]
+# sections as-is.
+
+[soft-attach]
+# Per-app override of which soft-attach tools to include. Empty = include
+# all tools from the standard's [soft-attach].tools list.
+tools = [
+    "feedback-o-tron",
+    "hypatia",
+]
+
+[exceptions]
+# Per-app exceptions to the standard. Each exception MUST carry a
+# rationale so `realign` can preserve it without the human having to
+# re-justify it on every regeneration.
+#
+# Example (commented out, not active):
+# [[exceptions.override]]
+# path      = "integration.linux.icon-fallback"
+# value     = "applications-development"
+# rationale = "Team prefers the hammer icon over the box icon for dev tools."
+# added-by  = "Jonathan D.A. Jewell"
+# added-on  = "2026-04-10"

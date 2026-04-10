@@ -1,0 +1,70 @@
+# SPDX-License-Identifier: PMPL-1.0-or-later
+# 0-AI-MANIFEST.a2ml — Universal AI Agent Entry Point
+
+[manifest]
+version = "0.2"
+format = "a2ml"
+
+[project-identity]
+name = "launch-scaffolder"
+one-line = "Cross-platform launcher minter / provisioner / configurator. Generates compliant desktop launcher scripts from A2ML specs."
+kind = "standalone top-level repo"
+language-policy-tier = 1  # Rust/SPARK, CLI tool
+umbrella = "hyperpolymath ecosystem-wide tooling"
+
+[canonical-locations]
+machine-readable = ".machine_readable/"
+state = ".machine_readable/6a2/STATE.a2ml"
+meta = ".machine_readable/6a2/META.a2ml"
+ecosystem = ".machine_readable/6a2/ECOSYSTEM.a2ml"
+standards = "standards/launcher-standard.a2ml"
+templates = "templates/"
+examples = "examples/"
+
+[invariants]
+scm-files-location = ".machine_readable/ ONLY — never root"
+container-file = "Containerfile — never Dockerfile"
+package-manager = "cargo for Rust; Deno first for any JS work, pnpm as Node fallback"
+license = "PMPL-1.0-or-later"
+language = "Rust (== Rust/SPARK per terminology rule)"
+no-secrets-in-files = true
+spdx-headers-required = true
+
+[standards-compliance]
+launcher-standard = "standards/rhodium-standard-repositories/spec/LANGUAGE-POLICY.adoc §Rust/SPARK"
+a2ml-spec = "standards/a2ml/"
+rsr-template = "https://github.com/hyperpolymath/rsr-template-repo"
+abi-ffi-standard = "hyperpolymath Idris2-ABI + Zig-FFI"
+terminology = "When this manifest or README says 'Rust', always read as 'Rust/SPARK' (per LANGUAGE-POLICY.adoc §Terminology, 2026-04-10)."
+
+[session-startup]
+step-1 = "Read this manifest"
+step-2 = "Read README.adoc for architecture and current status"
+step-3 = "Read STATE.a2ml for current implementation progress"
+step-4 = "Read standards/launcher-standard.a2ml for the spec being targeted"
+step-5 = "Read examples/stapeln.launcher.a2ml for a worked per-app config"
+
+[purpose]
+problem = """
+Every hyperpolymath project maintains its own ~600-line bash launcher
+script that has to be kept in sync with the current launcher standard by
+hand. Drift is guaranteed. Spec changes mean editing 11+ files.
+"""
+solution = """
+Generate launcher scripts from a declarative A2ML spec. Launchers become
+reproducible artefacts, not hand-edited drift. Bulk realignment after a
+spec change is one command.
+"""
+non-goals = [
+  "Replacing desktop environment integration tools (xdg-desktop-menu, update-desktop-database) — we call them.",
+  "Inventing a new desktop file format — we emit the existing freedesktop and .lnk formats.",
+  "Solving the 'start the actual app' problem — launchers shell out to scripts/run.sh per the LM-LA-LIFECYCLE standard.",
+]
+
+[roadmap-phases]
+phase-1 = "Library crate: parser, template, platform dispatch (current)"
+phase-2 = "Binary crate: all 5 subcommands wired to library"
+phase-3 = "Cross-platform CI matrix + golden-file regression tests"
+phase-4 = "SPARK hook for integrity.rs via Zig FFI"
+phase-5 = "Bulk-realign all 11 hyperpolymath launchers in .desktop-tools/"
+phase-6 = "Optional PanLL panel as a GUI layer over the CLI"

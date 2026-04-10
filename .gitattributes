@@ -1,0 +1,45 @@
+# SPDX-License-Identifier: PMPL-1.0-or-later
+# RSR-compliant .gitattributes
+
+* text=auto eol=lf
+
+# Source
+*.rs    text eol=lf diff=rust
+*.toml  text eol=lf
+
+# Templates
+*.tera  text eol=lf
+
+# Config
+*.a2ml  text eol=lf linguist-language=TOML
+*.ncl   text eol=lf
+
+# Docs
+*.md    text eol=lf diff=markdown
+*.adoc  text eol=lf
+*.txt   text eol=lf
+
+# Data
+*.json  text eol=lf
+*.yaml  text eol=lf
+*.yml   text eol=lf
+
+# Config
+.gitignore     text eol=lf
+.gitattributes text eol=lf
+Justfile       text eol=lf
+justfile       text eol=lf
+
+# Scripts
+*.sh   text eol=lf
+
+# Binary
+*.png   binary
+*.jpg   binary
+*.gif   binary
+*.pdf   binary
+*.zip   binary
+*.gz    binary
+
+# Lock files
+Cargo.lock  text eol=lf -diff

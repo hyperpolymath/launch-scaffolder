@@ -1,0 +1,26 @@
+# SPDX-License-Identifier: PMPL-1.0-or-later
+
+[package]
+name = "launch-scaffolder-common"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+readme.workspace = true
+description = "Shared types, standard parser, template engine, and platform detection for the launch-scaffolder tool."
+
+[dependencies]
+toml.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tera.workspace = true
+dirs.workspace = true
+walkdir.workspace = true
+sha2.workspace = true
+hex.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true
+tracing.workspace = true

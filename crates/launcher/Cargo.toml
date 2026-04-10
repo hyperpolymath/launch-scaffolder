@@ -1,0 +1,26 @@
+# SPDX-License-Identifier: PMPL-1.0-or-later
+
+[package]
+name = "launch-scaffolder"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+readme.workspace = true
+description = "Cross-platform launcher mint/provision/config/realign tool. Generates compliant desktop launchers from A2ML specs."
+keywords.workspace = true
+categories.workspace = true
+
+[[bin]]
+name = "launch-scaffolder"
+path = "src/main.rs"
+
+[dependencies]
+launch-scaffolder-common = { path = "../launcher-common" }
+clap.workspace = true
+anyhow.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true

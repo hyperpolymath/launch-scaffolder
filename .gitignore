@@ -1,0 +1,42 @@
+# SPDX-License-Identifier: PMPL-1.0-or-later
+
+# Rust / Cargo
+/target
+**/target
+**/*.rs.bk
+Cargo.lock.bak
+
+# IDE / editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# OS
+Thumbs.db
+desktop.ini
+
+# Temporary
+*.tmp
+*.bak
+*.log
+/tmp/
+
+# Secrets — belt and braces
+*.secret
+*.key
+.env
+.env.local
+.env.*.local
+secrets/
+!examples/*.a2ml
+
+# Coverage
+tarpaulin-report.html
+cobertura.xml
+lcov.info
+
+# Benchmarks
+criterion/

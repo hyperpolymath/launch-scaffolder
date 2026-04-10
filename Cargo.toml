@@ -1,0 +1,53 @@
+# SPDX-License-Identifier: PMPL-1.0-or-later
+
+[workspace]
+resolver = "2"
+members = [
+    "crates/launcher-common",
+    "crates/launcher",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+authors = ["Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>"]
+license = "PMPL-1.0-or-later"
+repository = "https://github.com/hyperpolymath/launch-scaffolder"
+homepage = "https://github.com/hyperpolymath/launch-scaffolder"
+readme = "README.adoc"
+keywords = ["launcher", "desktop", "cross-platform", "a2ml", "rsr"]
+categories = ["command-line-utilities", "development-tools"]
+
+[workspace.dependencies]
+# CLI parsing
+clap = { version = "4.5", features = ["derive", "env", "wrap_help"] }
+
+# Config parsing — starts with TOML, swap to a2ml-rs when it reaches feature parity
+toml = "0.8"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Templating for generated launcher scripts
+tera = "1.20"
+
+# File system conveniences
+dirs = "5"
+walkdir = "2.5"
+
+# Hashing for integrity manifests
+sha2 = "0.10"
+hex = "0.4"
+
+# Error handling
+anyhow = "1"
+thiserror = "2"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = "symbols"

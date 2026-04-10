@@ -1,0 +1,204 @@
+// SPDX-License-Identifier: PMPL-1.0-or-later
+= launch-scaffolder
+:author: Jonathan D.A. Jewell
+:revdate: 2026-04-10
+:toc: left
+:toclevels: 3
+
+**Build cross-platform desktop launchers from a declarative A2ML spec.**
+
+image:https://img.shields.io/badge/License-PMPL--1.0--or--later-blue.svg[License: PMPL-1.0-or-later]
+image:https://img.shields.io/badge/rust-1.80%2B-orange.svg[Rust 1.80+]
+image:https://img.shields.io/badge/status-alpha-yellow.svg[Status: alpha]
+
+== What it does
+
+`launch-scaffolder` is a single Rust binary that generates, installs, and
+maintains cross-platform desktop launcher scripts for any hyperpolymath
+project (or any other project that adopts the hyperpolymath launcher
+standard). It turns launcher scripts into **generated artefacts**, not
+hand-edited files.
+
+Inputs:
+
+* `launcher-standard.a2ml` — a declarative description of what a compliant
+  launcher looks like (modes, file paths, permissions, integrity
+  requirements, per-platform behaviour). Baked into the binary at build
+  time; overrideable via `--standard` or the `$LAUNCH_SCAFFOLDER_STANDARD`
+  environment variable.
+* `<app>.launcher.a2ml` — per-app config (name, display, URL, command,
+  repo, icon, and an optional `[exceptions]` block).
+
+Output:
+
+* `<app>-launcher.sh` — a fully spec-compliant cross-platform launcher
+  (Linux / macOS / Windows-via-Git-Bash).
+
+== Why this exists
+
+Without this tool, every hyperpolymath project maintains its own
+hand-written `~600-line bash launcher script` that has to be kept in sync
+with the current launcher standard by hand. In practice, drift is
+guaranteed. The launcher standard evolves; the launchers don't. Fixing a
+spec issue means editing 11+ files and hoping you caught them all.
+
+With this tool:
+
+* The standard is a single file. Changing it is a one-line edit.
+* Every launcher is regenerated from the same standard + its own config.
+* Bulk realignment after a spec change is one command:
+  `launch-scaffolder realign *.launcher.a2ml`.
+* Launchers become reproducible, auditable artefacts — not hand-edited drift.
+* "Not wasting tokens in future" — future AI sessions read one spec file,
+  not 11 near-identical launcher scripts.
+
+== Commands
+
+[source,bash]
+----
+# Generate a brand-new launcher from a config
+launch-scaffolder mint examples/stapeln.launcher.a2ml
+
+# Install or remove an existing launcher on the current system
+launch-scaffolder provision install  ./stapeln-launcher.sh
+launch-scaffolder provision uninstall ./stapeln-launcher.sh
+
+# Inspect or modify the config section of an existing launcher
+launch-scaffolder config get     ./stapeln-launcher.sh app-port
+launch-scaffolder config set     ./stapeln-launcher.sh app-port 4020
+launch-scaffolder config validate ./stapeln-launcher.sh
+
+# Bulk realignment: re-mint one or more existing launchers against the
+# current standard, preserving their [exceptions] block. This is the
+# killer feature — one command to update every launcher in the estate
+# after a standard change.
+launch-scaffolder realign ~/.desktop-tools/*.launcher.a2ml
+
+# Meta: inspect or validate the launcher standard itself
+launch-scaffolder standard show
+launch-scaffolder standard validate
+----
+
+== Architecture
+
+[source]
+----
+launch-scaffolder/
+├── Cargo.toml                    # Workspace root
+├── crates/
+│   ├── launcher-common/          # Shared library
+│   │   └── src/
+│   │       ├── lib.rs            # Public API
+│   │       ├── standard.rs       # Parse launcher-standard.a2ml
+│   │       ├── config.rs         # Parse <app>.launcher.a2ml
+│   │       ├── template.rs       # Render via Tera
+│   │       ├── platform.rs       # Linux/macOS/Windows dispatch
+│   │       ├── integrity.rs      # SHA-256 manifests
+│   │       └── exceptions.rs     # Standard + config + exception merge
+│   └── launcher/                 # The one binary
+│       └── src/
+│           ├── main.rs           # clap dispatch
+│           ├── cmd_mint.rs
+│           ├── cmd_provision.rs
+│           ├── cmd_config.rs
+│           ├── cmd_realign.rs
+│           └── cmd_standard.rs
+├── standards/
+│   └── launcher-standard.a2ml    # Canonical standard (baked into binary)
+├── templates/
+│   └── launcher.sh.tera          # Bash launcher template rendered by Tera
+├── examples/
+│   └── stapeln.launcher.a2ml     # Worked example: Stapeln's config
+└── tests/
+    └── regression/               # Golden-file regression fixtures
+----
+
+=== Why Rust/SPARK
+
+Per the hyperpolymath language policy (see `standards/rhodium-standard-repositories/spec/LANGUAGE-POLICY.adoc`):
+
+* **Rust** is the preferred language for CLI tools — zero-dep binary, fast
+  cold start, strong types, excellent ecosystem (clap, tera, sha2, anyhow).
+* **"Rust" always means "Rust with SPARK integration as the default stance"**
+  — this tool is Rust-primary now, with SPARK/Ada hooks planned for the
+  correctness-critical `integrity.rs` path (called via Zig FFI per the
+  hyperpolymath ABI/FFI standard).
+
+=== Why A2ML for inputs
+
+* A2ML is the hyperpolymath standard format for machine-readable config
+  and metadata, and every launcher already carries an A2ML metadata block
+  in its header. Using A2ML end-to-end means a launcher script can be
+  *parsed by this tool* to extract its config and re-minted.
+* v0.1 uses TOML as the concrete syntax (A2ML is "TOML-like" per the
+  standards `.claude/CLAUDE.md`). v0.2 switches to proper A2ML once the
+  `a2ml-rs` parser reaches feature parity.
+
+== Status
+
+**Alpha. Scaffold complete, implementation in progress.** Current state:
+
+* [x] Cargo workspace layout
+* [x] Skeleton for `launch-scaffolder-common` library
+* [x] Skeleton for `launch-scaffolder` binary with all five subcommands
+* [x] Placeholder `standards/launcher-standard.a2ml`
+* [x] Placeholder `templates/launcher.sh.tera`
+* [x] Example `stapeln.launcher.a2ml`
+* [ ] Standard file parser (`launcher-common::standard`)
+* [ ] Config file parser (`launcher-common::config`)
+* [ ] Template renderer (`launcher-common::template`)
+* [ ] Platform dispatch (`launcher-common::platform`)
+* [ ] Integrity manifest generator (`launcher-common::integrity`)
+* [ ] Exception merger (`launcher-common::exceptions`)
+* [ ] `mint` subcommand
+* [ ] `provision` subcommand
+* [ ] `config` subcommand
+* [ ] `realign` subcommand
+* [ ] `standard` subcommand
+* [ ] Golden-file regression tests
+* [ ] Cross-platform CI (Linux/macOS/Windows matrix)
+* [ ] SPARK integration hook for `integrity.rs` (future phase)
+
+== Build
+
+[source,bash]
+----
+# Standard cargo workflow
+cargo build            # debug build
+cargo build --release  # optimized, stripped, single-file binary
+cargo test             # run tests
+cargo run -- --help    # invoke the binary
+
+# Or via justfile
+just build
+just test
+just install           # cargo install --path crates/launcher
+----
+
+== License
+
+PMPL-1.0-or-later. See LICENSE.
+
+All original hyperpolymath code is `PMPL-1.0-or-later`. Third-party
+dependencies retain their original licenses; see `cargo about` output
+(when added) for the full dependency license audit.
+
+== Author
+
+Jonathan D.A. Jewell (hyperpolymath) +
+j.d.a.jewell@open.ac.uk
+
+== Relationship to other hyperpolymath projects
+
+This tool is used by every hyperpolymath project that ships a desktop
+launcher. Notable consumers (current and planned):
+
+* **stapeln** — Visual Container Stack Designer (`stapeln/scripts/stapeln-launcher.sh`)
+* **burble** — WebRTC control plane (`.desktop-tools/burble-launcher.sh`)
+* **idaptik** — game / educational platform (`.desktop-tools/idaptik-launcher.sh`)
+* **ambientops** — desktop session tools (`.desktop-tools/ambientops-launcher.sh`)
+* **hypatia** — neurosymbolic CI/CD (`.desktop-tools/hypatia-launcher.sh`)
+* ... and ~6 others in `.desktop-tools/`.
+
+The bulk-realignment goal: run `launch-scaffolder realign` once after any
+standard change and every launcher in the estate updates in lock-step.
