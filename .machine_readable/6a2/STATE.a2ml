@@ -11,7 +11,7 @@ schema-version  = "0.1"
 # `updated` is ISO 8601 UTC with a `Z` suffix. Same-day intermittent
 # writes are distinguished by the time component so git history
 # shows the progression of checkpoints.
-updated         = "2026-04-10T19:08:08Z"
+updated         = "2026-04-10T19:30:49Z"
 author          = "Jonathan D.A. Jewell"
 
 [project]
@@ -21,9 +21,9 @@ phase          = "alpha"
 one-line       = "Rust/SPARK cross-platform desktop launcher minter/provisioner/configurator."
 
 [current-position]
-milestone          = "phase-3-provision-native"
+milestone          = "phase-4-config-inspector"
 milestone-complete = true
-completion-percent = 55
+completion-percent = 65
 summary = """
 Mint + realign + provision all working end-to-end. Provision is
 option-(b): desktop integration (.desktop writing, icon copy, launcher
@@ -110,20 +110,24 @@ on   = "2026-04-10T19:08:08Z"
 item = "Template delegation: launcher.sh.tera now embeds CONFIG_FILE and its --integ/--disinteg arms fast-path to `launch-scaffolder provision` when the binary is on PATH, falling back to the shell implementation otherwise. All 7 live launchers realigned to pick up the change"
 on   = "2026-04-10T19:08:08Z"
 
-[[next]]
-priority = 1
-item     = "Implement cmd_config for get/set/validate of embedded metadata blocks"
+[[completed]]
+item = "launch-scaffolder-common::metadata_block: hand-rolled parser and in-place rewriter for the `# @a2ml-metadata begin...end` block embedded in every generated launcher. Scalar + list keys, REQUIRED_SCALAR_KEYS exported from one place, 8 unit tests covering parse, validate, rewrite round-trip, unterminated-block error, list-key set rejection"
+on   = "2026-04-10T19:30:49Z"
+
+[[completed]]
+item = "cmd_config (get/set/validate): thin CLI driver. `set` preserves column alignment and warns about realign overwrite. Smoke-tested against all 7 live launchers — 9 scalar keys, 1 list key each, all valid"
+on   = "2026-04-10T19:30:49Z"
 
 [[next]]
-priority = 2
+priority = 1
 item     = "Golden-file regression tests pinning mint output for the 7 managed launchers"
 
 [[next]]
-priority = 3
+priority = 2
 item     = "Add a macOS integration backend to launch-scaffolder-common::integration (currently Linux-only)"
 
 [[next]]
-priority = 4
+priority = 3
 item     = "SPARK integration hook for integrity.rs via Zig FFI"
 
 [blockers]
