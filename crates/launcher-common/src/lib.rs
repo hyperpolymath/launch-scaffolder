@@ -24,6 +24,7 @@ pub mod discovery;
 pub mod exceptions;
 pub mod integration;
 pub mod integrity;
+pub mod metadata_block;
 pub mod platform;
 pub mod standard;
 pub mod template;
