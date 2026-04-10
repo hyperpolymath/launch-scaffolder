@@ -20,7 +20,9 @@
 //! on the `clap` or subcommand infrastructure.
 
 pub mod config;
+pub mod discovery;
 pub mod exceptions;
+pub mod integration;
 pub mod integrity;
 pub mod platform;
 pub mod standard;

@@ -12,6 +12,7 @@ use crate::Result;
 use crate::config::{LauncherConfig, RuntimeKind};
 use crate::standard::LauncherStandard;
 use anyhow::Context;
+use std::path::Path;
 use tera::{Context as TeraContext, Tera};
 
 /// The canonical template, baked into the binary.
@@ -19,11 +20,16 @@ pub const LAUNCHER_TEMPLATE: &str = include_str!("../../../templates/launcher.sh
 
 /// Render a launcher shell script from a parsed config.
 ///
-/// The standard is passed for forward-compatibility: once the template
-/// needs fields from the standard at render time (rather than at runtime
-/// inside the generated script), they'll flow through here. For now the
-/// template is self-contained and only reads `config`.
-pub fn render(config: &LauncherConfig, _standard: &LauncherStandard) -> Result<String> {
+/// `config_path` is the absolute path of the `<app>.launcher.a2ml` that
+/// produced `config`. It's embedded into the rendered script as
+/// `CONFIG_FILE=...` so the script's `--integ`/`--disinteg` arms can
+/// delegate back to `launch-scaffolder provision`. Pass `None` only in
+/// tests; real callers always have a path on hand.
+pub fn render(
+    config: &LauncherConfig,
+    _standard: &LauncherStandard,
+    config_path: Option<&Path>,
+) -> Result<String> {
     let mut tera = Tera::default();
     tera.add_raw_template("launcher.sh", LAUNCHER_TEMPLATE)
         .context("registering launcher template with Tera")?;
@@ -128,6 +134,15 @@ pub fn render(config: &LauncherConfig, _standard: &LauncherStandard) -> Result<S
 
     // --- metadata -----------------------------------------------------
     ctx.insert("spec_version", &_standard.spec_version);
+
+    // Absolute path back to the source config, so the generated
+    // script's --integ / --disinteg arms can delegate to
+    // `launch-scaffolder provision --integ "$CONFIG_FILE"`.
+    let config_path_str = config_path
+        .and_then(|p| p.canonicalize().ok().or_else(|| Some(p.to_path_buf())))
+        .map(|p| p.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    ctx.insert("config_file", &config_path_str);
 
     tera.render("launcher.sh", &ctx)
         .context("rendering launcher template")

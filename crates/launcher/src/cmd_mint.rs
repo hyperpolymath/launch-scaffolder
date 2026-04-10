@@ -34,7 +34,7 @@ pub fn run(args: Args, standard_path: Option<&Path>) -> Result<()> {
         .with_context(|| format!("loading config {}", args.config.display()))?;
 
     let standard = LauncherStandard::resolve(standard_path)?;
-    let script = template::render(&config, &standard)?;
+    let script = template::render(&config, &standard, Some(&args.config))?;
 
     if args.stdout {
         print!("{}", script);

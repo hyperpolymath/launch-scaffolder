@@ -8,7 +8,10 @@
 format          = "a2ml"
 schema          = "state"
 schema-version  = "0.1"
-updated         = "2026-04-10"
+# `updated` is ISO 8601 UTC with a `Z` suffix. Same-day intermittent
+# writes are distinguished by the time component so git history
+# shows the progression of checkpoints.
+updated         = "2026-04-10T19:08:08Z"
 author          = "Jonathan D.A. Jewell"
 
 [project]
@@ -18,19 +21,29 @@ phase          = "alpha"
 one-line       = "Rust/SPARK cross-platform desktop launcher minter/provisioner/configurator."
 
 [current-position]
-milestone          = "phase-2-realign-working"
+milestone          = "phase-3-provision-native"
 milestone-complete = true
-completion-percent = 40
+completion-percent = 55
 summary = """
-Mint + realign subcommands are working end-to-end. Realign discovers
-live launcher configs across the estate (default root =
-/var/mnt/eclipse/repos), re-renders each against the current standard
-+ template, and reports unchanged/updated/created with a --check CI
-mode and --dry-run preview. Fixture/live separation is suffix-based:
-`.launcher.fixture.a2ml` for test inputs, `.launcher.a2ml` for live
-configs (documented in examples/README.md). Standard-resolution logic
-is now shared via LauncherStandard::resolve in launch-scaffolder-common.
-7 live launchers in the estate; 5 declared exceptions.
+Mint + realign + provision all working end-to-end. Provision is
+option-(b): desktop integration (.desktop writing, icon copy, launcher
+install, best-effort gio/update-desktop-database) lives in the Rust
+binary in `launch-scaffolder-common::integration`. The generated
+shell script's --integ / --disinteg arms now fast-path to the binary
+via `launch-scaffolder provision --integ "$CONFIG_FILE" --no-confirm`
+when the binary is on PATH, and fall back to the in-script shell
+implementation otherwise — so the binary is authoritative without
+making itself a hard dependency. CONFIG_FILE is embedded into each
+rendered launcher by the template. Bulk provision requires --all for
+safety, prompts before touching $HOME unless --no-confirm is set,
+supports --force for reinstall, and has a --dry-run preview.
+
+Discovery (walk + prune + fixture filter) is now shared via
+`launch-scaffolder-common::discovery`, consumed by both realign and
+provision. Nine passing unit tests cover discovery, integration
+rendering, standard parsing, and config validation. The 7 live
+launchers in the estate have been realigned to pick up the new
+delegation arms. 5 declared exceptions remain out of scope.
 """
 
 [[completed]]
@@ -81,17 +94,33 @@ on   = "2026-04-10"
 item = "Fixture/live suffix convention: `.launcher.fixture.a2ml` vs `.launcher.a2ml`. Renamed examples/stapeln.launcher.a2ml -> examples/stapeln.launcher.fixture.a2ml, documented in examples/README.md"
 on   = "2026-04-10"
 
-[[next]]
-priority = 1
-item     = "Implement cmd_provision (--integ / --disinteg flow as a subcommand, not just generated-script modes)"
+[[completed]]
+item = "Shared discovery module in launch-scaffolder-common (walk + prune + fixture filter). Consumed by cmd_realign and cmd_provision; cmd_realign's local copy deleted"
+on   = "2026-04-10T19:08:08Z"
+
+[[completed]]
+item = "launch-scaffolder-common::integration: native Rust port of the shell --integ/--disinteg flow. .desktop writer, icon/launcher install, best-effort gio + update-desktop-database, Linux-only today (matches template parity), structured IntegError"
+on   = "2026-04-10T19:08:08Z"
+
+[[completed]]
+item = "cmd_provision (option b): bulk-safe --integ/--disinteg driver. --all required for walk mode, confirm prompt for multi-config invocations (--no-confirm to skip), --force, --dry-run, accurate preview of actions before any file is touched"
+on   = "2026-04-10T19:08:08Z"
+
+[[completed]]
+item = "Template delegation: launcher.sh.tera now embeds CONFIG_FILE and its --integ/--disinteg arms fast-path to `launch-scaffolder provision` when the binary is on PATH, falling back to the shell implementation otherwise. All 7 live launchers realigned to pick up the change"
+on   = "2026-04-10T19:08:08Z"
 
 [[next]]
-priority = 2
+priority = 1
 item     = "Implement cmd_config for get/set/validate of embedded metadata blocks"
 
 [[next]]
-priority = 3
+priority = 2
 item     = "Golden-file regression tests pinning mint output for the 7 managed launchers"
+
+[[next]]
+priority = 3
+item     = "Add a macOS integration backend to launch-scaffolder-common::integration (currently Linux-only)"
 
 [[next]]
 priority = 4

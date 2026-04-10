@@ -32,18 +32,10 @@
 
 use anyhow::{Context, Result};
 use clap::Args as ClapArgs;
-use launch_scaffolder_common::{config::LauncherConfig, standard::LauncherStandard, template};
+use launch_scaffolder_common::{
+    config::LauncherConfig, discovery, standard::LauncherStandard, template,
+};
 use std::path::{Path, PathBuf};
-use walkdir::WalkDir;
-
-/// Marker suffix used by fixture/example files that must **not** be
-/// picked up by estate walks. See [`is_live_config`] and the fixture
-/// convention documented in `crates/launcher-common/examples/README.md`.
-const FIXTURE_EXT: &str = ".launcher.fixture.a2ml";
-const LIVE_EXT: &str = ".launcher.a2ml";
-
-/// Canonical estate root used by `--all`.
-const ESTATE_ROOT: &str = "/var/mnt/eclipse/repos";
 
 #[derive(Debug, ClapArgs)]
 pub struct Args {
@@ -165,7 +157,7 @@ fn realign_one(
 ) -> Result<Outcome> {
     let config = LauncherConfig::load(config_path)
         .with_context(|| format!("loading config {}", config_path.display()))?;
-    let script = template::render(&config, standard)?;
+    let script = template::render(&config, standard, Some(config_path))?;
 
     let parent = config_path.parent().unwrap_or_else(|| Path::new("."));
     let out = parent.join(format!("{}-launcher.sh", config.project.name));
@@ -198,9 +190,8 @@ fn realign_one(
     Ok(outcome)
 }
 
-/// Resolve the list of configs to realign according to the documented
-/// precedence. Walks are filtered through [`is_pruned`] to skip obvious
-/// noise directories.
+/// Resolve the list of configs to realign. Explicit paths win; otherwise
+/// walk `--search-root` (or the canonical estate root).
 fn discover_configs(args: &Args) -> Result<Vec<PathBuf>> {
     if !args.configs.is_empty() {
         return Ok(args.configs.clone());
@@ -208,83 +199,7 @@ fn discover_configs(args: &Args) -> Result<Vec<PathBuf>> {
     let root: PathBuf = args
         .search_root
         .clone()
-        .unwrap_or_else(|| PathBuf::from(ESTATE_ROOT));
-
-    tracing::debug!("walking {} for launcher configs", root.display());
-
-    let mut out = Vec::new();
-    let walker = WalkDir::new(&root).follow_links(false).into_iter();
-    // Estate walks routinely hit unreadable dirs (e.g. docker-owned DB data
-    // dirs under project-wharf). Log and skip them instead of bailing —
-    // they can't contain launcher configs anyway.
-    for entry in walker.filter_entry(|e| !is_pruned(e.path())) {
-        let entry = match entry {
-            Ok(e) => e,
-            Err(err) => {
-                tracing::debug!("skipping unreadable path during walk: {}", err);
-                continue;
-            }
-        };
-        if !entry.file_type().is_file() {
-            continue;
-        }
-        let path = entry.path();
-        if is_live_config(path) {
-            out.push(path.to_path_buf());
-        }
-    }
-    out.sort();
-    Ok(out)
-}
-
-/// Directories that should never contribute launcher configs.
-///
-/// Fixture isolation is handled at the file-name level (see
-/// [`is_live_config`] and `FIXTURE_EXT`), not by pruning `examples/`,
-/// so that real launcher configs living under a repo-local
-/// `examples/` directory are still discoverable.
-fn is_pruned(path: &Path) -> bool {
-    let Some(name) = path.file_name().and_then(|n| n.to_str()) else {
-        return false;
-    };
-    matches!(name, "target" | ".git" | "node_modules" | "_exploratory")
-        || name.starts_with(".archive")
-}
-
-/// `true` iff `path`'s file name is a live launcher config. Files with
-/// the fixture suffix (`.launcher.fixture.a2ml`) are deliberately
-/// excluded so test inputs cannot be picked up by estate walks.
-fn is_live_config(path: &Path) -> bool {
-    let Some(name) = path.file_name().and_then(|n| n.to_str()) else {
-        return false;
-    };
-    name.ends_with(LIVE_EXT) && !name.ends_with(FIXTURE_EXT)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn is_pruned_covers_expected_dirs() {
-        assert!(is_pruned(Path::new("/x/target")));
-        assert!(is_pruned(Path::new("/x/.git")));
-        assert!(is_pruned(Path::new("/x/node_modules")));
-        assert!(is_pruned(Path::new("/x/_exploratory")));
-        assert!(is_pruned(Path::new("/x/.archive-2026-04-10")));
-        assert!(is_pruned(Path::new("/x/.archive-2027-01-01")));
-        assert!(!is_pruned(Path::new("/x/examples"))); // live repos may have this
-        assert!(!is_pruned(Path::new("/x/crates")));
-        assert!(!is_pruned(Path::new("/x/aerie")));
-    }
-
-    #[test]
-    fn fixture_suffix_is_not_a_live_config() {
-        assert!(is_live_config(Path::new("/r/stapeln.launcher.a2ml")));
-        assert!(!is_live_config(Path::new(
-            "/r/stapeln.launcher.fixture.a2ml"
-        )));
-        assert!(!is_live_config(Path::new("/r/README.md")));
-        assert!(!is_live_config(Path::new("/r/stapeln.a2ml")));
-    }
+        .unwrap_or_else(|| PathBuf::from(discovery::ESTATE_ROOT));
+    discovery::walk_live_configs(&root)
+        .with_context(|| format!("walking {}", root.display()))
 }

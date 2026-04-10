@@ -61,6 +61,12 @@ RUNTIME_KIND="{{ runtime_kind }}"
 REPO_DIR="{{ repo_dir }}"
 ICON_SOURCE="{{ icon_source }}"
 
+# Absolute path back to the per-app `<app>.launcher.a2ml` config that
+# produced this script. Consumed by the --integ / --disinteg arms when
+# the `launch-scaffolder` binary is on $PATH, so they can delegate to
+# the Rust implementation instead of running the shell fallback.
+CONFIG_FILE="{{ config_file }}"
+
 {% if runtime_kind == "server-url" or runtime_kind == "remote" -%}
 URL="{{ url }}"
 {%- else -%}
@@ -378,6 +384,18 @@ do_integ_linux() {
 }
 
 do_integ() {
+    # Fast path: delegate to `launch-scaffolder provision` when it's on
+    # $PATH and the source config is still where it was at mint time.
+    # Keeps one authoritative implementation instead of drifting between
+    # this template and the Rust binary. Falls through to the shell
+    # implementation if either condition fails.
+    if command -v launch-scaffolder >/dev/null 2>&1 && [ -n "$CONFIG_FILE" ] && [ -f "$CONFIG_FILE" ]; then
+        local forward=(launch-scaffolder provision --integ "$CONFIG_FILE" --no-confirm)
+        [ "$FORCE" = "true" ] && forward+=(--force)
+        log "Delegating to launch-scaffolder provision..."
+        exec "${forward[@]}"
+    fi
+
     if already_integrated && [ "$FORCE" != "true" ]; then
         warn "$APP_DISPLAY is already integrated."
         read -rp "Reinstall? [y/N] " confirm
@@ -392,13 +410,21 @@ do_integ() {
 }
 
 do_disinteg() {
-    log "Removing $APP_DISPLAY system integration..."
+    # Fast path: delegate to `launch-scaffolder provision --disinteg`
+    # when available. Stop any running process first so the binary
+    # doesn't have to re-implement the process-management arm.
 {% if runtime_kind != "remote" -%}
     if is_running; then
         log "  • stopping running server"
         stop_server
     fi
 {%- endif %}
+    if command -v launch-scaffolder >/dev/null 2>&1 && [ -n "$CONFIG_FILE" ] && [ -f "$CONFIG_FILE" ]; then
+        log "Delegating to launch-scaffolder provision..."
+        exec launch-scaffolder provision --disinteg "$CONFIG_FILE" --no-confirm
+    fi
+
+    log "Removing $APP_DISPLAY system integration..."
     local removed_anything="false"
     local targets=(
         "$DESKTOP_FILE_TARGET"
