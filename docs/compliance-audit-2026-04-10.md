@@ -1,6 +1,28 @@
 <!-- SPDX-License-Identifier: PMPL-1.0-or-later -->
 # Launcher Compliance Audit — 2026-04-10
 
+> **FROZEN SNAPSHOT.** This document records the pre-migration state
+> of the 11 hand-written launchers in `.desktop-tools/` as of
+> 2026-04-10, *before* any `launch-scaffolder` work. Do not update it
+> to reflect current state — the findings here are the historical
+> justification for subsequent scaffolder design decisions, and later
+> documents (see below) cross-reference this one by its frozen claims.
+>
+> **For current state of launcher management, read instead:**
+>
+> - `README.adoc` — live subcommand surface and architecture
+> - `.machine_readable/6a2/STATE.a2ml` — current milestone + completion percentage
+> - `docs/launcher-exceptions-2026-04-10.md` — reconciliation against this audit, including one correction (opsm runtime-shape classification; see its "Discrepancy 1" section)
+> - `docs/branch-protection-remediation-2026-04-10.md` — estate-wide ruleset remediation that followed the scaffolder work
+>
+> Of the 11 launchers audited here, 6 have since been migrated to
+> scaffolder management (aerie, burble, game-server-admin, nqc, panll,
+> project-wharf — plus stapeln, which the audit did not cover because
+> stapeln's launcher lived under `stapeln/scripts/` not
+> `.desktop-tools/`). The remaining 5 are the declared exceptions
+> (hypatia, invariant-path, opsm, ambientops, idaptik) documented
+> with migration triggers in `docs/launcher-exceptions-2026-04-10.md`.
+
 Read-only audit of the 11 hand-written launchers in
 `/var/mnt/eclipse/repos/.desktop-tools/*-launcher.sh` against:
 
