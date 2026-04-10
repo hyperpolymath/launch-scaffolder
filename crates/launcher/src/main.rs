@@ -18,9 +18,9 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 
+mod cmd_config;
 mod cmd_mint;
 mod cmd_provision;
-mod cmd_config;
 mod cmd_realign;
 mod cmd_standard;
 
@@ -37,7 +37,12 @@ struct Cli {
     /// Override the launcher standard file. Defaults to the standard baked
     /// into the binary at build time, or the value of $LAUNCH_SCAFFOLDER_STANDARD
     /// if set.
-    #[arg(long, value_name = "FILE", env = "LAUNCH_SCAFFOLDER_STANDARD", global = true)]
+    #[arg(
+        long,
+        value_name = "FILE",
+        env = "LAUNCH_SCAFFOLDER_STANDARD",
+        global = true
+    )]
     standard: Option<std::path::PathBuf>,
 
     /// Increase verbosity (can be passed multiple times).
@@ -85,10 +90,10 @@ fn main() -> Result<()> {
         .init();
 
     match cli.command {
-        Command::Mint(args)       => cmd_mint::run(args, cli.standard.as_deref()),
-        Command::Provision(args)  => cmd_provision::run(args, cli.standard.as_deref()),
-        Command::Config(args)     => cmd_config::run(args, cli.standard.as_deref()),
-        Command::Realign(args)    => cmd_realign::run(args, cli.standard.as_deref()),
-        Command::Standard(args)   => cmd_standard::run(args, cli.standard.as_deref()),
+        Command::Mint(args) => cmd_mint::run(args, cli.standard.as_deref()),
+        Command::Provision(args) => cmd_provision::run(args, cli.standard.as_deref()),
+        Command::Config(args) => cmd_config::run(args, cli.standard.as_deref()),
+        Command::Realign(args) => cmd_realign::run(args, cli.standard.as_deref()),
+        Command::Standard(args) => cmd_standard::run(args, cli.standard.as_deref()),
     }
 }

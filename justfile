@@ -64,6 +64,31 @@ smoke-mint:
     cargo run -p launch-scaffolder -- mint examples/stapeln.launcher.a2ml -o /tmp/stapeln-launcher.sh
     @echo "Smoke test: mint produced /tmp/stapeln-launcher.sh"
 
+# Mint a launcher in-place. Pass the path to an <app>.launcher.a2ml file.
+# Example:  just mint /var/mnt/eclipse/repos/aerie/aerie.launcher.a2ml
+mint config:
+    cargo run --release -p launch-scaffolder -- mint {{config}}
+
+# Re-mint every scaffolder-managed launcher in the estate. Edit the list
+# when adding/removing managed repos. Exceptions live in
+# docs/launcher-exceptions-2026-04-10.md.
+mint-all:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    BIN="./target/release/launch-scaffolder"
+    [ -x "$BIN" ] || cargo build --release
+    for cfg in \
+        /var/mnt/eclipse/repos/aerie/aerie.launcher.a2ml \
+        /var/mnt/eclipse/repos/burble/burble.launcher.a2ml \
+        /var/mnt/eclipse/repos/game-server-admin/game-server-admin.launcher.a2ml \
+        /var/mnt/eclipse/repos/nextgen-databases/nqc/nqc.launcher.a2ml \
+        /var/mnt/eclipse/repos/panll/panll.launcher.a2ml \
+        /var/mnt/eclipse/repos/project-wharf/project-wharf.launcher.a2ml \
+        /var/mnt/eclipse/repos/stapeln/stapeln.launcher.a2ml ; do
+        "$BIN" mint "$cfg"
+    done
+    @echo "✓ Estate re-mint complete (7 launchers)"
+
 # Generate cargo docs
 doc:
     cargo doc --workspace --no-deps --open

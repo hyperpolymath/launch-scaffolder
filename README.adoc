@@ -10,6 +10,7 @@
 image:https://img.shields.io/badge/License-PMPL--1.0--or--later-blue.svg[License: PMPL-1.0-or-later]
 image:https://img.shields.io/badge/rust-1.80%2B-orange.svg[Rust 1.80+]
 image:https://img.shields.io/badge/status-alpha-yellow.svg[Status: alpha]
+image:https://img.shields.io/badge/mint-working-green.svg[Mint: working]
 
 == What it does
 
@@ -23,9 +24,15 @@ Inputs:
 
 * `launcher-standard.a2ml` — a declarative description of what a compliant
   launcher looks like (modes, file paths, permissions, integrity
-  requirements, per-platform behaviour). Baked into the binary at build
-  time; overrideable via `--standard` or the `$LAUNCH_SCAFFOLDER_STANDARD`
-  environment variable.
+  requirements, per-platform behaviour). The canonical copy lives in the
+  `standards` monorepo at
+  `/var/mnt/eclipse/repos/standards/launcher/launcher-standard.a2ml`. At
+  runtime the loader resolves in this order:
++
+  . `--standard <file>` CLI flag
+  . `$LAUNCH_SCAFFOLDER_STANDARD` environment variable
+  . The canonical path above
+  . A baked-in copy compiled into the binary at build time (fallback only)
 * `<app>.launcher.a2ml` — per-app config (name, display, URL, command,
   repo, icon, and an optional `[exceptions]` block).
 
@@ -136,28 +143,38 @@ Per the hyperpolymath language policy (see `standards/rhodium-standard-repositor
 
 == Status
 
-**Alpha. Scaffold complete, implementation in progress.** Current state:
+**Alpha. `mint` is working end-to-end; other subcommands still stubs.**
+Last updated 2026-04-10.
 
 * [x] Cargo workspace layout
-* [x] Skeleton for `launch-scaffolder-common` library
-* [x] Skeleton for `launch-scaffolder` binary with all five subcommands
-* [x] Placeholder `standards/launcher-standard.a2ml`
-* [x] Placeholder `templates/launcher.sh.tera`
-* [x] Example `stapeln.launcher.a2ml`
-* [ ] Standard file parser (`launcher-common::standard`)
-* [ ] Config file parser (`launcher-common::config`)
-* [ ] Template renderer (`launcher-common::template`)
-* [ ] Platform dispatch (`launcher-common::platform`)
-* [ ] Integrity manifest generator (`launcher-common::integrity`)
-* [ ] Exception merger (`launcher-common::exceptions`)
-* [ ] `mint` subcommand
-* [ ] `provision` subcommand
-* [ ] `config` subcommand
-* [ ] `realign` subcommand
-* [ ] `standard` subcommand
+* [x] `launch-scaffolder-common::standard` — loads canonical + baked fallback
+* [x] `launch-scaffolder-common::config` — parses `<app>.launcher.a2ml` (TOML) with runtime-kind validation
+* [x] `launch-scaffolder-common::template` — Tera renderer with full context
+* [x] `templates/launcher.sh.tera` — ported from `stapeln-launcher.sh`, parameterised over `runtime_kind ∈ {server-url, process, remote}`
+* [x] `mint` subcommand — positional config, `-o/--out`, `--stdout`, `--no-chmod`, `--standard` flag with precedence chain
+* [x] Baseline unit tests (4 passing: stapeln example parses, standard parses, 2 validation paths)
+* [x] 7 launchers migrated to scaffolder management (see `docs/launcher-exceptions-2026-04-10.md` for the 5 declared exceptions)
+* [ ] `launch-scaffolder-common::platform` — stub (platform dispatch is currently done at runtime inside the generated script)
+* [ ] `launch-scaffolder-common::integrity` — stub (pending SHA-256 manifest generator)
+* [ ] `launch-scaffolder-common::exceptions` — stub (pending `[exceptions]` merge logic for `realign`)
+* [ ] `provision` subcommand — stub
+* [ ] `config` subcommand — stub
+* [ ] `realign` subcommand — stub
+* [ ] `standard` subcommand — stub
 * [ ] Golden-file regression tests
 * [ ] Cross-platform CI (Linux/macOS/Windows matrix)
 * [ ] SPARK integration hook for `integrity.rs` (future phase)
+
+=== Working commands
+
+[source,bash]
+----
+# Mint a launcher from a config — this is the one command that actually
+# works today. Output defaults to <config-parent>/<app-name>-launcher.sh.
+launch-scaffolder mint /path/to/<app>.launcher.a2ml
+launch-scaffolder mint /path/to/<app>.launcher.a2ml -o /tmp/out.sh
+launch-scaffolder mint /path/to/<app>.launcher.a2ml --stdout
+----
 
 == Build
 
@@ -190,15 +207,27 @@ j.d.a.jewell@open.ac.uk
 
 == Relationship to other hyperpolymath projects
 
-This tool is used by every hyperpolymath project that ships a desktop
-launcher. Notable consumers (current and planned):
+Each consumer repo owns its own `<app>.launcher.a2ml` config at its
+repository root. `launch-scaffolder mint` writes the generated
+`<app>-launcher.sh` next to it. The pre-2026-04-10 pattern of pooling
+launchers under `/var/mnt/eclipse/repos/.desktop-tools/` is deprecated;
+`~/Desktop/Shortcuts/*.desktop` files have been repointed at the new
+per-repo paths.
 
-* **stapeln** — Visual Container Stack Designer (`stapeln/scripts/stapeln-launcher.sh`)
-* **burble** — WebRTC control plane (`.desktop-tools/burble-launcher.sh`)
-* **idaptik** — game / educational platform (`.desktop-tools/idaptik-launcher.sh`)
-* **ambientops** — desktop session tools (`.desktop-tools/ambientops-launcher.sh`)
-* **hypatia** — neurosymbolic CI/CD (`.desktop-tools/hypatia-launcher.sh`)
-* ... and ~6 others in `.desktop-tools/`.
+**Scaffolder-managed consumers (as of 2026-04-10):**
 
-The bulk-realignment goal: run `launch-scaffolder realign` once after any
-standard change and every launcher in the estate updates in lock-step.
+* **stapeln** — Visual Container Stack Designer (server-url, port 4010)
+* **burble** — WebRTC voice + control plane (server-url, port 4020)
+* **aerie** — network diagnostic suite (process)
+* **game-server-admin** — multi-game server orchestration (process)
+* **nqc** — NextGen Query Client, inside `nextgen-databases/` (process)
+* **panll** — panels framework (server-url, port 8000)
+* **project-wharf** — container/workload staging (process)
+
+**Declared exceptions** (still hand-written; see
+`docs/launcher-exceptions-2026-04-10.md` for reasoning and migration triggers):
+
+* `hypatia`, `invariant-path`, `opsm`, `ambientops`, `idaptik`
+
+The bulk-realignment goal: once `realign` is implemented, one command will
+re-mint every managed launcher in the estate against the current standard.

@@ -17,7 +17,8 @@ machine-readable = ".machine_readable/"
 state = ".machine_readable/6a2/STATE.a2ml"
 meta = ".machine_readable/6a2/META.a2ml"
 ecosystem = ".machine_readable/6a2/ECOSYSTEM.a2ml"
-standards = "standards/launcher-standard.a2ml"
+standards-canonical = "/var/mnt/eclipse/repos/standards/launcher/launcher-standard.a2ml"
+standards-vendored-fallback = "standards/launcher-standard.a2ml"
 templates = "templates/"
 examples = "examples/"
 
@@ -62,9 +63,9 @@ non-goals = [
 ]
 
 [roadmap-phases]
-phase-1 = "Library crate: parser, template, platform dispatch (current)"
-phase-2 = "Binary crate: all 5 subcommands wired to library"
-phase-3 = "Cross-platform CI matrix + golden-file regression tests"
-phase-4 = "SPARK hook for integrity.rs via Zig FFI"
-phase-5 = "Bulk-realign all 11 hyperpolymath launchers in .desktop-tools/"
-phase-6 = "Optional PanLL panel as a GUI layer over the CLI"
+phase-1 = "DONE 2026-04-10 — config + standard + template + mint. 7 launchers migrated."
+phase-2 = "Wire remaining subcommands (provision, config, realign, standard)."
+phase-3 = "Golden-file regression tests + cross-platform CI matrix."
+phase-4 = "SPARK hook for integrity.rs via Zig FFI."
+phase-5 = "Migrate the 5 declared exceptions (hypatia, invariant-path, opsm, ambientops, idaptik) once template supports their extra modes."
+phase-6 = "Optional PanLL panel as a GUI layer over the CLI."

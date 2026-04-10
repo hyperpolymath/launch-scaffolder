@@ -19,12 +19,12 @@
 //! panel, library consumers, test harnesses) can reuse it without depending
 //! on the `clap` or subcommand infrastructure.
 
-pub mod standard;
 pub mod config;
-pub mod template;
-pub mod platform;
-pub mod integrity;
 pub mod exceptions;
+pub mod integrity;
+pub mod platform;
+pub mod standard;
+pub mod template;
 
 /// Crate-wide result type.
 pub type Result<T> = anyhow::Result<T>;

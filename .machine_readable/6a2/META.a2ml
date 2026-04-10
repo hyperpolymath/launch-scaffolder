@@ -1,0 +1,164 @@
+# SPDX-License-Identifier: PMPL-1.0-or-later
+# Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
+#
+# META.a2ml — meta-level information for launch-scaffolder.
+# Architecture decisions, development practices, design rationale.
+
+[metadata]
+format          = "a2ml"
+schema          = "meta"
+schema-version  = "0.1"
+updated         = "2026-04-10"
+
+[project]
+name    = "launch-scaffolder"
+license = "PMPL-1.0-or-later"
+
+# ---------------------------------------------------------------------------
+# ARCHITECTURE DECISIONS (ADRs)
+# ---------------------------------------------------------------------------
+
+[[architecture-decisions]]
+id       = "ADR-001"
+title    = "Two-crate workspace (launcher-common library + launcher binary)"
+status   = "accepted"
+date     = "2026-04-10"
+context  = """
+The tool needs to be consumable as both a CLI (binary) and as a library
+(future PanLL panel, library tests, future Rust consumers that want to
+mint launchers programmatically).
+"""
+decision = """
+Split into launch-scaffolder-common (library, all real logic) and
+launch-scaffolder (thin CLI, clap dispatch, no business logic).
+"""
+consequences = """
+Library is reusable without dragging in clap. Tests can target the
+library directly without subprocess orchestration. Binary crate stays
+trivially auditable.
+"""
+
+[[architecture-decisions]]
+id       = "ADR-002"
+title    = "TOML as concrete syntax for A2ML v0.1"
+status   = "accepted"
+date     = "2026-04-10"
+context  = """
+A2ML is the hyperpolymath standard format, but a2ml-rs is not yet at
+feature parity with the toml crate. The tool needs to ship now.
+"""
+decision = """
+Use the `toml` crate for parsing .launcher.a2ml files. A2ML is
+TOML-compatible at this level of complexity. Migrate to a2ml-rs when it
+reaches feature parity (deferred, not blocking).
+"""
+consequences = """
+Users can author configs today with any TOML editor. Round-trip through
+the tool preserves comments at best-effort. Future migration is a
+drop-in dependency swap behind the LauncherConfig::parse boundary.
+"""
+
+[[architecture-decisions]]
+id       = "ADR-003"
+title    = "Standard file lives in standards/ monorepo, not vendored"
+status   = "accepted"
+date     = "2026-04-10"
+context  = """
+The launcher standard is a cross-cutting hyperpolymath artefact. Having
+launch-scaffolder vendor a local copy creates drift between the prose
+spec (standards/docs/UX-standards/launcher-standard.adoc) and its
+machine-readable companion.
+"""
+decision = """
+Canonical machine-readable standard lives at
+/var/mnt/eclipse/repos/standards/launcher/launcher-standard.a2ml.
+launch-scaffolder loads it at runtime via a precedence chain:
+  1. --standard flag
+  2. $LAUNCH_SCAFFOLDER_STANDARD env var
+  3. Canonical path in standards repo
+  4. Baked-in copy (compile-time include_str! fallback only)
+The baked copy exists so the tool still works when invoked outside the
+monorepo (e.g. standalone install, CI, or a fresh clone).
+"""
+consequences = """
+Spec evolution is a single edit in the standards repo. A2ml drift
+between tool and spec is structurally prevented. The baked fallback
+needs a periodic refresh via a sync recipe or a build.rs step — tracked
+as a known issue until a sync mechanism lands.
+"""
+
+[[architecture-decisions]]
+id       = "ADR-004"
+title    = "Tera for template rendering"
+status   = "accepted"
+date     = "2026-04-10"
+context  = """
+Need a template engine with conditionals, loops, and whitespace
+control for rendering a ~400-line bash launcher script with three
+runtime-kind variants.
+"""
+decision = """
+Use Tera 1.20. Jinja2-compatible syntax is familiar to maintainers;
+pure Rust; no runtime dependencies.
+"""
+consequences = """
+Tera's trim_blocks-like behaviour (strips one newline after %}) caught
+us once during porting — worked around with explicit blank lines inside
+conditional blocks. Not a blocker.
+"""
+
+[[architecture-decisions]]
+id       = "ADR-005"
+title    = "Three runtime kinds: server-url, process, remote"
+status   = "accepted"
+date     = "2026-04-10"
+context  = """
+The 11 existing hand-written launchers fall into three distinct shapes:
+local server + URL (stapeln/burble/panll/idaptik), background process
+with no URL (aerie/ambientops/project-wharf/game-server-admin/nqc), and
+remote web app with no local process (hypatia).
+"""
+decision = """
+The template is parameterised over a runtime_kind enum with exactly
+those three variants. Config validation enforces the right fields are
+present for each kind.
+"""
+consequences = """
+Most launchers fit one of the three shapes cleanly. 5 outliers are
+declared exceptions and stay hand-written until the scaffolder grows a
+custom-modes hook (see docs/launcher-exceptions-2026-04-10.md).
+"""
+
+# ---------------------------------------------------------------------------
+# DEVELOPMENT PRACTICES
+# ---------------------------------------------------------------------------
+
+[development-practices]
+build            = "cargo build --release"
+test             = "cargo test --release"
+lint             = "cargo clippy --workspace --all-targets -- -D warnings"
+format           = "cargo fmt --all"
+pre-commit       = "just pre-commit  (fmt-check + lint + test)"
+license-header   = "SPDX-License-Identifier: PMPL-1.0-or-later on every .rs, .tera, .a2ml, .adoc, .sh file"
+author           = "Jonathan D.A. Jewell <6759885+hyperpolymath@users.noreply.github.com>"
+
+[design-rationale]
+why-rust = """
+Zero-dependency binary, fast cold start, strong types, excellent CLI
+ecosystem (clap, tera, sha2, anyhow). Per the hyperpolymath terminology
+rule 'Rust always means Rust/SPARK', this is Rust-primary now with
+SPARK/Ada hooks planned for the integrity path.
+"""
+
+why-generate-bash = """
+Bash is the lowest-common-denominator runtime that works on Linux,
+macOS, and Windows-via-Git-Bash without installing extra tooling on the
+target machine. The generated launcher is a self-contained script with
+no runtime dependency on launch-scaffolder itself.
+"""
+
+why-tera-not-askama = """
+Askama does compile-time template checking but requires templates to be
+in the source tree at compile time, which conflicts with the future
+`--template <file>` override flag. Tera is runtime-only and flexible.
+"""

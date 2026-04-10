@@ -1,0 +1,97 @@
+# SPDX-License-Identifier: PMPL-1.0-or-later
+# Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
+#
+# STATE.a2ml — current implementation state of launch-scaffolder.
+# Machine-readable companion to README.adoc §Status.
+
+[metadata]
+format          = "a2ml"
+schema          = "state"
+schema-version  = "0.1"
+updated         = "2026-04-10"
+author          = "Jonathan D.A. Jewell"
+
+[project]
+name           = "launch-scaffolder"
+version        = "0.1.0"
+phase          = "alpha"
+one-line       = "Rust/SPARK cross-platform desktop launcher minter/provisioner/configurator."
+
+[current-position]
+milestone          = "phase-1-mint-working"
+milestone-complete = true
+completion-percent = 30
+summary = """
+Mint subcommand is working end-to-end: A2ML parser, standard loader (with
+canonical-path + baked-fallback precedence), Tera template renderer, and
+CLI are all wired. 7 launchers in the estate have been migrated from
+hand-written to scaffolder-generated. 5 are declared exceptions.
+"""
+
+[[completed]]
+item = "launch-scaffolder-common::config parser (TOML-backed, runtime-kind validation)"
+on   = "2026-04-10"
+
+[[completed]]
+item = "launch-scaffolder-common::standard loader (canonical path + baked fallback)"
+on   = "2026-04-10"
+
+[[completed]]
+item = "launch-scaffolder-common::template renderer (Tera)"
+on   = "2026-04-10"
+
+[[completed]]
+item = "templates/launcher.sh.tera (ported from stapeln-launcher.sh, parameterised)"
+on   = "2026-04-10"
+
+[[completed]]
+item = "cmd_mint CLI (positional config, -o/--out, --stdout, --no-chmod)"
+on   = "2026-04-10"
+
+[[completed]]
+item = "4 passing unit tests (stapeln example parses, standard parses, 2 validation paths)"
+on   = "2026-04-10"
+
+[[completed]]
+item = "7 launchers migrated: aerie, burble, game-server-admin, nqc, panll, project-wharf, stapeln"
+on   = "2026-04-10"
+
+[[completed]]
+item = "Desktop shortcuts (~/Desktop/Shortcuts/*.desktop) repointed at new in-repo paths"
+on   = "2026-04-10"
+
+[[completed]]
+item = "6 superseded launchers archived to ~/.desktop-tools/.archive-2026-04-10/"
+on   = "2026-04-10"
+
+[[next]]
+priority = 1
+item     = "Implement cmd_realign for bulk re-mint across the estate"
+
+[[next]]
+priority = 2
+item     = "Implement cmd_provision (--integ / --disinteg flow as a subcommand, not just generated-script modes)"
+
+[[next]]
+priority = 3
+item     = "Implement cmd_config for get/set/validate of embedded metadata blocks"
+
+[[next]]
+priority = 4
+item     = "Golden-file regression tests pinning mint output for the 7 managed launchers"
+
+[[next]]
+priority = 5
+item     = "SPARK integration hook for integrity.rs via Zig FFI"
+
+[blockers]
+# None as of 2026-04-10 — phase-1 delivered cleanly.
+
+[exceptions]
+# The 5 launchers NOT migrated to scaffolder management today, with reasons.
+# Full rationale in docs/launcher-exceptions-2026-04-10.md.
+hypatia        = "remote + gossamer fallback + bespoke CLI modes"
+invariant-path = "Rust CLI wrapper with scan/cli/status modes over cargo run"
+opsm           = "interactive bash environment setup (sources ~/.bashrc.d/tools/opsm)"
+ambientops     = "has --toggle-input-devices / --emergency-input-restore Actions"
+idaptik        = "has --gossamer / --tray Actions + %u URI handling"

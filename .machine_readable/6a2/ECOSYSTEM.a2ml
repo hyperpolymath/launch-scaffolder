@@ -1,0 +1,97 @@
+# SPDX-License-Identifier: PMPL-1.0-or-later
+# Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
+#
+# ECOSYSTEM.a2ml — launch-scaffolder's position in the hyperpolymath ecosystem.
+
+[metadata]
+format          = "a2ml"
+schema          = "ecosystem"
+schema-version  = "0.1"
+updated         = "2026-04-10"
+
+[ecosystem]
+version = "0.1"
+name    = "launch-scaffolder"
+type    = "cross-cutting-tool"
+purpose = "Generate/install/maintain cross-platform desktop launchers for every hyperpolymath project from a single declarative spec."
+
+position-in-ecosystem = """
+launch-scaffolder is estate-wide tooling. It sits between the launcher
+*standard* (lives in standards/ monorepo) and every project that needs a
+desktop launcher. It is a *producer* of launcher scripts, not a runtime
+library — its output is consumed by desktop environments, not by other
+hyperpolymath tools at runtime.
+"""
+
+[[related-projects]]
+name         = "standards"
+repo         = "/var/mnt/eclipse/repos/standards"
+relationship = "standards-source"
+detail       = "Hosts the canonical launcher-standard.a2ml at standards/launcher/launcher-standard.a2ml (and its prose counterpart at standards/docs/UX-standards/launcher-standard.adoc). launch-scaffolder reads the machine-readable form at runtime."
+
+[[related-projects]]
+name         = "stapeln"
+repo         = "/var/mnt/eclipse/repos/stapeln"
+relationship = "reference-consumer"
+detail       = "First real-world consumer. Its pre-2026-04-10 hand-written launcher at scripts/stapeln-launcher.sh was the template-porting source. Now scaffolder-managed via stapeln/stapeln.launcher.a2ml."
+
+[[related-projects]]
+name         = "aerie"
+repo         = "/var/mnt/eclipse/repos/aerie"
+relationship = "consumer"
+detail       = "Process-kind launcher. First migration after stapeln."
+
+[[related-projects]]
+name         = "burble"
+repo         = "/var/mnt/eclipse/repos/burble"
+relationship = "consumer"
+detail       = "Server-url launcher (port 4020). Previous hand-written copy at scripts/burble-launcher.sh is deprecated-in-place pending removal."
+
+[[related-projects]]
+name         = "game-server-admin"
+repo         = "/var/mnt/eclipse/repos/game-server-admin"
+relationship = "consumer"
+detail       = "Process-kind launcher. Wraps a pre-installed binary at ~/.local/bin/game-server-admin-launcher."
+
+[[related-projects]]
+name         = "nqc"
+repo         = "/var/mnt/eclipse/repos/nextgen-databases/nqc"
+relationship = "consumer"
+detail       = "Process-kind launcher inside the nextgen-databases monorepo. Launches the pre-installed ~/.bin/nqc binary with --gui."
+
+[[related-projects]]
+name         = "panll"
+repo         = "/var/mnt/eclipse/repos/panll"
+relationship = "consumer"
+detail       = "Server-url launcher (port 8000). PanLL may later consume launch-scaffolder as a *library* to offer a GUI minter."
+
+[[related-projects]]
+name         = "project-wharf"
+repo         = "/var/mnt/eclipse/repos/project-wharf"
+relationship = "consumer"
+detail       = "Process-kind launcher."
+
+[[related-projects]]
+name         = "hyperpolymath-ecosystem"
+relationship = "umbrella"
+detail       = "Every hyperpolymath repo that ships a desktop launcher is a potential consumer. The 5 declared exceptions in docs/launcher-exceptions-2026-04-10.md are the current non-consumers and have explicit migration triggers."
+
+[[related-projects]]
+name         = "invariant-path"
+repo         = "/var/mnt/eclipse/repos/invariant-path"
+relationship = "declared-exception"
+detail       = "Stays hand-written — bespoke Rust CLI wrapper. Not a scaffolder consumer."
+
+[[related-projects]]
+name         = "hypatia"
+repo         = "/var/mnt/eclipse/repos/hypatia"
+relationship = "declared-exception"
+detail       = "Stays hand-written — remote web app with gossamer fallback and bespoke modes."
+
+[integration-points]
+input-config-format  = "A2ML (TOML-compatible today) at <repo-root>/<app>.launcher.a2ml"
+input-standard       = "A2ML at /var/mnt/eclipse/repos/standards/launcher/launcher-standard.a2ml"
+output-launcher      = "POSIX bash script at <repo-root>/<app>-launcher.sh (chmod 755)"
+output-desktop-entry = "Freedesktop .desktop file written by the generated script's --integ mode"
+output-bundle-macos  = ".app bundle written by the generated script's --integ mode"
+output-shortcut-win  = ".lnk or .bat written by the generated script's --integ mode"
