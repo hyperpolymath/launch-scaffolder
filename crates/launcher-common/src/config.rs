@@ -165,7 +165,7 @@ mod tests {
 
     #[test]
     fn parses_stapeln_example() {
-        let txt = include_str!("../../../examples/stapeln.launcher.a2ml");
+        let txt = include_str!("../../../examples/stapeln.launcher.fixture.a2ml");
         let cfg = LauncherConfig::parse(txt).expect("stapeln example must parse");
         assert_eq!(cfg.project.name, "stapeln");
         assert_eq!(cfg.project.display, "Stapeln");

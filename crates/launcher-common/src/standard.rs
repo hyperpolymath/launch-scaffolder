@@ -63,6 +63,35 @@ impl LauncherStandard {
 
         Ok(Self { raw, spec_version })
     }
+
+    /// Resolve a standard using the documented three-step precedence:
+    ///
+    /// 1. An explicit file path (typically from `--standard <FILE>` or
+    ///    `$LAUNCH_SCAFFOLDER_STANDARD`, which clap already merges into
+    ///    one `Option`).
+    /// 2. The canonical path in the `standards` monorepo, if present.
+    /// 3. The baked-in fallback compiled into the binary at build time.
+    ///
+    /// This is the entry point every subcommand should use. Duplicating
+    /// the three-step precedence across subcommands was a hazard after
+    /// `cmd_realign` landed, so it lives here instead.
+    pub fn resolve(flag: Option<&Path>) -> Result<Self> {
+        if let Some(path) = flag {
+            tracing::debug!("loading standard from flag: {}", path.display());
+            return Self::load(path);
+        }
+        let canonical =
+            Path::new("/var/mnt/eclipse/repos/standards/launcher/launcher-standard.a2ml");
+        if canonical.exists() {
+            tracing::debug!(
+                "loading standard from canonical path: {}",
+                canonical.display()
+            );
+            return Self::load(canonical);
+        }
+        tracing::debug!("loading baked standard");
+        Self::baked()
+    }
 }
 
 #[cfg(test)]

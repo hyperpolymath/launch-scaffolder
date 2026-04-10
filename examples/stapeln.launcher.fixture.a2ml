@@ -1,9 +1,12 @@
 # SPDX-License-Identifier: PMPL-1.0-or-later
 # Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
 #
-# examples/stapeln.launcher.a2ml — worked example per-app config.
+# examples/stapeln.launcher.fixture.a2ml — worked example per-app config.
+# FIXTURE ONLY — the `.fixture.` infix marks this as a test input so
+# `launch-scaffolder realign` estate walks do not pick it up alongside
+# the live `stapeln/stapeln.launcher.a2ml`. See examples/README.md.
 #
-# This is the input to `launch-scaffolder mint examples/stapeln.launcher.a2ml`.
+# This is the input to `launch-scaffolder mint examples/stapeln.launcher.fixture.a2ml`.
 # The output is a compliant stapeln-launcher.sh (equivalent to the current
 # hand-written stapeln/scripts/stapeln-launcher.sh).
 #

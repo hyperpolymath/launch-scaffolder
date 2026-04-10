@@ -18,14 +18,19 @@ phase          = "alpha"
 one-line       = "Rust/SPARK cross-platform desktop launcher minter/provisioner/configurator."
 
 [current-position]
-milestone          = "phase-1-mint-working"
+milestone          = "phase-2-realign-working"
 milestone-complete = true
-completion-percent = 30
+completion-percent = 40
 summary = """
-Mint subcommand is working end-to-end: A2ML parser, standard loader (with
-canonical-path + baked-fallback precedence), Tera template renderer, and
-CLI are all wired. 7 launchers in the estate have been migrated from
-hand-written to scaffolder-generated. 5 are declared exceptions.
+Mint + realign subcommands are working end-to-end. Realign discovers
+live launcher configs across the estate (default root =
+/var/mnt/eclipse/repos), re-renders each against the current standard
++ template, and reports unchanged/updated/created with a --check CI
+mode and --dry-run preview. Fixture/live separation is suffix-based:
+`.launcher.fixture.a2ml` for test inputs, `.launcher.a2ml` for live
+configs (documented in examples/README.md). Standard-resolution logic
+is now shared via LauncherStandard::resolve in launch-scaffolder-common.
+7 live launchers in the estate; 5 declared exceptions.
 """
 
 [[completed]]
@@ -64,24 +69,32 @@ on   = "2026-04-10"
 item = "6 superseded launchers archived to ~/.desktop-tools/.archive-2026-04-10/"
 on   = "2026-04-10"
 
-[[next]]
-priority = 1
-item     = "Implement cmd_realign for bulk re-mint across the estate"
+[[completed]]
+item = "LauncherStandard::resolve extracted to launch-scaffolder-common (shared by mint/realign; absorbs the 3-step precedence that was duplicated in cmd_mint)"
+on   = "2026-04-10"
+
+[[completed]]
+item = "cmd_realign (bulk re-mint): estate-root default, --search-root override, --dry-run/--check/--keep-going, walk-error tolerant, 2 extra unit tests"
+on   = "2026-04-10"
+
+[[completed]]
+item = "Fixture/live suffix convention: `.launcher.fixture.a2ml` vs `.launcher.a2ml`. Renamed examples/stapeln.launcher.a2ml -> examples/stapeln.launcher.fixture.a2ml, documented in examples/README.md"
+on   = "2026-04-10"
 
 [[next]]
-priority = 2
+priority = 1
 item     = "Implement cmd_provision (--integ / --disinteg flow as a subcommand, not just generated-script modes)"
 
 [[next]]
-priority = 3
+priority = 2
 item     = "Implement cmd_config for get/set/validate of embedded metadata blocks"
 
 [[next]]
-priority = 4
+priority = 3
 item     = "Golden-file regression tests pinning mint output for the 7 managed launchers"
 
 [[next]]
-priority = 5
+priority = 4
 item     = "SPARK integration hook for integrity.rs via Zig FFI"
 
 [blockers]

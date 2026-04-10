@@ -33,7 +33,7 @@ pub fn run(args: Args, standard_path: Option<&Path>) -> Result<()> {
     let config = LauncherConfig::load(&args.config)
         .with_context(|| format!("loading config {}", args.config.display()))?;
 
-    let standard = load_standard(standard_path)?;
+    let standard = LauncherStandard::resolve(standard_path)?;
     let script = template::render(&config, &standard)?;
 
     if args.stdout {
@@ -63,25 +63,3 @@ pub fn run(args: Args, standard_path: Option<&Path>) -> Result<()> {
     Ok(())
 }
 
-/// Resolve the standard file using the documented precedence:
-///
-/// 1. `--standard <file>` flag (passed in as `standard_path`).
-/// 2. `$LAUNCH_SCAFFOLDER_STANDARD` env var (clap already applies this).
-/// 3. The canonical path in the `standards` monorepo.
-/// 4. Baked fallback compiled into the binary at build time.
-fn load_standard(flag: Option<&Path>) -> Result<LauncherStandard> {
-    if let Some(path) = flag {
-        tracing::debug!("loading standard from flag: {}", path.display());
-        return LauncherStandard::load(path);
-    }
-    let canonical = Path::new("/var/mnt/eclipse/repos/standards/launcher/launcher-standard.a2ml");
-    if canonical.exists() {
-        tracing::debug!(
-            "loading standard from canonical path: {}",
-            canonical.display()
-        );
-        return LauncherStandard::load(canonical);
-    }
-    tracing::debug!("loading baked standard");
-    LauncherStandard::baked()
-}
