@@ -1,29 +1,29 @@
-{"repo":"somethings-fishy","state":"MISSING"}
-{"repo":"launch-scaffolder","state":"MISSING"}
-{"repo":"nextgen-databases","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"stapeln","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
+{"repo":"somethings-fishy","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"launch-scaffolder","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"nextgen-databases","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"stapeln","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"project-wharf","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"panll","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"game-server-admin","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
-{"repo":"burble","state":"DRIFT","missing":"pull_request,required_signatures","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history"}
-{"repo":"aerie","state":"DRIFT","missing":"","extra":"code_quality,code_scanning,copilot_code_review,required_deployments,required_status_checks","present":"code_quality code_scanning copilot_code_review deletion non_fast_forward pull_request required_deployments required_linear_history required_signatures required_status_checks"}
+{"repo":"burble","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"aerie","state":"DRIFT","missing":"","extra":"required_status_checks","present":"deletion non_fast_forward pull_request required_linear_history required_signatures required_status_checks"}
 {"repo":"repos-monorepo","state":"ERROR","detail":"api call failed"}
 {"repo":"standards","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
-{"repo":"eclexia","state":"DRIFT","missing":"pull_request","extra":"","present":"deletion non_fast_forward required_linear_history required_signatures"}
+{"repo":"eclexia","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"reposystem","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"nextgen-languages","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"betlang","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"phronesis","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
-{"repo":"tangle","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"error-lang","state":"DRIFT","missing":"pull_request","extra":"","present":"deletion non_fast_forward required_linear_history required_signatures"}
+{"repo":"tangle","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"error-lang","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"my-lang","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"typed-wasm","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
-{"repo":"reasonably-good-token-vault","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"svalinn","state":"DRIFT","missing":"pull_request","extra":"","present":"deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"tentacles-agentic-syllabus","state":"MISSING"}
-{"repo":"git-scripts","state":"MISSING"}
+{"repo":"reasonably-good-token-vault","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"svalinn","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"tentacles-agentic-syllabus","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"git-scripts","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"gossamer","state":"DRIFT","missing":"","extra":"required_status_checks","present":"deletion non_fast_forward pull_request required_linear_history required_signatures required_status_checks"}
-{"repo":"thejeffparadox","state":"MISSING"}
+{"repo":"thejeffparadox","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"robot-vacuum-cleaner","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"resource-record-fluctuator","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"bofig","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
@@ -31,285 +31,285 @@
 {"repo":"rsr-template-repo","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"echidna","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"vql-ut","state":"DRIFT","missing":"","extra":"required_status_checks","present":"deletion non_fast_forward pull_request required_linear_history required_signatures required_status_checks"}
-{"repo":"panic-attack","state":"DRIFT","missing":"pull_request,required_signatures","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history"}
+{"repo":"panic-attack","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"idaptik","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
-{"repo":"verisimdb","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
+{"repo":"verisimdb","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"polyglot-i18n","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"palimpsest-plasma","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"boj-server","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
-{"repo":"pow-the-game","state":"MISSING"}
-{"repo":"krl","state":"MISSING"}
-{"repo":"affinescript-vite","state":"MISSING"}
-{"repo":"a2ml-showcase","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"verisimdb-data","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
+{"repo":"pow-the-game","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"krl","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"affinescript-vite","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"a2ml-showcase","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"verisimdb-data","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"twingate-helm-deploy","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"snapcreate","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"sdp-hkdf-deployment","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
-{"repo":"refugia","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
+{"repo":"refugia","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"proven-servers","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"ephapax","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"rpa-elysium","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
-{"repo":"affinescript","state":"DRIFT","missing":"pull_request","extra":"","present":"deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"otpiser","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"nimiser","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
+{"repo":"affinescript","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"otpiser","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"nimiser","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"metadata-grammar","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
-{"repo":"airborne-submarine-squadron","state":"MISSING"}
-{"repo":"julia-the-viper","state":"MISSING"}
-{"repo":"candy-crash","state":"MISSING"}
+{"repo":"airborne-submarine-squadron","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"julia-the-viper","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"candy-crash","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"hyperpolymath","state":"DRIFT","missing":"","extra":"code_quality,code_scanning,copilot_code_review,creation,required_deployments,update","present":"code_quality code_scanning copilot_code_review creation deletion non_fast_forward pull_request required_deployments required_linear_history required_signatures update"}
 {"repo":".git-private-farm","state":"ERROR","detail":"api call failed"}
 {"repo":"defiant","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"checky-monkey","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"cccp","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"branch-newspaper","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
-{"repo":"blue-screen-of-app","state":"MISSING"}
-{"repo":"awesome-zig","state":"DRIFT","missing":"pull_request","extra":"","present":"deletion non_fast_forward required_linear_history required_signatures"}
+{"repo":"blue-screen-of-app","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"awesome-zig","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"feedback-o-tron","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"academic-workflow-suite","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"neurophone","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
-{"repo":"safe-brute-force","state":"MISSING"}
+{"repo":"safe-brute-force","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"v3-templater","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"conative-gating","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"anamnesis","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
-{"repo":"a2ml_ex","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"vex-tools","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"awesome-nickel","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"k9_gleam","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"a2ml_gleam","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
+{"repo":"a2ml_ex","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"vex-tools","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"awesome-nickel","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"k9_gleam","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"a2ml_gleam","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"007","state":"ERROR","detail":"api call failed"}
 {"repo":"proof-of-work","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
-{"repo":"flat-mate","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
+{"repo":"flat-mate","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"zerotier-k8s-link","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
-{"repo":"ZeroProb.jl","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"vscode-k9","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"vscode-a2ml","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
+{"repo":"ZeroProb.jl","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"vscode-k9","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"vscode-a2ml","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"voyage-enterprise-decision-system","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
-{"repo":"v-grpc","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"v-graphql","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"vexometer","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"verisimiser","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"tropical-resource-typing","state":"MISSING"}
-{"repo":"statistease","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"session-sentinel","state":"DRIFT","missing":"pull_request","extra":"","present":"deletion non_fast_forward required_linear_history required_signatures"}
+{"repo":"v-grpc","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"v-graphql","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"vexometer","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"verisimiser","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"tropical-resource-typing","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"statistease","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"session-sentinel","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"sanctify-php","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"rrecord-verity","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
-{"repo":"rescript-tea","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"rescript-dom-mounter","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"QuantumCircuit.jl","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"ProvenCrypto.jl","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"presswerk","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"PRComms.jl","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"PostDisciplinary.jl","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"PolyglotFormalisms.jl","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
+{"repo":"rescript-tea","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"rescript-dom-mounter","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"QuantumCircuit.jl","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"ProvenCrypto.jl","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"presswerk","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"PRComms.jl","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"PostDisciplinary.jl","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"PolyglotFormalisms.jl","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"php-aegis","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"phantom-metal-taste","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
-{"repo":"pandoc-k9","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"pandoc-a2ml","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
+{"repo":"pandoc-k9","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"pandoc-a2ml","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"palimpsest-license","state":"DRIFT","missing":"","extra":"code_quality,code_scanning,copilot_code_review,required_deployments","present":"code_quality code_scanning copilot_code_review deletion non_fast_forward pull_request required_deployments required_linear_history required_signatures"}
-{"repo":"ochrance-framework","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
+{"repo":"ochrance-framework","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"neural-foundations","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
-{"repo":"nesy-solver","state":"MISSING"}
+{"repo":"nesy-solver","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"mtpc-template-repo","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"misinformation-defence-platform","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
-{"repo":"MinixSDK.jl","state":"MISSING"}
-{"repo":"servers","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
+{"repo":"MinixSDK.jl","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"servers","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"maa-framework","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
-{"repo":"Lithoglyph.jl","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"linguist","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
+{"repo":"Lithoglyph.jl","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"linguist","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"laniakea","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
-{"repo":"KnotTheory.jl","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"kea","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
+{"repo":"KnotTheory.jl","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"kea","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"kaldor-iiot","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
-{"repo":"k9-showcase","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"k9-haskell","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"JuliaPackage-Reuse-Audit.jl","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
+{"repo":"k9-showcase","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"k9-haskell","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"JuliaPackage-Reuse-Audit.jl","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"ipfs-overlay","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
-{"repo":"InvestigativeJournalist.jl","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
+{"repo":"InvestigativeJournalist.jl","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"intsoc-transactor","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"im-docs","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"idaptik-rescript13-staging","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
-{"repo":"Hyperpolymath.jl","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
+{"repo":"Hyperpolymath.jl","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"http-capability-gateway","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"hesiod-dns-map","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
-{"repo":"HardwareResilience.jl","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"HackenbushGames.jl","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"FirmwareAudit.jl","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
+{"repo":"HardwareResilience.jl","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"HackenbushGames.jl","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"FirmwareAudit.jl","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"fireflag","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"explicit-trust-plane","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
-{"repo":"ensaid-spec","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"docudactyl","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"dictask","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
+{"repo":"ensaid-spec","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"docudactyl","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"dictask","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"developer-ecosystem","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
-{"repo":"Cliometrics.jl","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"Cliodynamics.jl","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"Cladistics.jl","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
+{"repo":"Cliometrics.jl","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"Cliodynamics.jl","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"Cladistics.jl","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"civic-connect","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
-{"repo":"chapeliser","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
+{"repo":"chapeliser","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"boinc-boinc","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"blog-drafts","state":"ERROR","detail":"api call failed"}
-{"repo":"blocky-writer","state":"DRIFT","missing":"","extra":"code_quality,code_scanning,copilot_code_review,required_deployments,required_status_checks","present":"code_quality code_scanning copilot_code_review deletion non_fast_forward pull_request required_deployments required_linear_history required_signatures required_status_checks"}
-{"repo":"Axiom.jl","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"Axiology.jl","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"asdf-tool-plugins","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"ambientops","state":"DRIFT","missing":"","extra":"code_quality,code_scanning,copilot_code_review,required_deployments,required_status_checks","present":"code_quality code_scanning copilot_code_review deletion non_fast_forward pull_request required_deployments required_linear_history required_signatures required_status_checks"}
-{"repo":"AcceleratorGate.jl","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"a2ml-haskell","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"a2ml-deno","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"tree-sitter-k9","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"tree-sitter-a2ml","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"k9_ex","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"format-registrations","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"HyperpolymathRegistry","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
+{"repo":"blocky-writer","state":"DRIFT","missing":"","extra":"required_status_checks","present":"deletion non_fast_forward pull_request required_linear_history required_signatures required_status_checks"}
+{"repo":"Axiom.jl","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"Axiology.jl","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"asdf-tool-plugins","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"ambientops","state":"DRIFT","missing":"","extra":"required_status_checks","present":"deletion non_fast_forward pull_request required_linear_history required_signatures required_status_checks"}
+{"repo":"AcceleratorGate.jl","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"a2ml-haskell","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"a2ml-deno","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"tree-sitter-k9","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"tree-sitter-a2ml","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"k9_ex","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"format-registrations","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"HyperpolymathRegistry","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"gitbot-fleet","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
-{"repo":"KRLAdapter.jl","state":"MISSING"}
-{"repo":"Skein.jl","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"protocol-squisher","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"squeakwell","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"typedqliser","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"gv-clade-index","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"typell","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"rescript-string-power","state":"MISSING"}
-{"repo":"dicti0nary-attack","state":"MISSING"}
+{"repo":"KRLAdapter.jl","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"Skein.jl","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"protocol-squisher","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"squeakwell","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"typedqliser","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"gv-clade-index","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"typell","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"rescript-string-power","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"dicti0nary-attack","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"wokelang","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"polysafe-gitfixer","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
-{"repo":"zotero-tools","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
+{"repo":"zotero-tools","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"zerostep","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
-{"repo":"wordpress-tools","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"wokelangiser","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"v-rest","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"ViableSystems.jl","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
+{"repo":"wordpress-tools","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"wokelangiser","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"v-rest","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"ViableSystems.jl","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"valence-shell","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
-{"repo":"befunge93-vault-cracker","state":"MISSING"}
+{"repo":"befunge93-vault-cracker","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"universal-project-manager","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"universal-language-server-plugin","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"universal-extension-format","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"universal-chat-extractor","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
-{"repo":"unified-dataset-vocab","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
+{"repo":"unified-dataset-vocab","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"ubicity","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"tree-navigator","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
-{"repo":"TradeUnionist.jl","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
+{"repo":"TradeUnionist.jl","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"tma-mark2","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
-{"repo":"tlaiser","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
+{"repo":"tlaiser","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"thunderbird-template-reloaded","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"the-nash-equilibrium","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"supernorma","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
-{"repo":"ssg-collection","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"squisher-corpus","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"SoftwareSovereign.jl","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"social-media-tools","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"SMTLib.jl","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"SiliconCore.jl","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"ShellIntegration.jl","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
+{"repo":"ssg-collection","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"squisher-corpus","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"SoftwareSovereign.jl","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"social-media-tools","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"SMTLib.jl","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"SiliconCore.jl","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"ShellIntegration.jl","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"seamstress","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"robodog-ecm","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
-{"repo":"rescript-vite","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"rescript-evangeliser","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
+{"repo":"rescript-vite","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"rescript-evangeliser","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"raze-tui","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"proven","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"preference-injector","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
-{"repo":"ponyiser","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"polyglot-formalisms-gleam","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"polyglot-formalisms-elixir","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"pimcore-fortress","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"phronesiser","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"patch-bridge","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
+{"repo":"ponyiser","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"polyglot-formalisms-gleam","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"polyglot-formalisms-elixir","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"pimcore-fortress","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"phronesiser","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"patch-bridge","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"patallm-gallery","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"odds-and-sods-package-manager","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
-{"repo":"ochrance","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"oblibeniser","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
+{"repo":"ochrance","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"oblibeniser","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"no-nonsense-nntps","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
-{"repo":"nickel-augmentation","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
+{"repo":"nickel-augmentation","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"nexia-list","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
-{"repo":"nafa-app","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"mylangiser","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
+{"repo":"nafa-app","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"mylangiser","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"modshells","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"methodologies","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"megadog","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
-{"repo":"manifesto","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"MacroPower.jl","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"lustreiser","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"LowLevel.jl","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
+{"repo":"manifesto","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"MacroPower.jl","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"lustreiser","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"LowLevel.jl","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"live-files","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"lcb-website","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"laminar","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
-{"repo":"kategoria","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"k9-validate-action","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"k9-rs","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"k9-pre-commit","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"k9iser","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"k9-deno","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"julianiser","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"JuliaKids.jl","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"julia-ecosystem","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
+{"repo":"kategoria","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"k9-validate-action","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"k9-rs","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"k9-pre-commit","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"k9iser","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"k9-deno","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"julianiser","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"JuliaKids.jl","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"julia-ecosystem","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"januskey","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"iseriser","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
-{"repo":"ipv6-tools","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"infrastructure-automation","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"i-human","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"idrisiser","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
+{"repo":"ipv6-tools","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"infrastructure-automation","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"i-human","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"idrisiser","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"hyperpolymath-sovereign-registry","state":"ERROR","detail":"api call failed"}
 {"repo":"hyperpolymath.github.io","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
-{"repo":"hybrid-automation-router","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"homebrew-tap","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
+{"repo":"hybrid-automation-router","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"homebrew-tap","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"heterogenous-mobile-computing","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
-{"repo":"halideiser","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"groove-browser-harness","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
+{"repo":"halideiser","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"groove-browser-harness","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"grim-repo","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
-{"repo":"git-reticulator","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"futharkiser","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
+{"repo":"git-reticulator","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"futharkiser","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"formatrix-docs","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
-{"repo":"flatracoon","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"filesoup","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"ffmpeg-ffi","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"Exnovation.jl","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
+{"repo":"flatracoon","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"filesoup","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"ffmpeg-ffi","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"Exnovation.jl","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"excel-economic-numbers-tool","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
-{"repo":"ephapaxiser","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
+{"repo":"ephapaxiser","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"empty-linter","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"elixir-mcp-server","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
-{"repo":"eclexiaiser","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
+{"repo":"eclexiaiser","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"double-track-browser","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"dotmatrix-fileprinter","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"docmatrix","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
-{"repo":"dafniser","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"cookie-rebound","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
+{"repo":"dafniser","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"cookie-rebound","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"conflow","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"cloud-sync-tuner","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"cloudguard-server","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"cloudguard-cli","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"cloudflare-dns-terraform","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"chimichanga","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
-{"repo":"Causals.jl","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
+{"repo":"Causals.jl","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"bunsenite","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
-{"repo":"bqniser","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"BowtieRisk.jl","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"betlangiser","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"awesome-mcp-servers","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"awesome-idris2","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"atsiser","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"aspasia","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"anvomidaviser","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"anvomidav","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"alloyiser","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"affinescriptiser","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
+{"repo":"bqniser","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"BowtieRisk.jl","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"betlangiser","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"awesome-mcp-servers","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"awesome-idris2","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"atsiser","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"aspasia","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"anvomidaviser","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"anvomidav","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"alloyiser","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"affinescriptiser","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"accessibility-everywhere","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
-{"repo":"a2ml-validate-action","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"a2ml-rs","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"a2ml-pre-commit","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"a2mliser","state":"DRIFT","missing":"pull_request","extra":"code_quality","present":"code_quality deletion non_fast_forward required_linear_history required_signatures"}
+{"repo":"a2ml-validate-action","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"a2ml-rs","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"a2ml-pre-commit","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"a2mliser","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"oblibeny","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
-{"repo":"poly-k8s-mcp","state":"MISSING"}
+{"repo":"poly-k8s-mcp","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"scripts","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"qubes-sdp","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"rescript","state":"MISSING"}
 {"repo":"file","state":"MISSING"}
 {"repo":"awesome-selfhosted","state":"MISSING"}
 {"repo":"lua-filters","state":"MISSING"}
-{"repo":"awesome-rust","state":"DRIFT","missing":"pull_request","extra":"","present":"deletion non_fast_forward required_linear_history required_signatures"}
-{"repo":"awesome-gleam","state":"DRIFT","missing":"pull_request","extra":"","present":"deletion non_fast_forward required_linear_history required_signatures"}
+{"repo":"awesome-rust","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
+{"repo":"awesome-gleam","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"awesome-elixir","state":"MISSING"}
-{"repo":"awesome-pandoc","state":"DRIFT","missing":"pull_request","extra":"","present":"deletion non_fast_forward required_linear_history required_signatures"}
+{"repo":"awesome-pandoc","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"awesome-haskell","state":"MISSING"}
 {"repo":"awesome-lua","state":"MISSING"}
-{"repo":"info","state":"DRIFT","missing":"pull_request","extra":"","present":"deletion non_fast_forward required_linear_history required_signatures"}
+{"repo":"info","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
 {"repo":"awesome-v","state":"MISSING"}
-{"repo":"awesome-mcp-servers-1","state":"DRIFT","missing":"pull_request","extra":"","present":"deletion non_fast_forward required_linear_history required_signatures"}
+{"repo":"awesome-mcp-servers-1","state":"OK","rules":"deletion non_fast_forward pull_request required_linear_history required_signatures"}
