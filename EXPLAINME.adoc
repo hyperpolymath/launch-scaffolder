@@ -1,0 +1,160 @@
+// SPDX-License-Identifier: PMPL-1.0-or-later
+// SPDX-FileCopyrightText: 2026 Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
+= launch-scaffolder — EXPLAINME
+:toc: preamble
+:icons: font
+
+This file maps README.adoc claims to their implementation evidence for
+sceptical developers.
+
+== "Build cross-platform desktop launchers from a declarative A2ML spec"
+
+[quote, README.adoc]
+____
+launch-scaffolder is a single Rust binary that generates, installs, and
+maintains cross-platform desktop launcher scripts for any hyperpolymath
+project.
+____
+
+How this is implemented::
+The Cargo workspace at link:Cargo.toml[`Cargo.toml`] defines two crates:
+link:crates/launcher-common/[`crates/launcher-common/`] (the library with all
+real logic) and link:crates/launcher/[`crates/launcher/`] (the thin CLI
+binary). The four working subcommands each have a dedicated module:
+link:crates/launcher/src/cmd_mint.rs[`cmd_mint.rs`],
+link:crates/launcher/src/cmd_realign.rs[`cmd_realign.rs`],
+link:crates/launcher/src/cmd_provision.rs[`cmd_provision.rs`],
+link:crates/launcher/src/cmd_config.rs[`cmd_config.rs`].
+link:crates/launcher/src/main.rs[`main.rs`] dispatches via `clap`.
+
+Caveat::
+`cmd_standard.rs` exists but is a scaffold stub — the `standard` subcommand
+is not yet wired. Cross-platform support is Linux-only for the `provision`
+backend; macOS and Windows return `IntegError::UnsupportedPlatform`.
+
+== "The standard is a single file — changing it is a one-line edit"
+
+[quote, README.adoc]
+____
+Launchers become reproducible, auditable artefacts — not hand-edited drift.
+____
+
+How this is implemented::
+link:standards/launcher-standard.a2ml[`standards/launcher-standard.a2ml`] is
+the canonical specification. It is baked into the binary at compile time via
+`include_str!()` in
+link:crates/launcher-common/src/standard.rs[`crates/launcher-common/src/standard.rs`]
+as a fallback. The `LauncherStandard::resolve` function uses three-step
+precedence: `--standard <file>` CLI flag → `$LAUNCH_SCAFFOLDER_STANDARD` env
+var → canonical path at `/var/mnt/eclipse/repos/standards/launcher/launcher-standard.a2ml`
+→ baked-in fallback.
+
+Caveat::
+The baked-in fallback is intentionally a last resort — it will lag behind
+the canonical standard until the binary is recompiled. The canonical path
+is hardcoded to the Eclipse drive; users outside the hyperpolymath estate
+must use the `--standard` flag.
+
+== "Fixture-vs-live naming convention enforced in code"
+
+[quote, README.adoc]
+____
+File-name suffixes carry the distinction: `<app>.launcher.a2ml` (live) vs
+`<app>.launcher.fixture.a2ml` (fixture).
+____
+
+How this is implemented::
+link:crates/launcher-common/src/discovery.rs[`crates/launcher-common/src/discovery.rs`]
+contains the `is_live_config(path: &Path) -> bool` function. It returns
+`false` for any path whose stem ends in `.fixture`. The `realign` and
+`provision --all` commands call `is_live_config` when walking the estate to
+skip fixture files.
+
+Caveat::
+None — the rule is enforced in code. Fixture files can live anywhere in the
+estate (including `examples/`) without being swept up.
+
+== "7 managed launchers fully regenerated with delegation arms"
+
+[quote, README.adoc]
+____
+7 launchers fully managed: aerie, burble, game-server-admin, nqc, panll,
+project-wharf, stapeln
+____
+
+How this is implemented::
+Each managed project's `<app>.launcher.a2ml` config file is parsed by
+link:crates/launcher-common/src/config.rs[`crates/launcher-common/src/config.rs`]
+and rendered by link:crates/launcher-common/src/template.rs[`src/template.rs`]
+using the Tera template at link:templates/launcher.sh.tera[`templates/launcher.sh.tera`].
+The generated scripts embed:
+* `CONFIG_FILE=<absolute-path-to-config>` — the source config path
+* A fast-path that delegates to `launch-scaffolder provision` when the binary is on `PATH`
+* A shell fallback for when the binary is absent
+
+Caveat::
+5 declared exceptions (hypatia, invariant-path, opsm, ambientops, idaptik)
+remain hand-written. Their migration triggers are documented in
+link:docs/launcher-exceptions-2026-04-10.md[`docs/launcher-exceptions-2026-04-10.md`].
+
+== "Native Rust .desktop writer for provision"
+
+[quote, README.adoc]
+____
+provision subcommand — native Rust .desktop writer, icon/launcher install
+____
+
+How this is implemented::
+link:crates/launcher-common/src/integration.rs[`crates/launcher-common/src/integration.rs`]
+writes XDG `.desktop` files directly from Rust (no shell subprocess) and
+copies launcher binaries and icons into `$HOME/.local/bin/` and
+`$HOME/.local/share/icons/`. It calls `gio` and `update-desktop-database`
+via `std::process::Command` for desktop database refresh on systems that
+support it.
+
+Caveat::
+macOS and Windows are not yet supported — both return
+`IntegError::UnsupportedPlatform`. The Linux implementation is tested on
+Fedora 43 Atomic (Wayland/KDE).
+
+== Dogfooded Across The Account
+
+[cols="1,2,2", options="header"]
+|===
+| Technology / Pattern | Used here | Also used in
+
+| Rust/SPARK workspace (Cargo)
+| Two-crate workspace: library + thin CLI binary
+| link:https://github.com/hyperpolymath/k9-rs[k9-rs],
+  link:https://github.com/hyperpolymath/a2ml-rs[a2ml-rs]
+
+| A2ML as configuration format
+| `<app>.launcher.a2ml` per-app config; TOML concrete syntax in v0.1
+| link:https://github.com/hyperpolymath/format-registrations[format-registrations],
+  every `0-AI-MANIFEST.a2ml` in the estate
+
+| Tera templating
+| Bash launcher template with variable substitution
+| Unique to this repo
+
+| Fixture-vs-live suffix convention
+| `.launcher.fixture.a2ml` excluded from estate walks
+| Formalised here; referenced in memory notes
+
+| clap CLI parsing
+| Subcommand dispatch with typed args
+| link:https://github.com/hyperpolymath/panic-attacker[panic-attacker]
+|===
+
+== Known Gaps
+
+`cmd_standard.rs` is a scaffold stub — the `standard` subcommand (which would
+print or validate the current standard spec) is not yet implemented.
+
+`crates/launcher-common/src/platform.rs`, `integrity.rs`, and `exceptions.rs`
+are stubs. The `integrity` module (SHA-256 manifest generation) and
+`exceptions` module (per-app override merge) are required for full spec
+compliance.
+
+Golden-file regression tests pinning `mint` output for the 7 managed launchers
+are planned but not yet written (see `tests/regression/`).
