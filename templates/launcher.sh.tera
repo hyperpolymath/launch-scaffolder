@@ -325,6 +325,27 @@ write_linux_desktop_file() {
     else
         icon_name="package-x-generic"
     fi
+
+    # keepopen.sh implements the standard fallback ladder: GUI → TUI →
+    # bash-at-repo-root. See launcher-standard.adoc §Fallback Ladder.
+    local keepopen="/var/mnt/eclipse/repos/.desktop-tools/keepopen.sh"
+    local gui_cmd tui_cmd
+{% if runtime_kind == "server-url" -%}
+    # server-url: GUI = start server + open browser + tail log (so terminal
+    # stays open); TUI = start-only + follow log; Shell = repo root.
+    gui_cmd="$LAUNCHER_TARGET --auto && tail -f $LOG_FILE"
+    tui_cmd="$LAUNCHER_TARGET --start && tail -f $LOG_FILE"
+{%- elif runtime_kind == "remote" -%}
+    # remote: GUI = open remote URL; TUI = print status; Shell = repo root.
+    gui_cmd="$LAUNCHER_TARGET --browser"
+    tui_cmd="$LAUNCHER_TARGET --status"
+{%- else -%}
+    # process: GUI = start then tail log so terminal stays open;
+    # TUI = just tail the existing log; Shell = repo root.
+    gui_cmd="$LAUNCHER_TARGET --start && tail -f $LOG_FILE"
+    tui_cmd="tail -n 200 -f $LOG_FILE"
+{%- endif %}
+
     cat > "$target" <<EOF
 [Desktop Entry]
 Type=Application
@@ -332,9 +353,9 @@ Version=1.0
 Name=$APP_DISPLAY
 GenericName=$APP_GENERIC_NAME
 Comment=$APP_DESC
-Exec=$LAUNCHER_TARGET {% if runtime_kind == "process" %}--start{% else %}--auto{% endif %}
+Exec=$keepopen "$APP_DISPLAY" "$REPO_DIR" "$gui_cmd" "$tui_cmd" "$LOG_FILE"
 Icon=$icon_name
-Terminal=false
+Terminal=true
 Categories=$APP_CATEGORIES
 StartupNotify=true
 StartupWMClass=$APP_NAME
