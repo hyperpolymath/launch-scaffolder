@@ -80,7 +80,7 @@ and unpinned `curl | bash`.
 
 | Launcher | `set -euo pipefail` | Quoting | `eval`? | `/tmp` PID file | `curl \| bash` | Other |
 |---|---|---|---|---|---|---|
-| aerie | ✅ | ✅ | none | `/tmp/aerie.pid` (standard-compliant predictable name, no `mktemp`) | none | Hardcoded `/home/hyper/Desktop/Repo-Projects/launchers/repo-quicklaunch.sh` — portability, not security |
+| aerie | ✅ | ✅ | none | `/tmp/aerie.pid` (standard-compliant predictable name, no `mktemp`) | none | Hardcoded `/var/mnt/eclipse/repos/.desktop-tools/launchers/repo-quicklaunch.sh` — portability, not security |
 | ambientops | ✅ | ✅ | none | `/tmp/ambientops.pid` | none | Same hardcoded `repo-quicklaunch.sh` path |
 | burble | ✅ | ✅ | none | `/tmp/burble-server.pid` | none | `curl` used only for local readiness probe against `$URL`; not piped to shell |
 | game-server-admin | ✅ | ✅ | none | `/tmp/game-server-admin.pid` | none | Hardcoded `/home/hyper/.local/bin/game-server-admin-launcher` (double-indirection to another launcher) |
@@ -142,7 +142,7 @@ server-with-url shape.
 ### 6. Hardcoded `$HOME` paths: **5 / 11**
 
 `aerie`, `ambientops`, `project-wharf` hardcode
-`/home/hyper/Desktop/Repo-Projects/launchers/repo-quicklaunch.sh`.
+`/var/mnt/eclipse/repos/.desktop-tools/launchers/repo-quicklaunch.sh`.
 `game-server-admin` hardcodes `/home/hyper/.local/bin/game-server-admin-launcher`.
 `nqc` hardcodes `/home/hyper/.bin/nqc`.
 
@@ -242,8 +242,8 @@ work items for whichever session retires the hand-written launchers via
 
 ## Files consulted (read-only)
 
-- `/var/mnt/eclipse/repos/standards/docs/UX-standards/launcher-standard.adoc`
-- `/var/mnt/eclipse/repos/standards/docs/UX-standards/LM-LA-LIFECYCLE-STANDARD.adoc`
+- `/var/mnt/eclipse/repos/developer-ecosystem/standards/docs/UX-standards/launcher-standard.adoc`
+- `/var/mnt/eclipse/repos/developer-ecosystem/standards/docs/UX-standards/LM-LA-LIFECYCLE-STANDARD.adoc`
 - `/var/mnt/eclipse/repos/.desktop-tools/aerie-launcher.sh`
 - `/var/mnt/eclipse/repos/.desktop-tools/ambientops-launcher.sh`
 - `/var/mnt/eclipse/repos/.desktop-tools/burble-launcher.sh`

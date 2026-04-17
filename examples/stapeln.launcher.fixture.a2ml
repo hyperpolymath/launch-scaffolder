@@ -23,7 +23,7 @@ license      = "PMPL-1.0-or-later"
 
 [repo]
 # Canonical repo location. Used by the launcher to locate scripts/run.sh.
-path = "/var/mnt/eclipse/repos/stapeln"
+path = "/var/mnt/eclipse/repos/fleet-ecosystem/stapeln"
 
 [runtime]
 # Runtime characteristics used by --start / --auto.

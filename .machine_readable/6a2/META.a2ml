@@ -73,7 +73,7 @@ machine-readable companion.
 """
 decision = """
 Canonical machine-readable standard lives at
-/var/mnt/eclipse/repos/standards/launcher/launcher-standard.a2ml.
+/var/mnt/eclipse/repos/developer-ecosystem/standards/launcher/launcher-standard.a2ml.
 launch-scaffolder loads it at runtime via a precedence chain:
   1. --standard flag
   2. $LAUNCH_SCAFFOLDER_STANDARD env var

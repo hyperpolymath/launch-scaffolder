@@ -29,7 +29,7 @@ Inputs:
   launcher looks like (modes, file paths, permissions, integrity
   requirements, per-platform behaviour). The canonical copy lives in the
   `standards` monorepo at
-  `/var/mnt/eclipse/repos/standards/launcher/launcher-standard.a2ml`. At
+  `/var/mnt/eclipse/repos/developer-ecosystem/standards/launcher/launcher-standard.a2ml`. At
   runtime the loader resolves in this order:
 +
   . `--standard <file>` CLI flag

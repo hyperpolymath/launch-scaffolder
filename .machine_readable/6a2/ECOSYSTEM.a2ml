@@ -26,13 +26,13 @@ hyperpolymath tools at runtime.
 
 [[related-projects]]
 name         = "standards"
-repo         = "/var/mnt/eclipse/repos/standards"
+repo         = "/var/mnt/eclipse/repos/developer-ecosystem/standards"
 relationship = "standards-source"
 detail       = "Hosts the canonical launcher-standard.a2ml at standards/launcher/launcher-standard.a2ml (and its prose counterpart at standards/docs/UX-standards/launcher-standard.adoc). launch-scaffolder reads the machine-readable form at runtime."
 
 [[related-projects]]
 name         = "stapeln"
-repo         = "/var/mnt/eclipse/repos/stapeln"
+repo         = "/var/mnt/eclipse/repos/fleet-ecosystem/stapeln"
 relationship = "reference-consumer"
 detail       = "First real-world consumer. Its pre-2026-04-10 hand-written launcher at scripts/stapeln-launcher.sh was the template-porting source. Now scaffolder-managed via stapeln/stapeln.launcher.a2ml."
 
@@ -44,25 +44,25 @@ detail       = "Process-kind launcher. First migration after stapeln."
 
 [[related-projects]]
 name         = "burble"
-repo         = "/var/mnt/eclipse/repos/burble"
+repo         = "/var/mnt/eclipse/repos/developer-ecosystem/burble"
 relationship = "consumer"
 detail       = "Server-url launcher (port 4020). Previous hand-written copy at scripts/burble-launcher.sh is deprecated-in-place pending removal."
 
 [[related-projects]]
 name         = "game-server-admin"
-repo         = "/var/mnt/eclipse/repos/game-server-admin"
+repo         = "/var/mnt/eclipse/repos/fleet-ecosystem/game-server-admin"
 relationship = "consumer"
 detail       = "Process-kind launcher. Wraps a pre-installed binary at ~/.local/bin/game-server-admin-launcher."
 
 [[related-projects]]
 name         = "nqc"
-repo         = "/var/mnt/eclipse/repos/nextgen-databases/nqc"
+repo         = "/var/mnt/eclipse/repos/developer-ecosystem/nextgen-databases/nqc"
 relationship = "consumer"
 detail       = "Process-kind launcher inside the nextgen-databases monorepo. Launches the pre-installed ~/.bin/nqc binary with --gui."
 
 [[related-projects]]
 name         = "panll"
-repo         = "/var/mnt/eclipse/repos/panll"
+repo         = "/var/mnt/eclipse/repos/verification-ecosystem/panll"
 relationship = "consumer"
 detail       = "Server-url launcher (port 8000). PanLL may later consume launch-scaffolder as a *library* to offer a GUI minter."
 
@@ -79,19 +79,19 @@ detail       = "Every hyperpolymath repo that ships a desktop launcher is a pote
 
 [[related-projects]]
 name         = "invariant-path"
-repo         = "/var/mnt/eclipse/repos/invariant-path"
+repo         = "/var/mnt/eclipse/repos/verification-ecosystem/invariant-path"
 relationship = "declared-exception"
 detail       = "Stays hand-written — bespoke Rust CLI wrapper. Not a scaffolder consumer."
 
 [[related-projects]]
 name         = "hypatia"
-repo         = "/var/mnt/eclipse/repos/hypatia"
+repo         = "/var/mnt/eclipse/repos/verification-ecosystem/hypatia"
 relationship = "declared-exception"
 detail       = "Stays hand-written — remote web app with gossamer fallback and bespoke modes."
 
 [integration-points]
 input-config-format  = "A2ML (TOML-compatible today) at <repo-root>/<app>.launcher.a2ml"
-input-standard       = "A2ML at /var/mnt/eclipse/repos/standards/launcher/launcher-standard.a2ml"
+input-standard       = "A2ML at /var/mnt/eclipse/repos/developer-ecosystem/standards/launcher/launcher-standard.a2ml"
 output-launcher      = "POSIX bash script at <repo-root>/<app>-launcher.sh (chmod 755)"
 output-desktop-entry = "Freedesktop .desktop file written by the generated script's --integ mode"
 output-bundle-macos  = ".app bundle written by the generated script's --integ mode"

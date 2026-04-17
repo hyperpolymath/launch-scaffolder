@@ -46,7 +46,7 @@ the canonical specification. It is baked into the binary at compile time via
 link:crates/launcher-common/src/standard.rs[`crates/launcher-common/src/standard.rs`]
 as a fallback. The `LauncherStandard::resolve` function uses three-step
 precedence: `--standard <file>` CLI flag → `$LAUNCH_SCAFFOLDER_STANDARD` env
-var → canonical path at `/var/mnt/eclipse/repos/standards/launcher/launcher-standard.a2ml`
+var → canonical path at `/var/mnt/eclipse/repos/developer-ecosystem/standards/launcher/launcher-standard.a2ml`
 → baked-in fallback.
 
 Caveat::
