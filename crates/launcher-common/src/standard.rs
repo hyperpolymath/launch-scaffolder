@@ -81,7 +81,7 @@ impl LauncherStandard {
             return Self::load(path);
         }
         let canonical =
-            Path::new("/var/mnt/eclipse/repos/standards/launcher/launcher-standard.a2ml");
+            Path::new("/var/mnt/eclipse/repos/developer-ecosystem/standards/launcher/launcher-standard.a2ml");
         if canonical.exists() {
             tracing::debug!(
                 "loading standard from canonical path: {}",

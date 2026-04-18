@@ -79,15 +79,15 @@ mint-all:
     [ -x "$BIN" ] || cargo build --release
     for cfg in \
         /var/mnt/eclipse/repos/aerie/aerie.launcher.a2ml \
-        /var/mnt/eclipse/repos/burble/burble.launcher.a2ml \
-        /var/mnt/eclipse/repos/game-server-admin/game-server-admin.launcher.a2ml \
-        /var/mnt/eclipse/repos/nextgen-databases/nqc/nqc.launcher.a2ml \
-        /var/mnt/eclipse/repos/panll/panll.launcher.a2ml \
+        /var/mnt/eclipse/repos/developer-ecosystem/burble/burble.launcher.a2ml \
+        /var/mnt/eclipse/repos/fleet-ecosystem/game-server-admin/game-server-admin.launcher.a2ml \
+        /var/mnt/eclipse/repos/developer-ecosystem/nextgen-databases/nqc/nqc.launcher.a2ml \
+        /var/mnt/eclipse/repos/verification-ecosystem/panll/panll.launcher.a2ml \
         /var/mnt/eclipse/repos/project-wharf/project-wharf.launcher.a2ml \
-        /var/mnt/eclipse/repos/stapeln/stapeln.launcher.a2ml ; do
+        /var/mnt/eclipse/repos/fleet-ecosystem/stapeln/stapeln.launcher.a2ml ; do
         "$BIN" mint "$cfg"
     done
-    @echo "✓ Estate re-mint complete (7 launchers)"
+    echo "✓ Estate re-mint complete (7 launchers)"
 
 # Generate cargo docs
 doc:
