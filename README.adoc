@@ -258,7 +258,7 @@ cargo build --release  # optimized, stripped, single-file binary
 cargo test             # run tests
 cargo run -- --help    # invoke the binary
 
-# Or via justfile
+# Or via Justfile
 just build
 just test
 just install           # cargo install --path crates/launcher
