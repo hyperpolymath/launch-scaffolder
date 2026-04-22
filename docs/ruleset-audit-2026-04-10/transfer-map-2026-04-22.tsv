@@ -1,0 +1,5 @@
+# legacy_owner	legacy_repo	new_owner	new_repo	status	evidence	date
+hyperpolymath	repos-monorepo	The-Metadatastician		no_candidate_in_target_inventory	source:200(private,main);target_same_name:404;rename_scan:no-credible-match-in-8-repo-inventory	2026-04-22
+hyperpolymath	.git-private-farm	The-Metadatastician		no_candidate_in_target_inventory	source:200(private,main);target_same_name:404;rename_scan:no-credible-match-in-8-repo-inventory	2026-04-22
+hyperpolymath	blog-drafts	The-Metadatastician		no_candidate_in_target_inventory	source:200(private,main);target_same_name:404;rename_scan:no-credible-match-in-8-repo-inventory	2026-04-22
+hyperpolymath	hyperpolymath-sovereign-registry	The-Metadatastician		no_candidate_in_target_inventory	source:200(private,main);target_same_name:404;rename_scan:no-credible-match-in-8-repo-inventory	2026-04-22

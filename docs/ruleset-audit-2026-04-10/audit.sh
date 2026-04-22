@@ -34,19 +34,122 @@
 
 set -euo pipefail
 
-REPOS_FILE="/tmp/ruleset-audit/repos.tsv"
-REPORT_FILE="/tmp/ruleset-audit/report.jsonl"
+REPOS_FILE="${REPOS_FILE:-/tmp/ruleset-audit/repos.tsv}"
+REPORT_FILE="${REPORT_FILE:-/tmp/ruleset-audit/report.jsonl}"
+OWNER="${OWNER:-hyperpolymath}"
 : > "$REPORT_FILE"
 
 REQUIRED_RULES="deletion non_fast_forward pull_request required_linear_history required_signatures"
+GH_API_RETRIES="${GH_API_RETRIES:-4}"
+GH_API_BACKOFF_BASE_SECONDS="${GH_API_BACKOFF_BASE_SECONDS:-1}"
+GH_API_TIMEOUT_SECONDS="${GH_API_TIMEOUT_SECONDS:-20}"
+
+LAST_GH_API_ERROR_KIND="api"
+LAST_GH_API_ATTEMPTS=0
+GH_API_LAST_RESPONSE=""
+
+require_cmd() {
+    local cmd="$1"
+    command -v "$cmd" >/dev/null 2>&1 || {
+        echo "ERROR: required command '$cmd' not found in PATH" >&2
+        exit 2
+    }
+}
+
+classify_gh_error() {
+    local status="$1"
+    local stderr_text="$2"
+    if echo "$stderr_text" | grep -Eiq \
+        'upgrade to github pro|make this repository public to enable this feature|feature is not available for private repositories'; then
+        echo "plan-gated"
+        return
+    fi
+    if [ "$status" -eq 124 ] || echo "$stderr_text" | grep -Eiq \
+        'timed out|temporary failure in name resolution|failed to lookup address|could not resolve|error connecting to api|connection reset|connection refused|network|tls'; then
+        echo "network"
+        return
+    fi
+    if echo "$stderr_text" | grep -Eiq \
+        'failed to log in|to re-authenticate|token|authentication|401|requires authentication'; then
+        echo "auth"
+        return
+    fi
+    if echo "$stderr_text" | grep -Eiq \
+        'rate limit|secondary rate limit|429|abuse detection'; then
+        echo "rate-limit"
+        return
+    fi
+    echo "api"
+}
+
+gh_api_with_retry() {
+    local path="$1"
+    local attempt=1
+    local status=0
+    local sleep_s=0
+    local stderr_file=""
+    local stderr_text=""
+    local out=""
+    while [ "$attempt" -le "$GH_API_RETRIES" ]; do
+        stderr_file=$(mktemp)
+        if command -v timeout >/dev/null 2>&1; then
+            out=$(timeout "${GH_API_TIMEOUT_SECONDS}s" gh api "$path" 2>"$stderr_file") || status=$?
+        else
+            out=$(gh api "$path" 2>"$stderr_file") || status=$?
+        fi
+        if [ "${status:-0}" -eq 0 ]; then
+            rm -f "$stderr_file"
+            LAST_GH_API_ATTEMPTS="$attempt"
+            LAST_GH_API_ERROR_KIND=""
+            GH_API_LAST_RESPONSE="$out"
+            return 0
+        fi
+
+        stderr_text=$(cat "$stderr_file")
+        rm -f "$stderr_file"
+        LAST_GH_API_ATTEMPTS="$attempt"
+        LAST_GH_API_ERROR_KIND=$(classify_gh_error "${status:-1}" "$stderr_text")
+
+        if [ "$LAST_GH_API_ERROR_KIND" = "auth" ] || [ "$LAST_GH_API_ERROR_KIND" = "plan-gated" ]; then
+            return 1
+        fi
+
+        if [ "$attempt" -lt "$GH_API_RETRIES" ]; then
+            sleep_s=$((GH_API_BACKOFF_BASE_SECONDS * attempt))
+            echo "WARN: gh api failed (kind=$LAST_GH_API_ERROR_KIND, attempt=$attempt/$GH_API_RETRIES, path=$path); retrying in ${sleep_s}s" >&2
+            sleep "$sleep_s"
+        fi
+        attempt=$((attempt + 1))
+        status=0
+    done
+    return 1
+}
+
+preflight() {
+    require_cmd gh
+    require_cmd jq
+    if [ ! -f "$REPOS_FILE" ]; then
+        echo "ERROR: repos file not found: $REPOS_FILE" >&2
+        exit 2
+    fi
+    if ! gh auth status >/dev/null 2>&1; then
+        echo "ERROR: gh auth invalid. Run: gh auth login -h github.com" >&2
+        exit 2
+    fi
+    if ! gh_api_with_retry "rate_limit" >/dev/null; then
+        echo "ERROR: GitHub API preflight failed (kind=$LAST_GH_API_ERROR_KIND, attempts=$LAST_GH_API_ATTEMPTS)" >&2
+        exit 2
+    fi
+}
 
 classify() {
     local repo="$1"
-    local rules_json
-    rules_json=$(gh api "repos/hyperpolymath/$repo/rules/branches/main" 2>/dev/null) || {
-        echo "{\"repo\":\"$repo\",\"state\":\"ERROR\",\"detail\":\"api call failed\"}"
+    local rules_json=""
+    if ! gh_api_with_retry "repos/$OWNER/$repo/rules/branches/main"; then
+        echo "{\"repo\":\"$repo\",\"state\":\"ERROR\",\"kind\":\"$LAST_GH_API_ERROR_KIND\",\"attempts\":$LAST_GH_API_ATTEMPTS,\"detail\":\"gh api failed\"}"
         return
-    }
+    fi
+    rules_json="$GH_API_LAST_RESPONSE"
     local n
     n=$(echo "$rules_json" | jq 'length')
     if [ "$n" -eq 0 ]; then
@@ -66,6 +169,9 @@ classify() {
         echo "{\"repo\":\"$repo\",\"state\":\"DRIFT\",\"missing\":\"$missing\",\"extra\":\"$extra\",\"present\":\"$present\"}"
     fi
 }
+
+preflight
+echo "owner=$OWNER" >&2
 
 i=0
 total=$(wc -l < "$REPOS_FILE")

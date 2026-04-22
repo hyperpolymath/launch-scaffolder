@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: PMPL-1.0-or-later
 #
-# wave2-apply.sh — Wave 2 ruleset remediation for hyperpolymath
+# wave2-apply.sh — Wave 2 ruleset remediation for OWNER (default: hyperpolymath)
 #
 # For each DRIFT repo:
 #   1. List existing rulesets → find "Base" ruleset ID
@@ -15,6 +15,7 @@
 # Usage:
 #   bash wave2-apply.sh              # process all 168 DRIFT repos
 #   bash wave2-apply.sh --dry-run    # print plan, no mutations
+#   OWNER=The-Metadatastician bash wave2-apply.sh
 #
 # THREAT MODEL / PANIC-ATTACK NOTE:
 #   `$repo` interpolations are all quoted; input is from report.jsonl
@@ -24,8 +25,9 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPOS_FILE="/tmp/ruleset-audit/wave2-repos.txt"
-RESULTS_FILE="$SCRIPT_DIR/wave2-results.tsv"
+OWNER="${OWNER:-hyperpolymath}"
+REPOS_FILE="${REPOS_FILE:-/tmp/ruleset-audit/wave2-repos.txt}"
+RESULTS_FILE="${RESULTS_FILE:-$SCRIPT_DIR/wave2-results.tsv}"
 DRY_RUN=false
 
 [[ "${1:-}" == "--dry-run" ]] && DRY_RUN=true
@@ -37,7 +39,7 @@ apply_repo() {
 
     # ── 1. List rulesets ──────────────────────────────────────────────
     local rulesets
-    rulesets=$(gh api "repos/hyperpolymath/$repo/rulesets" 2>/dev/null) || {
+    rulesets=$(gh api "repos/$OWNER/$repo/rulesets" 2>/dev/null) || {
         echo -e "$repo\tERROR\t\tlist rulesets API failed"
         return
     }
@@ -57,7 +59,7 @@ apply_repo() {
 
     # ── 2. GET full ruleset config ────────────────────────────────────
     local current
-    current=$(gh api "repos/hyperpolymath/$repo/rulesets/$ruleset_id" 2>/dev/null) || {
+    current=$(gh api "repos/$OWNER/$repo/rulesets/$ruleset_id" 2>/dev/null) || {
         echo -e "$repo\tERROR\t$ruleset_id\tGET ruleset failed"
         return
     }
@@ -87,7 +89,7 @@ apply_repo() {
     fi
 
     # ── 3. DELETE existing ruleset ────────────────────────────────────
-    gh api "repos/hyperpolymath/$repo/rulesets/$ruleset_id" -X DELETE 2>/dev/null || {
+    gh api "repos/$OWNER/$repo/rulesets/$ruleset_id" -X DELETE 2>/dev/null || {
         echo -e "$repo\tERROR_DELETE\t$ruleset_id\tDELETE failed"
         return
     }
@@ -95,7 +97,7 @@ apply_repo() {
     # ── 4. POST reference ruleset ─────────────────────────────────────
     local post_result
     post_result=$(echo "$new_ruleset" | \
-        gh api "repos/hyperpolymath/$repo/rulesets" \
+        gh api "repos/$OWNER/$repo/rulesets" \
             -X POST \
             --input - 2>/dev/null) || {
         echo -e "$repo\tERROR_POST\t$ruleset_id\tPOST failed after DELETE"
@@ -114,6 +116,9 @@ apply_repo() {
 if [[ "$DRY_RUN" == "true" ]]; then
     echo "=== DRY RUN — no mutations ===" >&2
 fi
+echo "owner=$OWNER" >&2
+echo "repos_file=$REPOS_FILE" >&2
+echo "results_file=$RESULTS_FILE" >&2
 
 : > "$RESULTS_FILE"
 total=$(wc -l < "$REPOS_FILE")

@@ -14,6 +14,7 @@ at [`../branch-protection-remediation-2026-04-10.md`](../branch-protection-remed
 | `repos.tsv` | `<repo>\t<isPrivate>` — the 315 non-archived `hyperpolymath/*` repos enumerated at audit time. |
 | `forks.txt` | The 8 upstream forks inside `hyperpolymath/*`. Used to exclude forks from Wave 1 per an explicit user decision. |
 | `report.jsonl` | One JSON record per repo from the audit run: `{repo, state, ...}` where `state ∈ {OK, DRIFT, MISSING, ERROR}`. |
+| `wave1-apply.sh` | Wave 1 creator for `MISSING` repos (POST reference ruleset). Supports `OWNER` override and `--dry-run` plan generation. |
 | `wave1-repos.txt` | The 29 repos classified as MISSING (pre-fork-exclusion). |
 | `wave1-apply.txt` | The 21 repos that actually received Wave 1 writes (29 MISSING minus 8 forks). |
 | `wave1-plan.jsonl` | The dry-run plan file. One line per planned API call — `{method, path, body_file, repo}`. |
@@ -27,11 +28,12 @@ cd docs/ruleset-audit-2026-04-10/
 
 # Refresh the repo list (optional — only needed if new repos have
 # been added or repos have been archived since the last run):
-gh repo list hyperpolymath --limit 500 --no-archived \
+OWNER=hyperpolymath
+gh repo list "$OWNER" --limit 500 --no-archived \
   --json name,isPrivate --jq '.[] | "\(.name)\t\(.isPrivate)"' > repos.tsv
 
 # Re-audit:
-bash audit.sh
+OWNER="$OWNER" bash audit.sh
 
 # Summarise drift:
 jq -r .state report.jsonl | sort | uniq -c
@@ -51,6 +53,32 @@ comm -23 <(sort /tmp/wave2-repos.txt) forks.txt > /tmp/wave2-apply.txt
 # The two-step is: GET the existing Base ruleset id, DELETE it,
 # then POST the reference body. Script this only after a dry-run
 # review of the plan file.
+
+# Dry-run with alternate owner:
+OWNER=The-Metadatastician \
+REPOS_FILE=/tmp/wave2-apply.txt \
+bash wave2-apply.sh --dry-run
+```
+
+## Wave 1 (MISSING repos)
+
+```bash
+# Build Wave 1 repo list from current report:
+jq -r 'select(.state=="MISSING") | .repo' report.jsonl > /tmp/wave1-repos.txt
+
+# Dry-run / plan generation:
+OWNER=The-Metadatastician \
+REPOS_FILE=/tmp/wave1-repos.txt \
+PLAN_FILE=/tmp/ruleset-audit/wave1-plan-The-Metadatastician.jsonl \
+RESULTS_FILE=/tmp/ruleset-audit/wave1-results-The-Metadatastician.tsv \
+bash wave1-apply.sh --dry-run
+
+# Apply:
+OWNER=The-Metadatastician \
+REPOS_FILE=/tmp/wave1-repos.txt \
+PLAN_FILE=/tmp/ruleset-audit/wave1-plan-The-Metadatastician.jsonl \
+RESULTS_FILE=/tmp/ruleset-audit/wave1-results-The-Metadatastician.tsv \
+bash wave1-apply.sh
 ```
 
 ## Why the artefacts live here, not in `~/security-fixes/`
