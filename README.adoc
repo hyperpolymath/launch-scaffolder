@@ -7,7 +7,9 @@
 
 **Build cross-platform desktop launchers from a declarative A2ML spec.**
 
+image:https://img.shields.io/badge/OpenSSF-Best_Practices-green?logo=opensourcesecurity[OpenSSF Best Practices,link="https://www.bestpractices.dev/en/projects/new?repo_url=https://github.com/hyperpolymath/launch-scaffolder"]
 image:https://img.shields.io/badge/License-PMPL--1.0--or--later-blue.svg[License: PMPL-1.0-or-later]
+image:https://api.thegreenwebfoundation.org/greencheckimage/github.com[Green Web,link="https://www.thegreenwebfoundation.org/green-web-check/?url=github.com"]
 image:https://img.shields.io/badge/rust-1.85%2B-orange.svg[Rust 1.85+]
 image:https://img.shields.io/badge/status-alpha-yellow.svg[Status: alpha]
 image:https://img.shields.io/badge/mint-working-green.svg[Mint: working]
