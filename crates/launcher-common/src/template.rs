@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: PMPL-1.0-or-later
+// SPDX-License-Identifier: MPL-2.0
 // Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
 
 //! Tera template rendering for generated launcher scripts.
@@ -74,7 +74,7 @@ pub fn render(
             .project
             .license
             .as_deref()
-            .unwrap_or("PMPL-1.0-or-later"),
+            .unwrap_or("MPL-2.0"),
     );
 
     // --- [repo] --------------------------------------------------------

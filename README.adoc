@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: PMPL-1.0-or-later
+// SPDX-License-Identifier: MPL-2.0
 = launch-scaffolder
 :author: Jonathan D.A. Jewell
 :revdate: 2026-04-10
@@ -8,7 +8,7 @@
 **Build cross-platform desktop launchers from a declarative A2ML spec.**
 
 image:https://img.shields.io/badge/OpenSSF-Best_Practices-green?logo=opensourcesecurity[OpenSSF Best Practices,link="https://www.bestpractices.dev/en/projects/new?repo_url=https://github.com/hyperpolymath/launch-scaffolder"]
-image:https://img.shields.io/badge/License-PMPL--1.0--or--later-blue.svg[License: PMPL-1.0-or-later]
+image:https://img.shields.io/badge/License-PMPL--1.0--or--later-blue.svg[License: MPL-2.0]
 image:https://api.thegreenwebfoundation.org/greencheckimage/github.com[Green Web,link="https://www.thegreenwebfoundation.org/green-web-check/?url=github.com"]
 image:https://img.shields.io/badge/rust-1.85%2B-orange.svg[Rust 1.85+]
 image:https://img.shields.io/badge/status-alpha-yellow.svg[Status: alpha]
@@ -268,9 +268,9 @@ just install           # cargo install --path crates/launcher
 
 == License
 
-PMPL-1.0-or-later. See LICENSE.
+MPL-2.0. See LICENSE.
 
-All original hyperpolymath code is `PMPL-1.0-or-later`. Third-party
+All original hyperpolymath code is `MPL-2.0`. Third-party
 dependencies retain their original licenses; see `cargo about` output
 (when added) for the full dependency license audit.
 

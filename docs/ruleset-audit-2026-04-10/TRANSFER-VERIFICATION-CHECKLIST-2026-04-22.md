@@ -1,4 +1,4 @@
-<!-- SPDX-License-Identifier: PMPL-1.0-or-later -->
+<!-- SPDX-License-Identifier: MPL-2.0 -->
 # Transfer Verification Checklist — 2026-04-22
 
 Scope: verify whether the following legacy repos were transferred from

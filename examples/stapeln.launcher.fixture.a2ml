@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: PMPL-1.0-or-later
+# SPDX-License-Identifier: MPL-2.0
 # Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
 #
 # examples/stapeln.launcher.fixture.a2ml — worked example per-app config.
@@ -19,7 +19,7 @@ display      = "Stapeln"
 description  = "Visual Container Stack Designer — containers for people who hate containers"
 categories   = ["Development", "System", "Utility"]
 version      = "0.1.0"
-license      = "PMPL-1.0-or-later"
+license      = "MPL-2.0"
 
 [repo]
 # Canonical repo location. Used by the launcher to locate scripts/run.sh.

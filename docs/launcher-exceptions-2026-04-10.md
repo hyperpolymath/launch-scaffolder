@@ -1,4 +1,4 @@
-<!-- SPDX-License-Identifier: PMPL-1.0-or-later -->
+<!-- SPDX-License-Identifier: MPL-2.0 -->
 # Launcher Scaffolder Exceptions — 2026-04-10
 
 Five launchers in `/var/mnt/eclipse/repos/.desktop-tools/` are declared

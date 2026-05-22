@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: PMPL-1.0-or-later
+# SPDX-License-Identifier: MPL-2.0
 # Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
 #
 # META.a2ml — meta-level information for launch-scaffolder.
@@ -14,7 +14,7 @@ updated         = "2026-04-10T20:00:00Z"
 
 [project]
 name    = "launch-scaffolder"
-license = "PMPL-1.0-or-later"
+license = "MPL-2.0"
 
 # ---------------------------------------------------------------------------
 # ARCHITECTURE DECISIONS (ADRs)
@@ -265,7 +265,7 @@ test             = "cargo test --release"
 lint             = "cargo clippy --workspace --all-targets -- -D warnings"
 format           = "cargo fmt --all"
 pre-commit       = "just pre-commit  (fmt-check + lint + test)"
-license-header   = "SPDX-License-Identifier: PMPL-1.0-or-later on every .rs, .tera, .a2ml, .adoc, .sh file"
+license-header   = "SPDX-License-Identifier: MPL-2.0 on every .rs, .tera, .a2ml, .adoc, .sh file"
 author           = "Jonathan D.A. Jewell <6759885+hyperpolymath@users.noreply.github.com>"
 
 [design-rationale]

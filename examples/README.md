@@ -1,4 +1,4 @@
-<!-- SPDX-License-Identifier: PMPL-1.0-or-later -->
+<!-- SPDX-License-Identifier: MPL-2.0 -->
 # `examples/` — fixture inputs for `launch-scaffolder`
 
 Every file in this directory is a **test fixture**, not a live per-app

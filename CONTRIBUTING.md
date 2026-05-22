@@ -1,4 +1,4 @@
-<!-- SPDX-License-Identifier: PMPL-1.0-or-later -->
+<!-- SPDX-License-Identifier: MPL-2.0 -->
 # Contributing
 
 Contributions are welcome! Please:
@@ -14,4 +14,4 @@ This project follows the [Rhodium Standard Repository (RSR)](https://github.com/
 
 ## License
 
-By contributing, you agree that your contributions will be licensed under PMPL-1.0-or-later (with MPL-2.0 as automatic legal fallback).
+By contributing, you agree that your contributions will be licensed under MPL-2.0 (with MPL-2.0 as automatic legal fallback).

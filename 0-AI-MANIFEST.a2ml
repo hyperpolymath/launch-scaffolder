@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: PMPL-1.0-or-later
+# SPDX-License-Identifier: MPL-2.0
 # 0-AI-MANIFEST.a2ml — Universal AI Agent Entry Point
 
 [manifest]
@@ -30,7 +30,7 @@ branch-protection-remediation = "docs/branch-protection-remediation-2026-04-10.m
 scm-files-location = ".machine_readable/ ONLY — never root"
 container-file = "Containerfile — never Dockerfile"
 package-manager = "cargo for Rust; Deno first for any JS work, pnpm as Node fallback"
-license = "PMPL-1.0-or-later"
+license = "MPL-2.0"
 language = "Rust (== Rust/SPARK per terminology rule)"
 no-secrets-in-files = true
 spdx-headers-required = true

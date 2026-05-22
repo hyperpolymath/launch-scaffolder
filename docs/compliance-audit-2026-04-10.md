@@ -1,4 +1,4 @@
-<!-- SPDX-License-Identifier: PMPL-1.0-or-later -->
+<!-- SPDX-License-Identifier: MPL-2.0 -->
 # Launcher Compliance Audit — 2026-04-10
 
 > **FROZEN SNAPSHOT.** This document records the pre-migration state

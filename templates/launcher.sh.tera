@@ -1,5 +1,5 @@
 {#-
-  SPDX-License-Identifier: PMPL-1.0-or-later
+  SPDX-License-Identifier: MPL-2.0
   Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
 
   launcher.sh.tera — Tera template for generating compliant launcher scripts.
@@ -14,7 +14,7 @@
   surface so desktop integration stays uniform across the estate.
 -#}
 #!/usr/bin/env bash
-# SPDX-License-Identifier: PMPL-1.0-or-later
+# SPDX-License-Identifier: MPL-2.0
 # Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
 #
 # @a2ml-metadata begin

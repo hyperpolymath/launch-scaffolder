@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SPDX-License-Identifier: PMPL-1.0-or-later
+# SPDX-License-Identifier: MPL-2.0
 #
 # ruleset-audit/audit.sh — read-only drift check for hyperpolymath
 # branch-protection rulesets against the documented 5-rule standard.

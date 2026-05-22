@@ -1,4 +1,4 @@
-<!-- SPDX-License-Identifier: PMPL-1.0-or-later -->
+<!-- SPDX-License-Identifier: MPL-2.0 -->
 # `docs/ruleset-audit-2026-04-10/`
 
 Raw data and scripts from the estate-wide branch-protection ruleset
