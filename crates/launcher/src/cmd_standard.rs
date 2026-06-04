@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: MPL-2.0
-// Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
-
+// Copyright (c) Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
 //! `standard` subcommand — scaffold stub. Full implementation lands in a
 //! follow-up session once the workspace builds and the common crate has
 //! its standard/config parsers.

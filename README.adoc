@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MPL-2.0
+// Copyright (c) Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
 = launch-scaffolder
 :author: Jonathan D.A. Jewell
 :revdate: 2026-04-10
@@ -8,7 +9,7 @@
 **Build cross-platform desktop launchers from a declarative A2ML spec.**
 
 image:https://img.shields.io/badge/OpenSSF-Best_Practices-green?logo=opensourcesecurity[OpenSSF Best Practices,link="https://www.bestpractices.dev/en/projects/new?repo_url=https://github.com/hyperpolymath/launch-scaffolder"]
-image:https://img.shields.io/badge/License-PMPL--1.0--or--later-blue.svg[License: MPL-2.0]
+image:https://img.shields.io/badge/License-MPL_2.0-blue.svg[License: MPL-2.0,link="https://opensource.org/licenses/MPL-2.0"]
 image:https://api.thegreenwebfoundation.org/greencheckimage/github.com[Green Web,link="https://www.thegreenwebfoundation.org/green-web-check/?url=github.com"]
 image:https://img.shields.io/badge/rust-1.85%2B-orange.svg[Rust 1.85+]
 image:https://img.shields.io/badge/status-alpha-yellow.svg[Status: alpha]
@@ -268,11 +269,9 @@ just install           # cargo install --path crates/launcher
 
 == License
 
-MPL-2.0. See LICENSE.
+This project is licensed under the Mozilla Public License, v. 2.0. See the `LICENSE` file for details.
 
-All original hyperpolymath code is `MPL-2.0`. Third-party
-dependencies retain their original licenses; see `cargo about` output
-(when added) for the full dependency license audit.
+SPDX-License-Identifier: MPL-2.0
 
 == Author
 

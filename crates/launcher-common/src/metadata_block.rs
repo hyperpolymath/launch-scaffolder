@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: MPL-2.0
-// Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
-
+// Copyright (c) Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
 //! Parser, renderer, and in-place rewriter for the
 //! `# @a2ml-metadata begin ... # @a2ml-metadata end` block embedded at
 //! the top of every generated launcher script.
