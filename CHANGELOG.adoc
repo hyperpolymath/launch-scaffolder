@@ -1,0 +1,51 @@
+== Changelog
+
+All notable changes to `+launch-scaffolder+` will be documented in this
+file.
+
+This file is generated from conventional commits by the
+https://github.com/hyperpolymath/standards/blob/main/.github/workflows/changelog-reusable.yml[`+changelog-reusable.yml+`]
+workflow (`+hyperpolymath/standards#206+`). Adopt the workflow in this
+repo’s CI to keep this file in sync automatically — see
+https://github.com/hyperpolymath/standards/blob/main/templates/cliff.toml[`+templates/cliff.toml+`]
+for the canonical config.
+
+The format follows https://keepachangelog.com/en/1.1.0/[Keep a
+Changelog]; this project aims to follow
+https://semver.org/spec/v2.0.0.html[Semantic Versioning].
+
+=== [Unreleased]
+
+==== Added
+
+* feat(config): implement cmd_config (get/set/validate)
+* feat(provision): native Rust integ/disinteg + shell-fallback
+delegation
+* feat(realign): implement cmd_realign + fixture-suffix convention
+* feat(mint): wire end-to-end mint pipeline + migrate 7 launchers
+
+==== Fixed
+
+* fix(ci): sync hypatia-scan.yml to canonical (413:
+env.HOME+Phase-2+SARIF) (#5)
+* fix(ci): adopt canonical hypatia-scan.yml (env.HOME/scanner-layout +
+Comment-step gate) (#3)
+
+==== Documentation
+
+* docs(readme): add SPDX header and/or standard badges
+* docs(explainme): add EXPLAINME.adoc
+* docs(compliance-audit): add frozen-snapshot banner
+* docs: sweep for humans and machines + archive Wave 1 ruleset audit
+* docs: add compliance audit and declared exceptions for .desktop-tools
+launchers
+
+=== Pre-history
+
+Prior commits to this file’s introduction are recorded in git history
+but not formally classified into Keep-a-Changelog sections. To backfill,
+run `+git cliff -o CHANGELOG.md+` locally using the canonical
+https://github.com/hyperpolymath/standards/blob/main/templates/cliff.toml[`+cliff.toml+`]
+— this is one-shot mechanical work.
+
+'''''
