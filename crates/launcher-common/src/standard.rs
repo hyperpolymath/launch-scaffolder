@@ -100,6 +100,18 @@ mod tests {
     #[test]
     fn baked_standard_parses() {
         let s = LauncherStandard::baked().expect("baked standard must parse");
-        assert_eq!(s.spec_version, "0.1.0");
+
+        // Derive the expected version from the baked source rather than
+        // hardcoding it. This assertion previously read "0.1.0" and had gone
+        // stale against a standard that declares 0.2.0 - the test failed for
+        // a reason that had nothing to do with parsing, which is what it is
+        // named for. Deriving it means the check cannot rot again.
+        let declared = BAKED_STANDARD
+            .lines()
+            .find_map(|l| l.trim().strip_prefix("version = "))
+            .map(|v| v.trim().trim_matches('"'))
+            .expect("baked standard must declare a version");
+        assert_eq!(s.spec_version, declared);
+        assert!(!s.spec_version.is_empty(), "spec version must not be empty");
     }
 }

@@ -1,3 +1,13 @@
+#!/usr/bin/env bash
+{# NOTE: the shebang MUST be the literal first line of this template.
+  It previously sat below this comment block, and every launcher the
+  generator emitted began with a blank line -- shellcheck SC2148, and a
+  script whose kernel shebang is not on line 1. That produced ~20
+  identical one-line fix PRs across the estate, each of which would have
+  been overwritten by the next `launch-scaffolder realign`. Do not move
+  the shebang below a Tera tag again, whatever whitespace-control markers
+  the tag carries.
+-#}
 {#-
   SPDX-License-Identifier: MPL-2.0
   Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
@@ -13,7 +23,6 @@
   All three shapes emit the same --integ / --disinteg / --help cross-platform
   surface so desktop integration stays uniform across the estate.
 -#}
-#!/usr/bin/env bash
 # SPDX-License-Identifier: MPL-2.0
 # Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
 #
