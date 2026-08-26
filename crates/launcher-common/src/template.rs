@@ -146,3 +146,79 @@ pub fn render(
     tera.render("launcher.sh", &ctx)
         .context("rendering launcher template")
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::{LauncherConfig, Project, Repo, Runtime, RuntimeKind};
+    use crate::standard::LauncherStandard;
+
+    fn sample_config() -> LauncherConfig {
+        LauncherConfig {
+            project: Project {
+                name: "foo".into(),
+                display: "Foo".into(),
+                description: Some("Foo desc".into()),
+                categories: vec!["Development".into()],
+                version: None,
+                license: None,
+                generic_name: Some("Foo Thing".into()),
+            },
+            repo: Repo {
+                path: "/tmp/foo".into(),
+            },
+            runtime: Runtime {
+                kind: RuntimeKind::Process,
+                port: None,
+                url: None,
+                startup_command_search: vec![],
+                command: vec!["foo".into()],
+                pid_file: None,
+                log_file: None,
+                wait_for_url_timeout_seconds: 15,
+            },
+            icon: None,
+            integration: None,
+            soft_attach: None,
+            exceptions: None,
+        }
+    }
+
+    /// The template source must OPEN with the shebang.
+    ///
+    /// It previously opened with a Tera comment block, so every launcher the
+    /// generator emitted began with a blank line: shellcheck SC2148, and a
+    /// script the kernel will not dispatch by shebang. That single template
+    /// defect produced ~20 identical one-line fix PRs across the estate, each
+    /// of which the next `launch-scaffolder realign` would have overwritten.
+    #[test]
+    fn template_source_opens_with_shebang() {
+        assert_eq!(
+            LAUNCHER_TEMPLATE.lines().next(),
+            Some("#!/usr/bin/env bash"),
+            "the shebang must be the literal first line of launcher.sh.tera"
+        );
+    }
+
+    /// And the RENDERED output must too — the property that actually matters.
+    /// Asserting only on the template source would miss Tera emitting leading
+    /// whitespace of its own, which is precisely how the original defect
+    /// escaped notice.
+    #[test]
+    fn rendered_launcher_starts_with_shebang_on_line_one() {
+        let cfg = sample_config();
+        let std_ = LauncherStandard::baked().expect("baked standard should parse");
+        let out = render(&cfg, &std_, None).expect("template should render");
+
+        assert!(
+            out.starts_with("#!/usr/bin/env bash\n"),
+            "rendered launcher must begin with the shebang; got: {:?}",
+            &out[..out.len().min(60)]
+        );
+        assert_eq!(
+            out.lines().next(),
+            Some("#!/usr/bin/env bash"),
+            "shebang must be on line 1 of the rendered launcher"
+        );
+    }
+}
