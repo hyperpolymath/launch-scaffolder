@@ -184,6 +184,42 @@ mod tests {
         }
     }
 
+    /// No `cmd && log ... || log ...` ternaries in the template.
+    ///
+    /// In that form a FAILING command on the success branch also fires the
+    /// failure branch, so a run that actually worked reports both "generated"
+    /// and "generation failed". Codacy flagged a real instance of this at
+    /// launcher.sh.tera:410; it was spelled across three continued lines, so a
+    /// single-line grep missed it — hence a test that joins continuations.
+    ///
+    /// `A && { B || C; }` is NOT this bug: the `||` is inside a braced group,
+    /// making it a compound condition rather than a ternary.
+    #[test]
+    fn template_has_no_command_log_ternaries() {
+        // Join backslash continuations so multi-line ternaries are visible.
+        let joined = LAUNCHER_TEMPLATE.replace("\\\n", " ");
+        for (i, line) in joined.lines().enumerate() {
+            let l = line.trim();
+            if l.starts_with('#') {
+                continue; // comments may describe the pattern
+            }
+            if let Some(amp) = l.find("&& log") {
+                if let Some(pipe) = l[amp..].find("|| log") {
+                    // a braced group between them is the safe compound form
+                    let between = &l[amp..amp + pipe];
+                    assert!(
+                        between.contains('{'),
+                        "line {} is a `cmd && log || log` ternary; use if/else so a \
+                         failing log on the success branch cannot fire the failure \
+                         branch: {}",
+                        i + 1,
+                        l
+                    );
+                }
+            }
+        }
+    }
+
     /// The template source must OPEN with the shebang.
     ///
     /// It previously opened with a Tera comment block, so every launcher the

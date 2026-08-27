@@ -407,9 +407,15 @@ do_integ_linux() {
         gio set "$DESKTOP_SHORTCUT_TARGET" "metadata::trusted" true 2>/dev/null || true
     fi
     if [ -x "/var/mnt/eclipse/repos/.desktop-tools/verify-desktop-integrity.sh" ]; then
-        /var/mnt/eclipse/repos/.desktop-tools/verify-desktop-integrity.sh --generate 2>/dev/null \
-            && log "  + integrity hashes generated" \
-            || log "  · integrity hash generation failed (non-fatal)"
+        # if/else, not `cmd && log || log`: in that form a FAILING log on the
+        # success branch also fires the failure branch, so a run that worked
+        # reports both "generated" and "generation failed". The command's own
+        # status is what should choose the message.
+        if /var/mnt/eclipse/repos/.desktop-tools/verify-desktop-integrity.sh --generate 2>/dev/null; then
+            log "  + integrity hashes generated"
+        else
+            log "  · integrity hash generation failed (non-fatal)"
+        fi
     fi
 }
 
