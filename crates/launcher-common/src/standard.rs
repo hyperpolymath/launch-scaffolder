@@ -69,15 +69,15 @@ impl LauncherStandard {
 
     /// Parse a standard from an in-memory string.
     pub fn parse(text: &str) -> Result<Self> {
-        if looks_like_the_old_toml_format(text) {
-            anyhow::bail!(
+        let doc = deed::parse(text).with_context(|| {
+            if looks_like_the_old_toml_format(text) {
                 "this looks like the retired TOML/A2ML launcher standard. The launcher \
                  standard is now a praxis DEED (`launcher-standard_praxis.deed`, owner \
                  ruling D73-C); see hyperpolymath/standards#960"
-            );
-        }
-
-        let doc = deed::parse(text).context("standard is not a valid deed")?;
+            } else {
+                "standard is not a valid deed"
+            }
+        })?;
 
         for required in REQUIRED_CLAUSES {
             if doc.clause(required).is_none() {
@@ -339,6 +339,20 @@ mod tests {
         let msg = format!("{err:#}");
         assert!(msg.contains("praxis DEED"), "{msg}");
         assert!(msg.contains("standards#960"), "{msg}");
+    }
+
+    #[test]
+    fn valid_deed_with_toml_like_text_is_not_rejected_by_the_heuristic() {
+        let text = concat!(
+            ";; SPDX-License-Identifier: MPL-2.0\n",
+            "(praxis-deed :schema-version \"1.0.0\" :standard-version \"9.9.9\"\n",
+            "  :note \"key = value\"\n",
+            "  (resolution (standard-search))\n",
+            "  (required-modes) (runtime) (integration) (metadata-block))\n"
+        );
+
+        let standard = LauncherStandard::parse(text).expect("valid deed should parse first");
+        assert_eq!(standard.spec_version, "9.9.9");
     }
 
     /// The teeth for the ordering rule. The rungs below are deliberately

@@ -330,8 +330,9 @@ impl Parser {
     }
 
     /// `token-sep = 1*(SP / line-end / comment)`, but zero repetitions are
-    /// tolerated here; callers that require a separator check for themselves.
-    fn skip_sep(&mut self) -> Result<()> {
+    /// tolerated here; callers that require a separator check the return value.
+    fn skip_sep(&mut self) -> Result<bool> {
+        let start = self.pos;
         loop {
             match self.peek() {
                 Some(' ') | Some('\n') => {
@@ -362,7 +363,7 @@ impl Parser {
                     // final newline, which `deed_lint.py` also tolerates.
                     self.bump();
                 }
-                _ => return Ok(()),
+                _ => return Ok(self.pos != start),
             }
         }
     }
@@ -442,8 +443,9 @@ impl Parser {
     fn parse_body(&mut self, head: &str) -> Result<(Vec<(String, Value)>, Vec<Node>)> {
         let mut fields = Vec::new();
         let mut clauses = Vec::new();
+        let mut parsed_item = false;
         loop {
-            self.skip_sep()?;
+            let had_sep = self.skip_sep()?;
             match self.peek() {
                 None => bail!(
                     "line {}: unbalanced parens: ({head}) never closes",
@@ -454,11 +456,27 @@ impl Parser {
                     return Ok((fields, clauses));
                 }
                 Some(':') => {
+                    if parsed_item && !had_sep {
+                        bail!(
+                            "line {}: fields and clauses in ({head}) must be separated by a separator",
+                            self.line
+                        );
+                    }
                     let (k, v) = self.parse_field()?;
                     fields.push((k, v));
+                    parsed_item = true;
                 }
                 // In BODY position "(" opens a clause, never a list.
-                Some('(') => clauses.push(self.parse_clause()?),
+                Some('(') => {
+                    if parsed_item && !had_sep {
+                        bail!(
+                            "line {}: fields and clauses in ({head}) must be separated by a separator",
+                            self.line
+                        );
+                    }
+                    clauses.push(self.parse_clause()?);
+                    parsed_item = true;
+                }
                 Some(c) => bail!(
                     "line {}: expected field (':keyword …') or clause ('(symbol …)') in ({head}), got {c:?}",
                     self.line
@@ -545,15 +563,25 @@ impl Parser {
         debug_assert_eq!(self.peek(), Some('('));
         self.bump();
         let mut items = Vec::new();
+        let mut parsed_item = false;
         loop {
-            self.skip_sep()?;
+            let had_sep = self.skip_sep()?;
             match self.peek() {
                 None => bail!("line {}: unbalanced parens: list never closes", self.line),
                 Some(')') => {
                     self.bump();
                     return Ok(Value::List(items));
                 }
-                _ => items.push(self.parse_value()?),
+                _ => {
+                    if parsed_item && !had_sep {
+                        bail!(
+                            "line {}: list values must be separated by a separator",
+                            self.line
+                        );
+                    }
+                    items.push(self.parse_value()?);
+                    parsed_item = true;
+                }
             }
         }
     }
@@ -756,6 +784,36 @@ mod tests {
     fn keyword_must_be_separated_from_its_value() {
         assert!(err(":names(\"a\")").contains("must be followed by a separator"));
         assert!(err(":names\"a\"").contains("must be followed by a separator"));
+    }
+
+    #[test]
+    fn body_items_must_be_separated() {
+        for bad in [
+            r#":a "x":b "y""#,
+            r#":a "x"(nested)"#,
+            r#"(first):a "x""#,
+            "(first)(second)",
+        ] {
+            assert!(
+                err(bad).contains("fields and clauses in (repo-deed) must be separated"),
+                "{bad:?} should require a separator between body items"
+            );
+        }
+    }
+
+    #[test]
+    fn list_values_must_be_separated() {
+        for bad in [r#":items ("a""b")"#, ":items (1#t)", ":items (#t(foo))"] {
+            assert!(
+                err(bad).contains("list values must be separated"),
+                "{bad:?} should require a separator between list values"
+            );
+        }
+
+        assert_eq!(
+            ok(r#":items ("a")"#).field("items"),
+            Some(&Value::List(vec![Value::Str("a".into())]))
+        );
     }
 
     /// `=` is a legal symbol *character*, never a field separator. A parser

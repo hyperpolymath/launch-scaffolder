@@ -40,8 +40,9 @@ spdx-headers-required = true
 # in `.launcher.fixture.a2ml` as out-of-band for estate walks.
 fixture-suffix = "<app>.launcher.fixture.a2ml"
 live-suffix    = "<app>.launcher.a2ml"
-# Standard-loader precedence (see ADR-007):
-# flag → $LAUNCH_SCAFFOLDER_STANDARD → canonical path → baked fallback.
+# Standard-loader precedence (see ADR-007 as amended by ADR-010):
+# flag → $LAUNCH_SCAFFOLDER_STANDARD → the deed's standard-search ladder
+# (ascending :priority) → baked fallback.
 # Every subcommand calls LauncherStandard::resolve; do not add
 # per-command copies.
 standard-loader-entry-point = "launch-scaffolder-common::standard::LauncherStandard::resolve"

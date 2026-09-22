@@ -169,6 +169,7 @@ truth for the rule.
 id       = "ADR-007"
 title    = "Standard-loader precedence lives in LauncherStandard::resolve"
 status   = "accepted"
+amended-by = "ADR-010"
 date     = "2026-04-10T20:00:00Z"
 context  = """
 After cmd_mint and cmd_realign both needed the 3-step precedence
@@ -275,6 +276,7 @@ title    = "The standard is a praxis DEED, and it carries its own search ladder"
 status   = "accepted"
 date     = "2026-09-22"
 supersedes = "ADR-003"
+amends   = "ADR-007"
 context  = """
 ADR-003 named a single canonical absolute path
 (/var/mnt/eclipse/repos/developer-ecosystem/standards/launcher/launcher-standard.a2ml)
