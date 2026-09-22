@@ -1,0 +1,43 @@
+;; SPDX-FileCopyrightText: © 2026 Jonathan D.A. Jewell
+;; SPDX-License-Identifier: MPL-2.0
+;;
+;; NOT part of the upstream standards corpus. Written for this crate.
+;;
+;; Purpose: kill the mutant that ignores `:priority`.
+;;
+;; The DEED grammar's closing note says order of fields and clauses is not
+;; semantic, and that where precedence matters it is carried by an explicit
+;; `:priority` INTEGER, never by file position. The real
+;; launcher-standard_praxis.deed happens to list its ladder in ascending
+;; priority order — so a reader that ignores `:priority` entirely and simply
+;; iterates the file passes every test written against the real deed.
+;;
+;; This fixture is therefore deliberately scrambled: the three rungs appear in
+;; FILE order 30, 10, 20, and any correct reader must return them as
+;; 10, 20, 30. A reader that returns 30, 10, 20 has read the file instead of
+;; reading the document.
+;;
+;; The two rungs at priority 20 are also deliberate: they prove the sort is
+;; STABLE, so a tie keeps source order (beta before gamma) rather than
+;; reordering unpredictably.
+;;
+;; The rung shape mirrors the real launcher-standard_praxis.deed: one
+;; `:value` string carrying the whole path, `$VAR` prefixes included.
+(praxis-deed
+  :schema-version "1.0.0"
+  :canonical-name "scrambled-priority"
+
+  (resolution
+    (standard-search
+      (path
+        :priority 30
+        :value "$THIRD/third.deed")
+      (path
+        :priority 10
+        :value "$FIRST/first.deed")
+      (path
+        :priority 20
+        :value "$SECOND_BETA/beta.deed")
+      (path
+        :priority 20
+        :value "$SECOND_GAMMA/gamma.deed"))))

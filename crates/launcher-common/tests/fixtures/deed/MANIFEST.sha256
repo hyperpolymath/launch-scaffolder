@@ -1,0 +1,37 @@
+# DEED corpus — vendored from hyperpolymath/standards
+#
+# Source: 1-formats/deed/tools/fixtures/{valid,invalid}/
+# Vendored at standards commit c60abfaae14ec8d543d2feeaebc951228590d645
+#   ("feat(deed): translate launcher-standard to .deed", branch
+#    feat/d73-launcher-standard-deed), 2026-09-22.
+#
+# These files are the SAME corpus that 1-formats/deed/tools/deed_lint.py
+# is tested against. That is the whole point of vendoring them: if this
+# crate's reader and deed_lint.py disagree about any file below, one of
+# the two has become a second authority over the grammar, which the DEED
+# spec does not permit. The ABNF at 1-formats/deed/spec/abnf/deed.abnf
+# is the sole normative grammar (owner ruling 2026-09-19, standards#837).
+#
+# scrambled-priority_praxis.deed is NOT from the upstream corpus. It is
+# written for this crate; see its own header.
+#
+# Refresh procedure: re-copy from the path above, regenerate this file
+# with sha256sum, and record the new standards commit. A changed digest
+# with an unchanged commit means someone edited a vendored copy in place.
+
+4f960dfe69498114672e70081c2d08b48147ab82f96ce8ea24f6801ad1d33113  valid/booleans-uuid_chora.deed
+7f04ef2985f93b85e8d0d1b830b39de6180520f7f69df925b928b58b1b5ac687  valid/minimal_chora.deed
+9cf6feb07a37e2eb7545c5f0a3e0638de1a22a521a8eaef30aec4b210264080e  valid/nested_chora.deed
+dfbb5207f1e7ce61e24c07ccaae10238f7b6dbe0c67f9f498a84d574739d0962  valid/quoted-list-symbols-007_chora.deed
+12942b897ca8c51c26d8044b69092318c6cac0c66a1f76f655ef83ac11e4428b  valid/rsr-template-repo_chora.deed
+f47742749233ce005afcd82263833ac4f9d9330dc8a4ceca5847a604a082f3af  valid/scrambled-priority_praxis.deed
+ba03c83b292b8eff86e676454adbf16c91a309fafe373d8e56bd5c91da9bd2c7  invalid/inequals_chora.deed
+0564a611ec2f6d116720010326d2640d7576f040a2ef9e5b93b8b0a755889340  invalid/inescape-u_chora.deed
+a4cfd3d9f37de9e2df11e3f82e177ed32ffbcaabccd87a6a062cb023ea3a8afe  invalid/inhead_chora.deed
+c1dec8a3b95320c1bcc7232a2968f10ac249c1849aee9665bcf4552742fede44  invalid/inmissing-schema_chora.deed
+64e043193b9cc2decbd12eb84ded1a2090b9f4ce9bc57003813ac82948de8945  invalid/inno-header_chora.deed
+b491aaf831cd7e72dd89901e1d047ef7cbe58cbabf265c5750bab2a08a659e85  invalid/insection_chora.deed
+eb3037013197dbb16d9a72cc26707634cc491fc3e1a9eac14037f7d6a4d01add  invalid/intab_chora.deed
+630550178930bbf0b79a7a9bf5acd91192c2e8145a1aec94228d21ae969eda6b  invalid/intrailing_chora.deed
+88cdca77410fbd1a80f04a699be19c9e8f72fbe022e694cc0c289dc329e9bf70  invalid/intrue-literal_chora.deed
+f3856ebdb15114b03941af84398c921d08bb2a5b0b20e30d23f95b37ecd8c947  invalid/inunbalanced_chora.deed

@@ -10,7 +10,7 @@ license.workspace = true
 repository.workspace = true
 homepage.workspace = true
 readme.workspace = true
-description = "Cross-platform launcher mint/provision/config/realign tool. Generates compliant desktop launchers from A2ML specs."
+description = "Cross-platform launcher mint/provision/config/realign tool. Generates compliant desktop launchers from a declarative DEED standard."
 keywords.workspace = true
 categories.workspace = true
 

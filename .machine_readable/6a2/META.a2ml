@@ -63,7 +63,8 @@ drop-in dependency swap behind the LauncherConfig::parse boundary.
 [[architecture-decisions]]
 id       = "ADR-003"
 title    = "Standard file lives in standards/ monorepo, not vendored"
-status   = "accepted"
+status   = "superseded"
+superseded-by = "ADR-010"
 date     = "2026-04-10"
 context  = """
 The launcher standard is a cross-cutting hyperpolymath artefact. Having
@@ -168,6 +169,7 @@ truth for the rule.
 id       = "ADR-007"
 title    = "Standard-loader precedence lives in LauncherStandard::resolve"
 status   = "accepted"
+amended-by = "ADR-010"
 date     = "2026-04-10T20:00:00Z"
 context  = """
 After cmd_mint and cmd_realign both needed the 3-step precedence
@@ -267,6 +269,56 @@ format           = "cargo fmt --all"
 pre-commit       = "just pre-commit  (fmt-check + lint + test)"
 license-header   = "SPDX-License-Identifier: MPL-2.0 on every .rs, .tera, .a2ml, .adoc, .sh file"
 author           = "Jonathan D.A. Jewell <6759885+hyperpolymath@users.noreply.github.com>"
+
+[[architecture-decisions]]
+id       = "ADR-010"
+title    = "The standard is a praxis DEED, and it carries its own search ladder"
+status   = "accepted"
+date     = "2026-09-22"
+supersedes = "ADR-003"
+amends   = "ADR-007"
+context  = """
+ADR-003 named a single canonical absolute path
+(/var/mnt/eclipse/repos/developer-ecosystem/standards/launcher/launcher-standard.a2ml)
+as step 3 of the precedence chain. Two things then changed. First, A2ML was
+retired estate-wide, so the machine-readable standard was translated to the
+live DEED format (standards#837; owner ruling D73-C). Second, standards#952
+deleted that absolute path on 2026-09-22, which meant every host that was not
+the authoring machine fell silently through to the baked copy — a downgrade
+logged only at debug level, so it was invisible in normal operation.
+"""
+decision = """
+The canonical machine-readable standard is launcher-standard_praxis.deed,
+in the estate's DEED v1.0.0 format, parsed by crates/launcher-common/src/deed.rs.
+The resolution ladder is no longer hardcoded in Rust: it is DATA inside the
+deed, under (resolution) -> standard-search, as (path :priority N :value "...")
+rungs that the consumer MUST sort by ascending :priority. LauncherStandard::resolve
+walks:
+  1. --standard flag
+  2. $LAUNCH_SCAFFOLDER_STANDARD env var
+  3. every rung of the deed's own standard-search ladder, in :priority order
+  4. baked-in copy (compile-time include_str! fallback only)
+A rung naming an unset $VAR is SKIPPED, not expanded to the empty string --
+otherwise $HP_ESTATE_ROOT/standards/... silently becomes the real absolute
+path /standards/..., which can resolve against the wrong file.
+The baked fallback is logged at info, not debug, so a downgrade is visible.
+"""
+consequences = """
+Changing where the standard may be found is now an edit to the standard
+itself rather than a code change and a release. The tool works on hosts that
+are not the authoring machine without requiring --standard.
+
+Two hazards this ADR records because they are not obvious from the code:
+- The deed carries TWO version numbers. :schema-version is the version of the
+  DEED GRAMMAR (1.0.0); :standard-version is the version of THIS DOCUMENT
+  (0.4.0). spec_version must read the second. Reading the first is not a loud
+  failure -- 1.0.0 sorts above 0.4.0, so the mistake reads as an upgrade.
+- The real deed happens to list its rungs already in ascending :priority
+  order, so a consumer that ignores :priority entirely produces identical
+  output against this document and is NOT detectable by testing against it.
+  The regression test therefore uses a deliberately scrambled fixture
+  (tests/fixtures/deed/valid/scrambled-priority_praxis.deed).
+"""
 
 [design-rationale]
 why-rust = """

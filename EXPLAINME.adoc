@@ -8,7 +8,7 @@
 This file maps README.adoc claims to their implementation evidence for
 sceptical developers.
 
-== "Build cross-platform desktop launchers from a declarative A2ML spec"
+== "Build cross-platform desktop launchers from a declarative spec"
 
 [quote, README.adoc]
 ____
@@ -41,20 +41,25 @@ Launchers become reproducible, auditable artefacts — not hand-edited drift.
 ____
 
 How this is implemented::
-link:standards/launcher-standard.a2ml[`standards/launcher-standard.a2ml`] is
-the canonical specification. It is baked into the binary at compile time via
-`include_str!()` in
+link:standards/launcher-standard_praxis.deed[`standards/launcher-standard_praxis.deed`]
+is the canonical specification, written in the estate's DEED v1.0.0 format and
+parsed by
+link:crates/launcher-common/src/deed.rs[`crates/launcher-common/src/deed.rs`].
+It is baked into the binary at compile time via `include_str!()` in
 link:crates/launcher-common/src/standard.rs[`crates/launcher-common/src/standard.rs`]
-as a fallback. The `LauncherStandard::resolve` function uses three-step
-precedence: `--standard <file>` CLI flag → `$LAUNCH_SCAFFOLDER_STANDARD` env
-var → canonical path at `/var/mnt/eclipse/repos/developer-ecosystem/standards/launcher/launcher-standard.a2ml`
-→ baked-in fallback.
+as a fallback. `LauncherStandard::resolve` walks: `--standard <file>` CLI flag
+→ `$LAUNCH_SCAFFOLDER_STANDARD` env var → **each rung of the search ladder the
+standard declares for itself**, in ascending `:priority` order → baked-in
+fallback.
 
 Caveat::
 The baked-in fallback is intentionally a last resort — it will lag behind
-the canonical standard until the binary is recompiled. The canonical path
-is hardcoded to the Eclipse drive; users outside the hyperpolymath estate
-must use the `--standard` flag.
+the canonical standard until the binary is recompiled, so it is logged at
+`info` rather than `debug`. The search ladder is no longer a single hardcoded
+path: it is data inside the deed, so a user outside the hyperpolymath estate
+is covered by the `$HP_ESTATE_ROOT` and `$XDG_DATA_HOME` rungs without
+needing `--standard`. A rung whose `$VAR` is unset is skipped rather than
+expanded to an empty path.
 
 == "Fixture-vs-live naming convention enforced in code"
 
@@ -129,8 +134,10 @@ Fedora 43 Atomic (Wayland/KDE).
 | link:https://github.com/hyperpolymath/k9-rs[k9-rs],
   link:https://github.com/hyperpolymath/a2ml-rs[a2ml-rs]
 
-| A2ML as configuration format
-| `<app>.launcher.a2ml` per-app config; TOML concrete syntax in v0.1
+| Declarative formats
+| Standard: `launcher-standard_praxis.deed` (DEED v1.0.0). Per-app config:
+  `<app>.launcher.a2ml`, still on the retired A2ML naming and parsed as
+  TOML — conversion tracked as standards#960
 | link:https://github.com/hyperpolymath/format-registrations[format-registrations],
   every `0-AI-MANIFEST.a2ml` in the estate
 

@@ -1,4 +1,4 @@
-*Build cross-platform desktop launchers from a declarative A2ML spec.*
+*Build cross-platform desktop launchers from a declarative spec.*
 
 https://www.bestpractices.dev/en/projects/new?repo_url=https://github.com/hyperpolymath/launch-scaffolder[image:https://img.shields.io/badge/OpenSSF-Best_Practices-green?logo=opensourcesecurity[OpenSSF
 Best Practices]]
@@ -25,17 +25,21 @@ hyperpolymath launcher standard). It turns launcher scripts into
 
 Inputs:
 
-* `+launcher-standard.a2ml+` — a declarative description of what a
+* `+launcher-standard_praxis.deed+` — a declarative description of what a
 compliant launcher looks like (modes, file paths, permissions, integrity
-requirements, per-platform behaviour). The canonical copy lives in the
-`+standards+` monorepo at
-`+/var/mnt/eclipse/repos/developer-ecosystem/standards/launcher/launcher-standard.a2ml+`.
+requirements, per-platform behaviour), written in the estate's DEED v1.0.0
+format. The canonical copy lives in the `+standards+` monorepo at
+`+standards/launcher/launcher-standard_praxis.deed+`.
 At runtime the loader resolves in this order:
 [arabic]
 . `+--standard+` `+<file>+` CLI flag
 . `+$LAUNCH_SCAFFOLDER_STANDARD+` environment variable
-. The canonical path above
-. A baked-in copy compiled into the binary at build time (fallback only)
+. Every rung of the search ladder *the standard declares for itself*, in
+ascending `+:priority+` order — see `+(resolution)+` → `+standard-search+`
+inside the deed. A rung naming an unset `+$VAR+` is skipped, never expanded
+to an empty path.
+. A baked-in copy compiled into the binary at build time (fallback only,
+and logged at `+info+` so the downgrade is visible)
 * `+<app>.launcher.a2ml+` — per-app config (name, display, URL, command,
 repo, icon, and an optional `+[exceptions]+` block).
 
@@ -131,10 +135,11 @@ launch-scaffolder/
 │   ├── launcher-common/          # Shared library — all real logic
 │   │   └── src/
 │   │       ├── lib.rs            # Public API
-│   │       ├── standard.rs       # Parse launcher-standard.a2ml
-│   │       │                     #   + LauncherStandard::resolve (shared
-│   │       │                     #     3-step precedence: flag → canonical
-│   │       │                     #     → baked fallback)
+│   │       ├── deed.rs           # DEED v1.0.0 parser (estate format)
+│   │       ├── standard.rs       # Parse launcher-standard_praxis.deed
+│   │       │                     #   + LauncherStandard::resolve (flag →
+│   │       │                     #     env → the deed's own :priority
+│   │       │                     #     ladder → baked fallback)
 │   │       ├── config.rs         # Parse <app>.launcher.a2ml
 │   │       ├── template.rs       # Render via Tera (embeds CONFIG_FILE)
 │   │       ├── discovery.rs      # Walk + prune + fixture-suffix filter
@@ -156,7 +161,7 @@ launch-scaffolder/
 │           ├── cmd_config.rs     # ✓ working
 │           └── cmd_standard.rs   # stub
 ├── standards/
-│   └── launcher-standard.a2ml    # Canonical standard (baked into binary)
+│   └── launcher-standard_praxis.deed  # Canonical standard (baked in)
 ├── templates/
 │   └── launcher.sh.tera          # Bash launcher template rendered by Tera
 ├── examples/
@@ -205,15 +210,23 @@ stance`"* — this tool is Rust-primary now, with SPARK/Ada hooks planned
 for the correctness-critical `+integrity.rs+` path (called via Zig FFI
 per the hyperpolymath ABI/FFI standard).
 
-=== Why A2ML for inputs
+=== Why a declarative format for inputs
 
-* A2ML is the hyperpolymath standard format for machine-readable config
-and metadata, and every launcher already carries an A2ML metadata block
-in its header. Using A2ML end-to-end means a launcher script can be
-*parsed by this tool* to extract its config and re-minted.
-* v0.1 uses TOML as the concrete syntax (A2ML is "`TOML-like`" per the
-standards `+.claude/CLAUDE.md+`). v0.2 switches to proper A2ML once the
-`+a2ml-rs+` parser reaches feature parity.
+* A launcher carries a metadata block in its own header, so a generated
+script can be *parsed back by this tool* to recover its config and be
+re-minted. That round-trip is the reason the inputs are declarative rather
+than a pile of CLI flags.
+* The *standard* is a praxis DEED (`+launcher-standard_praxis.deed+`, DEED
+v1.0.0) as of the D73-C ruling — see `+ADR-010+` in
+`+.machine_readable/6a2/META.a2ml+`.
+* The *per-app config* (`+<app>.launcher.a2ml+`) and the emitted
+`+@a2ml-metadata+` launcher header are still on the retired A2ML naming and
+are parsed as TOML. They are deliberately *not* converted here: the config
+conversion is tracked as `+standards#960+`, and changing the emitted header
+is a wire-format change between `+mint+` and `+realign+` that would strand
+every launcher already on disk. A2ML is retired estate-wide — nothing new
+should be built on it, and the earlier plan to migrate *to* `+a2ml-rs+` no
+longer applies.
 
 == Status
 
@@ -226,9 +239,10 @@ Implemented:
 * [x] Cargo workspace layout (two crates: `+launch-scaffolder-common+` +
 `+launch-scaffolder+`)
 +
-* [x] `+standard+` module — parses `+launcher-standard.a2ml+`;
+* [x] `+deed+` module — parses the estate's DEED v1.0.0 format
+* [x] `+standard+` module — parses `+launcher-standard_praxis.deed+`;
 `LauncherStandard +
-resolve` hosts the shared 3-step precedence (flag → canonical → baked)
+resolve` walks flag → env → the deed's own `+:priority+` ladder → baked
 * [x] `+config+` module — parses `+<app>.launcher.a2ml+` (TOML) with
 runtime-kind validation
 * [x] `+template+` module — Tera renderer with full context; embeds
