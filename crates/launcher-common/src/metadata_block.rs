@@ -708,6 +708,7 @@ echo "not the block"
 echo hi
 "##;
 
+    /// Replace a known fragment of the DEED sample to exercise malformed inputs.
     fn deed_sample_with(find: &str, replace: &str) -> String {
         assert!(
             DEED_SAMPLE.contains(find),
@@ -716,6 +717,7 @@ echo hi
         DEED_SAMPLE.replace(find, replace)
     }
 
+    /// The committed pre-phase launcher remains readable by the legacy parser.
     #[test]
     fn the_committed_legacy_fixture_still_parses() {
         let text = std::fs::read_to_string(LEGACY_FIXTURE)
@@ -748,6 +750,7 @@ echo hi
         );
     }
 
+    /// A DEED block exposes the same required scalar and list keys.
     #[test]
     fn a_deed_dialect_block_parses() {
         let block = parse_from_text(DEED_SAMPLE)
@@ -781,6 +784,7 @@ echo hi
         );
     }
 
+    /// Reject scripts with conflicting legacy and DEED metadata blocks.
     #[test]
     fn a_script_carrying_both_dialects_is_rejected() {
         let legacy_text = std::fs::read_to_string(LEGACY_FIXTURE).unwrap();
@@ -789,6 +793,7 @@ echo hi
         assert!(err.contains("BOTH"), "unexpected error: {err}");
     }
 
+    /// Refuse in-place edits to a DEED block instead of corrupting its syntax.
     #[test]
     fn rewrite_scalar_refuses_a_deed_block_rather_than_corrupting_it() {
         let err = format!(
@@ -798,6 +803,7 @@ echo hi
         assert!(err.contains("read-only"), "unexpected error: {err}");
     }
 
+    /// Require a chora reference in every embedded praxis deed.
     #[test]
     fn a_deed_block_without_beholding_chora_is_rejected() {
         let text = deed_sample_with("#   :beholding-chora #u5\"estate/chora\"\n", "");
@@ -805,6 +811,7 @@ echo hi
         assert!(err.contains("beholding-chora"), "unexpected error: {err}");
     }
 
+    /// Reject a chora reference that is not a UUID5 literal.
     #[test]
     fn a_deed_block_with_a_non_uuid5_chora_is_rejected() {
         let text = deed_sample_with(
@@ -830,6 +837,7 @@ echo hi
         );
     }
 
+    /// Reject embedded deeds whose root form is not `praxis-deed`.
     #[test]
     fn a_deed_block_that_is_not_a_praxis_deed_is_rejected() {
         let text = deed_sample_with("(praxis-deed", "(repo-deed");
@@ -867,6 +875,7 @@ echo hi
         );
     }
 
+    /// Require every embedded DEED line to retain its shell comment prefix.
     #[test]
     fn a_deed_block_line_without_a_hash_prefix_is_rejected() {
         let text = deed_sample_with("#   :canonical-name", "   :canonical-name");
