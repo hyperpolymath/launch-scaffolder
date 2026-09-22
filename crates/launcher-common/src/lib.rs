@@ -5,7 +5,7 @@
 //! This crate is the heart of the launch-scaffolder tool. It contains:
 //!
 //! - [`deed`] — parse the estate's `.deed` format (DEED v1.0.0 grammar).
-//! - [`standard`] — parse the `launcher-standard.a2ml` spec file.
+//! - [`standard`] — parse the `launcher-standard_praxis.deed` spec file.
 //! - [`config`] — parse per-app `<app>.launcher.a2ml` config files.
 //! - [`template`] — render a launcher shell script from a standard + config.
 //! - [`platform`] — cross-platform file path, permission, and dispatch helpers.
