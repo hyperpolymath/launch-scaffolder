@@ -1,0 +1,5 @@
+// SPDX-License-Identifier: MPL-2.0
+= Contributing
+
+The canonical contribution guide is maintained at
+link:.github/CONTRIBUTING.md[`.github/CONTRIBUTING.md`].
