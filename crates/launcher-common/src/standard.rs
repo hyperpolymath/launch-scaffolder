@@ -67,7 +67,12 @@ impl LauncherStandard {
         Self::parse(&text).with_context(|| format!("parsing standard {}", path.display()))
     }
 
-    /// Parse a standard from an in-memory string.
+    /// Parse and validate a standard from an in-memory string.
+    ///
+    /// The document must be a DEED with the required launcher-standard
+    /// clauses, a `(resolution)(standard-search)` ladder, and a string-valued
+    /// `:standard-version`. Invalid or retired TOML/A2ML input returns a
+    /// contextual error.
     pub fn parse(text: &str) -> Result<Self> {
         let doc = deed::parse(text).with_context(|| {
             if looks_like_the_old_toml_format(text) {
@@ -117,6 +122,9 @@ impl LauncherStandard {
     ///    walked in ASCENDING `:priority` order — first existing path wins.
     /// 3. The baked-in fallback compiled into the binary at build time.
     ///
+    /// If a selected on-disk standard cannot be read or parsed, resolution
+    /// returns that error rather than continuing to a lower-precedence source.
+    ///
     /// This replaces a single hard-coded `/var/mnt/eclipse/...` path, which
     /// silently fell through to the baked copy on every host that does not use
     /// that layout — a downgrade with no diagnostic.
@@ -124,11 +132,11 @@ impl LauncherStandard {
         Self::resolve_with(flag, |k| std::env::var(k).ok(), |p| p.exists())
     }
 
-    /// [`Self::resolve`] with the environment and the filesystem injected.
+    /// Resolve with supplied environment lookup and path-existence functions.
     ///
-    /// Tests must use this rather than `resolve`. `std::env::set_var` is
-    /// process-global while cargo runs tests in parallel threads, so an
-    /// env-mutating test corrupts its neighbours rather than isolating itself.
+    /// Precedence and fallback behaviour match [`Self::resolve`]. The `exists`
+    /// function only selects a candidate; a selected path is still loaded from
+    /// disk.
     pub fn resolve_with(
         flag: Option<&Path>,
         env: impl Fn(&str) -> Option<String>,
@@ -162,7 +170,8 @@ impl LauncherStandard {
     /// ascending `:priority` order, with `$VAR` expanded.
     ///
     /// The ladder is read from the baked copy by necessity: this is the code
-    /// that finds the on-disk standard, so it cannot already have it.
+    /// that finds the on-disk standard, so it cannot already have it. Rungs
+    /// containing unresolved variables are omitted.
     fn search_ladder(env: &impl Fn(&str) -> Option<String>) -> Vec<PathBuf> {
         let Ok(baked) = deed::parse(BAKED_STANDARD) else {
             return Vec::new();
@@ -200,13 +209,11 @@ fn ladder_from(search: &Node, env: &impl Fn(&str) -> Option<String>) -> Vec<Path
 /// The ladder that locates this file itself, as named in the deed.
 const STANDARD_SEARCH: &str = "standard-search";
 
-/// Expand `$NAME` occurrences, or return `None` if any is unset.
+/// Expand `$NAME` occurrences, preserving a bare `$` verbatim.
 ///
-/// Returning `None` is the whole point. `unwrap_or_default()` would turn an
-/// unset `$HP_ESTATE_ROOT` into the path `/standards/launcher/...`, which is a
-/// real absolute path that could exist and is emphatically not the rung the
-/// standard described. An unset variable means "this rung does not apply on
-/// this host", so the rung is skipped.
+/// Returns `None` if any referenced variable has neither an environment value
+/// nor a documented default. This prevents an unset `$HP_ESTATE_ROOT`, for
+/// example, from becoming the unrelated absolute path `/standards/launcher/...`.
 fn expand_vars(value: &str, env: &impl Fn(&str) -> Option<String>) -> Option<String> {
     let mut out = String::with_capacity(value.len());
     let mut rest = value;
@@ -231,7 +238,10 @@ fn expand_vars(value: &str, env: &impl Fn(&str) -> Option<String>) -> Option<Str
     Some(out)
 }
 
-/// Resolve one variable, honouring the single documented default.
+/// Resolve one variable from the environment lookup.
+///
+/// An unset `XDG_DATA_HOME` defaults to `$HOME/.local/share`; every other
+/// unset variable returns `None`.
 fn lookup(name: &str, env: &impl Fn(&str) -> Option<String>) -> Option<String> {
     if let Some(v) = env(name) {
         return Some(v);

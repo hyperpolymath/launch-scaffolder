@@ -75,6 +75,7 @@ impl Value {
         }
     }
 
+    /// The integer payload, for `Int` only.
     pub fn as_int(&self) -> Option<i64> {
         match self {
             Value::Int(i) => Some(*i),
@@ -82,6 +83,7 @@ impl Value {
         }
     }
 
+    /// The boolean payload, for `Bool` only.
     pub fn as_bool(&self) -> Option<bool> {
         match self {
             Value::Bool(b) => Some(*b),
@@ -136,12 +138,13 @@ pub struct Node {
 }
 
 impl Node {
-    /// The value of a `:keyword` field on this node, if present.
+    /// The value of the first `:keyword` field on this node, if present.
     pub fn field(&self, key: &str) -> Option<&Value> {
         self.fields.iter().find(|(k, _)| k == key).map(|(_, v)| v)
     }
 
-    /// The value of a `:keyword` field that must be a string.
+    /// The string payload of the first `:keyword` field, or `None` if the
+    /// field is absent or has another value kind.
     pub fn str_field(&self, key: &str) -> Option<&str> {
         self.field(key).and_then(Value::as_str)
     }
@@ -199,7 +202,10 @@ struct Parser {
 /// Parse a complete deed document and return its single top-level form.
 ///
 /// The whole input must be consumed: trailing non-whitespace after the closing
-/// `)` is a parse error, per the grammar's EOF enforcement note.
+/// `)` is a parse error, per the grammar's EOF enforcement note. The document
+/// must also have an SPDX header and exactly one string-valued top-level
+/// `:schema-version` field; any syntax or structural violation returns an
+/// error.
 pub fn parse(text: &str) -> Result<Node> {
     // A tab is invalid *anywhere* in a deed, not merely as a separator — this
     // matches `deed_lint.py`, which tests the raw text before lexing. A literal
@@ -330,7 +336,8 @@ impl Parser {
     }
 
     /// `token-sep = 1*(SP / line-end / comment)`, but zero repetitions are
-    /// tolerated here; callers that require a separator check the return value.
+    /// tolerated here. Returns whether at least one separator was consumed so
+    /// callers can enforce required separation.
     fn skip_sep(&mut self) -> Result<bool> {
         let start = self.pos;
         loop {
@@ -437,8 +444,9 @@ impl Parser {
         })
     }
 
-    /// The shared body of a form and a clause: `:keyword value` fields and
-    /// nested `(symbol …)` clauses, until the matching `)`.
+    /// The shared body of a form and a clause: separator-delimited
+    /// `:keyword value` fields and nested `(symbol …)` clauses, until the
+    /// matching `)`.
     #[allow(clippy::type_complexity)]
     fn parse_body(&mut self, head: &str) -> Result<(Vec<(String, Value)>, Vec<Node>)> {
         let mut fields = Vec::new();
