@@ -28,7 +28,7 @@ hyperpolymath tools at runtime.
 name         = "standards"
 repo         = "/var/mnt/eclipse/repos/developer-ecosystem/standards"
 relationship = "standards-source"
-detail       = "Hosts the canonical launcher-standard.a2ml at standards/launcher/launcher-standard.a2ml (and its prose counterpart at standards/docs/UX-standards/launcher-standard.adoc). launch-scaffolder reads the machine-readable form at runtime."
+detail       = "Hosts the canonical launcher-standard_praxis.deed at standards/launcher/launcher-standard_praxis.deed (and its prose counterpart at standards/docs/UX-standards/launcher-standard.adoc). launch-scaffolder reads the machine-readable form at runtime, resolving it via the :priority ladder the deed declares for itself."
 
 [[related-projects]]
 name         = "stapeln"
@@ -91,7 +91,7 @@ detail       = "Stays hand-written — remote web app with gossamer fallback and
 
 [integration-points]
 input-config-format  = "A2ML (TOML-compatible today) at <repo-root>/<app>.launcher.a2ml"
-input-standard       = "A2ML at /var/mnt/eclipse/repos/developer-ecosystem/standards/launcher/launcher-standard.a2ml"
+input-standard       = "praxis DEED (DEED v1.0.0), launcher-standard_praxis.deed, located via the :priority search ladder the deed declares for itself under (resolution) -> standard-search"
 output-launcher      = "POSIX bash script at <repo-root>/<app>-launcher.sh (chmod 755)"
 output-desktop-entry = "Freedesktop .desktop file written by the generated script's --integ mode"
 output-bundle-macos  = ".app bundle written by the generated script's --integ mode"
