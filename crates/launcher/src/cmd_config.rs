@@ -1,7 +1,14 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright (c) Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
-//! `config` subcommand — get, set, or validate the `@a2ml-metadata`
-//! block embedded in a generated launcher script.
+//! `config` subcommand — get, set, or validate the metadata block
+//! embedded in a generated launcher script.
+//!
+//! Two dialects exist and this surface reads both: the DEED form
+//! (`@launcher-deed`), which `mint` emits, and the retired
+//! `@a2ml-metadata` form carried by launchers minted before that
+//! change. Reading is dialect-agnostic; `set` is not, and says so —
+//! a DEED form cannot be safely edited in place, so `set` refuses it
+//! and directs the caller to re-mint instead.
 //!
 //! All real work lives in `launch_scaffolder_common::metadata_block`.
 //! This file is the CLI surface: three sub-actions, one script path
@@ -56,9 +63,15 @@ pub fn run(args: Args, _standard: Option<&Path>) -> Result<()> {
     }
 }
 
+/// Print a scalar or each list item from either metadata dialect.
+/// Returns an error if no block or requested key is present.
 fn cmd_get(script: &Path, key: &str) -> Result<()> {
-    let block = metadata_block::parse_from_script(script)?
-        .with_context(|| format!("no @a2ml-metadata block found in {}", script.display()))?;
+    let block = metadata_block::parse_from_script(script)?.with_context(|| {
+        format!(
+            "no launcher metadata block (@launcher-deed or @a2ml-metadata) found in {}",
+            script.display()
+        )
+    })?;
     if let Some(v) = block.scalar(key) {
         println!("{v}");
         return Ok(());
@@ -85,9 +98,15 @@ fn cmd_set(script: &Path, key: &str, value: &str) -> Result<()> {
     Ok(())
 }
 
+/// Check either metadata dialect for required fields.
+/// Reports missing keys and returns an error for an absent, malformed or incomplete block.
 fn cmd_validate(script: &Path) -> Result<()> {
-    let block = metadata_block::parse_from_script(script)?
-        .with_context(|| format!("no @a2ml-metadata block found in {}", script.display()))?;
+    let block = metadata_block::parse_from_script(script)?.with_context(|| {
+        format!(
+            "no launcher metadata block (@launcher-deed or @a2ml-metadata) found in {}",
+            script.display()
+        )
+    })?;
     let missing = block.missing_required();
     if missing.is_empty() {
         println!(
@@ -102,7 +121,7 @@ fn cmd_validate(script: &Path) -> Result<()> {
         eprintln!("✗ missing required key: {key}");
     }
     anyhow::bail!(
-        "{}: {} required key(s) missing from @a2ml-metadata block",
+        "{}: {} required key(s) missing from the launcher metadata block",
         script.display(),
         missing.len()
     )

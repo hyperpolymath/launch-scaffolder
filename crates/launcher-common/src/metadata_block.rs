@@ -500,7 +500,8 @@ fn unquote_owned(s: &str) -> Option<String> {
 /// in `text`, preserving the original formatting (column alignment,
 /// surrounding whitespace). Errors if `key` is absent or is a list key.
 pub fn rewrite_scalar(text: &str, key: &str, new_value: &str) -> Result<String> {
-    let block = parse_from_text(text)?.context("no @a2ml-metadata block found in input")?;
+    let block = parse_from_text(text)?
+        .context("no launcher metadata block (@launcher-deed or @a2ml-metadata) found in input")?;
 
     // Phase 1 reads both dialects but rewrites only the legacy one.
     // This scanner looks for `key = "value"` and a quoted span; handed a
@@ -659,6 +660,29 @@ echo "not the block"
     #[test]
     fn returns_none_when_no_block_present() {
         assert!(parse_from_text("no block here\n").unwrap().is_none());
+    }
+
+    /// Name both dialects when there is no block at all.
+    ///
+    /// `config set` calls `rewrite_scalar` directly — it does no parse of its
+    /// own and adds no context — so this string is the entire message a caller
+    /// sees for a script carrying neither dialect. Naming only the retired form
+    /// would send them looking for the wrong marker.
+    #[test]
+    fn rewrite_scalar_names_both_dialects_when_no_block_is_present() {
+        // `{:#}` walks the whole `anyhow` chain, so this keeps asserting the
+        // dialect names even if a context layer is added above this one.
+        let err = format!(
+            "{:#}",
+            rewrite_scalar("no block here\n", "version", "0.2.0").unwrap_err()
+        );
+        // The bare dialect names, not the marker constants: `DEED_BEGIN` is the
+        // whole line `# @launcher-deed begin`, which this prose message does
+        // not and should not contain.
+        assert!(
+            err.contains("@launcher-deed") && err.contains("@a2ml-metadata"),
+            "the no-block diagnostic must name both dialects, got: {err}"
+        );
     }
 
     #[test]
