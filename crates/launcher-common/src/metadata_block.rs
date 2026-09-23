@@ -662,11 +662,27 @@ echo "not the block"
         assert!(parse_from_text("no block here\n").unwrap().is_none());
     }
 
+    /// Name both dialects when there is no block at all.
+    ///
+    /// `config set` calls `rewrite_scalar` directly — it does no parse of its
+    /// own and adds no context — so this string is the entire message a caller
+    /// sees for a script carrying neither dialect. Naming only the retired form
+    /// would send them looking for the wrong marker.
     #[test]
     fn rewrite_scalar_names_both_dialects_when_no_block_is_present() {
-        let err = rewrite_scalar("no block here\n", "version", "0.2.0").unwrap_err();
-        assert!(err.to_string().contains("@launcher-deed"));
-        assert!(err.to_string().contains("@a2ml-metadata"));
+        // `{:#}` walks the whole `anyhow` chain, so this keeps asserting the
+        // dialect names even if a context layer is added above this one.
+        let err = format!(
+            "{:#}",
+            rewrite_scalar("no block here\n", "version", "0.2.0").unwrap_err()
+        );
+        // The bare dialect names, not the marker constants: `DEED_BEGIN` is the
+        // whole line `# @launcher-deed begin`, which this prose message does
+        // not and should not contain.
+        assert!(
+            err.contains("@launcher-deed") && err.contains("@a2ml-metadata"),
+            "the no-block diagnostic must name both dialects, got: {err}"
+        );
     }
 
     #[test]
