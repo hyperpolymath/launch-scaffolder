@@ -26,24 +26,21 @@
 # SPDX-License-Identifier: MPL-2.0
 # Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
 #
-# @a2ml-metadata begin
-# (
-#   id                   = "{{ app_name }}-launcher"
-#   type                 = "launcher"
-#   version              = "{{ app_version }}"
-#   app-name             = "{{ app_name }}"
-#   app-display          = "{{ app_display }}"
-#   app-url              = "{{ url }}"
-#   runtime-kind         = "{{ runtime_kind }}"
-#   standards-compliance = [
-#     "launcher-standard.adoc"
-#     "LM-LA-LIFECYCLE-STANDARD.adoc"
-#     "cross-platform-system-integration-modes"
-#   ]
-#   standard-spec-version = "{{ spec_version }}"
-#   generator             = "launch-scaffolder"
-# )
-# @a2ml-metadata end
+# @launcher-deed begin
+# ;; SPDX-License-Identifier: MPL-2.0
+# (praxis-deed
+#   :schema-version  "1.0.0"
+#   :canonical-name  "{{ app_name | deedstr }}-launcher"
+#   :beholding-chora #u5"estate/chora"
+#   (artefact :type "launcher" :version "{{ app_version | deedstr }}"
+#             :generator "launch-scaffolder")
+#   (app :name "{{ app_name | deedstr }}" :display "{{ app_display | deedstr }}"
+#        :url "{{ url | deedstr }}" :runtime-kind "{{ runtime_kind | deedstr }}")
+#   (compliance :standard-version "{{ spec_version | deedstr }}"
+#               :standards ("launcher-standard.adoc"
+#                           "LM-LA-LIFECYCLE-STANDARD.adoc"
+#                           "cross-platform-system-integration-modes")))
+# @launcher-deed end
 #
 # ============================================================================
 # {{ app_name }}-launcher.sh — {{ app_display }}
