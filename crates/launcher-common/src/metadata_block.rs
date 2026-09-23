@@ -496,9 +496,14 @@ fn unquote_owned(s: &str) -> Option<String> {
         .map(|s| s.to_string())
 }
 
-/// In-place rewrite: replace the scalar value of `key` with `new_value`
-/// in `text`, preserving the original formatting (column alignment,
-/// surrounding whitespace). Errors if `key` is absent or is a list key.
+/// Return `text` with a legacy metadata block's scalar `key` replaced by
+/// `new_value`.
+///
+/// Only the quoted value is replaced, preserving its surrounding whitespace
+/// and column alignment. `new_value` is inserted verbatim without escaping.
+/// Returns an error if the metadata is absent or malformed, the block uses the
+/// read-only DEED dialect, the key is absent or names a list, or the parsed
+/// scalar cannot be located safely for replacement.
 pub fn rewrite_scalar(text: &str, key: &str, new_value: &str) -> Result<String> {
     let block = parse_from_text(text)?
         .context("no launcher metadata block (@launcher-deed or @a2ml-metadata) found in input")?;
