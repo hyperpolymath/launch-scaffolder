@@ -500,7 +500,8 @@ fn unquote_owned(s: &str) -> Option<String> {
 /// in `text`, preserving the original formatting (column alignment,
 /// surrounding whitespace). Errors if `key` is absent or is a list key.
 pub fn rewrite_scalar(text: &str, key: &str, new_value: &str) -> Result<String> {
-    let block = parse_from_text(text)?.context("no @a2ml-metadata block found in input")?;
+    let block = parse_from_text(text)?
+        .context("no launcher metadata block (@launcher-deed or @a2ml-metadata) found in input")?;
 
     // Phase 1 reads both dialects but rewrites only the legacy one.
     // This scanner looks for `key = "value"` and a quoted span; handed a
@@ -659,6 +660,13 @@ echo "not the block"
     #[test]
     fn returns_none_when_no_block_present() {
         assert!(parse_from_text("no block here\n").unwrap().is_none());
+    }
+
+    #[test]
+    fn rewrite_scalar_names_both_dialects_when_no_block_is_present() {
+        let err = rewrite_scalar("no block here\n", "version", "0.2.0").unwrap_err();
+        assert!(err.to_string().contains("@launcher-deed"));
+        assert!(err.to_string().contains("@a2ml-metadata"));
     }
 
     #[test]
