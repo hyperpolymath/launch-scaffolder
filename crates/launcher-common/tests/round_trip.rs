@@ -242,3 +242,38 @@ fn a_launcher_minted_before_phase_two_still_reads() {
     );
     assert_eq!(block.lists, deed.lists);
 }
+
+/// The post-phase fixture: a launcher minted **by this change**, committed as
+/// an artefact.
+///
+/// It is the mirror of the pre-phase fixture above, and it guards the other
+/// direction. That one proves a launcher minted before phase 2 still reads;
+/// this one will prove a launcher minted *during* phase 2 still reads after
+/// some later tightening of the DEED grammar. `deed::parse` is shared with the
+/// rest of the estate and will keep moving; the launchers this emitter has
+/// already written will not. Without a committed artefact there is nothing to
+/// notice that they had been stranded.
+#[test]
+fn a_launcher_minted_by_phase_two_reads_and_matches_todays_emitter() {
+    let fixture = std::fs::read_to_string(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/tests/fixtures/metadata_block/minted-2026-09-23_stapeln-launcher-deed.sh"
+    ))
+    .expect("the post-phase fixture is committed");
+
+    let block = metadata_block::parse_from_text(&fixture)
+        .expect("the post-phase fixture parses")
+        .expect("the post-phase fixture carries a metadata block");
+
+    assert!(block.is_deed(), "the fixture is the DEED dialect");
+    assert_eq!(block.missing_required(), Vec::<String>::new());
+
+    let minted = metadata_block::parse_from_text(&mint())
+        .expect("parses")
+        .expect("has a block");
+    assert_eq!(
+        block.scalars, minted.scalars,
+        "the committed deed fixture and today's mint must agree on every scalar"
+    );
+    assert_eq!(block.lists, minted.lists);
+}
