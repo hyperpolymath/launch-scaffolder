@@ -17,13 +17,15 @@ use tera::{Context as TeraContext, Tera};
 /// The canonical template, baked into the binary.
 pub const LAUNCHER_TEMPLATE: &str = include_str!("../../../templates/launcher.sh.tera");
 
-/// Render a launcher shell script from a parsed config.
+/// Render a launcher shell script with an embedded DEED block from a parsed config.
 ///
-/// `config_path` is the absolute path of the `<app>.launcher.a2ml` that
-/// produced `config`. It's embedded into the rendered script as
-/// `CONFIG_FILE=...` so the script's `--integ`/`--disinteg` arms can
-/// delegate back to `launch-scaffolder provision`. Pass `None` only in
-/// tests; real callers always have a path on hand.
+/// The supplied standard provides the block's `:standard-version`.
+/// `config_path` points to the `<app>.launcher.a2ml` that produced `config`.
+/// It is canonicalised when possible and embedded as `CONFIG_FILE=...` so
+/// the script's `--integ`/`--disinteg` arms can delegate to
+/// `launch-scaffolder provision`. Passing `None` leaves that value empty.
+/// Rendering fails if a value emitted into the DEED block contains a
+/// control character with no legal DEED string spelling.
 pub fn render(
     config: &LauncherConfig,
     _standard: &LauncherStandard,
@@ -189,6 +191,8 @@ fn deed_escape(s: &str) -> std::result::Result<String, String> {
 /// the minted launcher's metadata block cannot be parsed at all. The legacy
 /// `@a2ml-metadata` reader was tolerant enough to hide that; the DEED
 /// grammar is not, which is what makes emission a correctness surface.
+/// Returns an error for non-string values or control characters that cannot
+/// be represented in a DEED string.
 fn deedstr_filter(
     value: &tera::Value,
     _args: &std::collections::HashMap<String, tera::Value>,

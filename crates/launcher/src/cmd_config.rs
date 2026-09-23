@@ -63,6 +63,8 @@ pub fn run(args: Args, _standard: Option<&Path>) -> Result<()> {
     }
 }
 
+/// Print a scalar or each list item from either metadata dialect.
+/// Returns an error if no block or requested key is present.
 fn cmd_get(script: &Path, key: &str) -> Result<()> {
     let block = metadata_block::parse_from_script(script)?.with_context(|| {
         format!(
@@ -96,6 +98,8 @@ fn cmd_set(script: &Path, key: &str, value: &str) -> Result<()> {
     Ok(())
 }
 
+/// Check either metadata dialect for required fields.
+/// Reports missing keys and returns an error for an absent, malformed or incomplete block.
 fn cmd_validate(script: &Path) -> Result<()> {
     let block = metadata_block::parse_from_script(script)?.with_context(|| {
         format!(
