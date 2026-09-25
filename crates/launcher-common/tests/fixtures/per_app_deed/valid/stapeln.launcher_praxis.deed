@@ -1,0 +1,41 @@
+;; SPDX-License-Identifier: MPL-2.0
+;;
+;; stapeln.launcher_praxis.deed — the per-app launcher descriptor of
+;; docs/per-app-launcher-descriptor-deed.adoc (#42), written in the chosen
+;; form.
+;;
+;; This fixture is the vocabulary of that document made executable: every
+;; clause and every field named in it appears here, so a change to the
+;; vocabulary that is not reflected in the file — or a clause the reader
+;; cannot reach — fails tests/per_app_deed.rs rather than being discovered
+;; during a conversion of 21 files.
+;;
+;; Values are illustrative rather than a copy of the TOML fixture: `port`
+;; and `startup-command-search` are shown because the vocabulary must be
+;; exercisable, not because stapeln sets them.
+(praxis-deed
+  :schema-version  "1.0.0"
+  :canonical-name  "stapeln"
+  :beholding-chora #u5"estate/chora"
+
+  ;; Which document this descriptor conforms to. NOT :schema-version, which
+  ;; is the grammar's own version and lives above.
+  (compliance :standard-version "0.4.0")
+
+  (project :name "stapeln" :display "Stapeln"
+           :description "A launcher descriptor, in deed form"
+           :categories ("Development" "Utility")
+           :version "0.1.0" :license "MPL-2.0"
+           :generic-name "Stack Manager")
+
+  (repo :path "/srv/stapeln")
+
+  (runtime :kind "server-url" :port 4010
+           :url "http://localhost:4010"
+           :startup-command-search ("./stapeln" "cargo run")
+           :command ()
+           :wait-for-url-timeout-seconds 15)
+
+  (icon :source "{repo-dir}/assets/icon-256.png")
+
+  (soft-attach :tools ("feedback-o-tron" "hypatia")))

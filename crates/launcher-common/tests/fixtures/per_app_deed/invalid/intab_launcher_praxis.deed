@@ -1,0 +1,11 @@
+;; SPDX-License-Identifier: MPL-2.0
+;;
+;; INVALID — a tab used as a separator. TOML permits it; deed.abnf does not
+;; ("HTAB (tab) is an invalid separator"). The current descriptors are typed
+;; in config.rs, but [integration] and [exceptions] are not, so a conversion
+;; pass has to scan for this rather than assume it away.
+(praxis-deed
+  :schema-version  "1.0.0"
+  :canonical-name  "stapeln"
+  :beholding-chora	#u5"estate/chora"
+  (project :name "stapeln"))
