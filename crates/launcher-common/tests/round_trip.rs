@@ -87,20 +87,37 @@ fn phase_two_mint_emits_the_deed_markers_and_not_the_legacy_ones() {
 fn as_legacy_script(block: &metadata_block::MetadataBlock) -> String {
     let get = |k: &str| block.scalar(k).unwrap_or_default().to_string();
 
-    let standards = block
-        .lists
-        .iter()
-        .find(|(k, _)| k == "standards-compliance")
-        .map(|(_, v)| v.clone())
-        .unwrap_or_default();
-    let standards_rendered = standards
-        .iter()
-        .map(|s| format!("#     \"{s}\"\n"))
-        .collect::<String>();
+    let list_of = |key: &str| {
+        block
+            .lists
+            .iter()
+            .find(|(k, _)| k == key)
+            .map(|(_, v)| v.clone())
+            .unwrap_or_default()
+    };
+    let render_list = |values: &Vec<String>| -> String {
+        values
+            .iter()
+            .map(|s| format!("#     \"{s}\"\n"))
+            .collect::<String>()
+    };
 
-    // Fail loudly if the emitter grows a scalar the legacy dialect has no slot
+    let standards = list_of("standards-compliance");
+    let standards_rendered = render_list(&standards);
+    let modes_rendered = render_list(&list_of("modes"));
+    let platforms_rendered = render_list(&list_of("platforms"));
+    let covered_rendered = render_list(&list_of("lifecycle-phases-covered"));
+    let deferred_rendered = render_list(&list_of("lifecycle-phases-deferred"));
+
+    // Fail loudly if the emitter grows a key the legacy dialect has no slot
     // for: silently dropping it is exactly the regression this whole change
     // exists to prevent.
+    //
+    // The four list slots below are the ones #41 taught the emitter to fill.
+    // They are here rather than left out because a legacy launcher is allowed
+    // to carry them too — the retired dialect's `key = [ … ]` syntax is
+    // generic, so the two dialects stay value-for-value equal now that the
+    // deed block declares them.
     for (k, _) in &block.scalars {
         match k.as_str() {
             "id"
@@ -114,6 +131,19 @@ fn as_legacy_script(block: &metadata_block::MetadataBlock) -> String {
             | "generator" => {}
             other => panic!(
                 "the emitter emits scalar `{other}`, which the legacy dialect \
+                 cannot express — the compat reader would drop it"
+            ),
+        }
+    }
+    for (k, _) in &block.lists {
+        match k.as_str() {
+            "standards-compliance"
+            | "modes"
+            | "platforms"
+            | "lifecycle-phases-covered"
+            | "lifecycle-phases-deferred" => {}
+            other => panic!(
+                "the emitter emits list `{other}`, which the legacy dialect \
                  cannot express — the compat reader would drop it"
             ),
         }
@@ -135,6 +165,18 @@ fn as_legacy_script(block: &metadata_block::MetadataBlock) -> String {
          #   ]\n\
          #   standard-spec-version = \"{spec}\"\n\
          #   generator             = \"{generator}\"\n\
+         #   modes = [\n\
+         {modes_rendered}\
+         #   ]\n\
+         #   platforms = [\n\
+         {platforms_rendered}\
+         #   ]\n\
+         #   lifecycle-phases-covered = [\n\
+         {covered_rendered}\
+         #   ]\n\
+         #   lifecycle-phases-deferred = [\n\
+         {deferred_rendered}\
+         #   ]\n\
          # )\n\
          # @a2ml-metadata end\n\
          \n\
@@ -189,6 +231,79 @@ fn both_dialects_agree_on_what_todays_emitter_produces() {
     assert_eq!(deed.missing_required(), Vec::<String>::new());
 }
 
+/// The four declarations #41 taught the emitter to make survive the full
+/// round trip: emitted by `mint`, read back by the deed reader, carried in the
+/// **retired** dialect, and read back again with the same values.
+///
+/// `both_dialects_agree_on_what_todays_emitter_produces` above already proves
+/// the two dialects flatten alike, so this test would be implied by it if the
+/// new fields ever reached that far. It is here because they very nearly did
+/// not: the helper that renders the legacy side, `as_legacy_script`, has an
+/// explicit list of the keys it knows how to express and panics on any other,
+/// so the instant the emitter grew four new lists the compat claim stopped
+/// being exercised rather than failing. This test says which values must
+/// survive, so the four cannot be dropped without it going red.
+#[test]
+fn the_four_new_declarations_survive_mint_parse_legacy_parse() {
+    let minted = mint();
+    let deed = metadata_block::parse_from_text(&minted)
+        .expect("parses")
+        .expect("has a block");
+
+    // 1. They are emitted at all — the defect, stated positively.
+    for key in [
+        "modes",
+        "platforms",
+        "lifecycle-phases-covered",
+        "lifecycle-phases-deferred",
+    ] {
+        assert!(
+            deed.list(key).is_some(),
+            "`mint` does not declare `{key}`, which the standard requires"
+        );
+        assert!(
+            !deed.list(key).unwrap().is_empty(),
+            "`{key}` is declared as the empty list, which satisfies a presence \
+             check while claiming nothing"
+        );
+    }
+
+    // 2. They take their values from the standard, not from the template.
+    let std_ = LauncherStandard::baked().expect("baked standard loads");
+    assert_eq!(
+        deed.list("platforms"),
+        Some(std_.platforms().unwrap().as_slice())
+    );
+    assert_eq!(
+        deed.list("lifecycle-phases-covered"),
+        Some(std_.lifecycle_phases_covered().unwrap().as_slice())
+    );
+    assert_eq!(
+        deed.list("lifecycle-phases-deferred"),
+        Some(std_.lifecycle_phases_deferred().unwrap().as_slice())
+    );
+
+    // 3. They come back unchanged through the retired dialect, which is the
+    //    direction a launcher already on disk takes.
+    let legacy_script = as_legacy_script(&deed);
+    let legacy = metadata_block::parse_from_text(&legacy_script)
+        .expect("the generated legacy script parses")
+        .expect("the generated legacy script carries a block");
+
+    for key in [
+        "modes",
+        "platforms",
+        "lifecycle-phases-covered",
+        "lifecycle-phases-deferred",
+    ] {
+        assert_eq!(
+            legacy.list(key),
+            deed.list(key),
+            "`{key}` did not survive the round trip through the legacy dialect"
+        );
+    }
+}
+
 /// The deed leg of `realign`: a deed block is never rewritten in place, so a
 /// deed-carrying launcher is only ever regenerated.
 ///
@@ -226,7 +341,28 @@ fn a_launcher_minted_before_phase_two_still_reads() {
         .expect("a pre-phase launcher carries a metadata block");
 
     assert!(!block.is_deed(), "the fixture is the retired dialect");
-    assert_eq!(block.missing_required(), Vec::<String>::new());
+
+    // ⚠ Not `Vec::<String>::new()` any more, and the reason is the defect #41
+    // was filed about: the emitter of 2026-09-22 never emitted `modes`,
+    // `platforms` or the two lifecycle-phase lists, and the guard of the day
+    // did not ask for them either, so this artefact was accepted as complete
+    // while missing four of the standard's required fields. The four are
+    // named rather than skipped so that a future tightening has to confront
+    // them instead of inheriting the silence.
+    assert_eq!(
+        block.missing_required(),
+        vec![
+            "modes",
+            "platforms",
+            "lifecycle-phases-covered",
+            "lifecycle-phases-deferred"
+        ],
+        "a pre-phase launcher is missing exactly the four declarations the \
+         pre-phase emitter never emitted"
+    );
+    // Everything it DOES carry is still complete: id, type, version,
+    // app-name, app-display, app-url, standards-compliance.
+    assert_eq!(block.present_required().len(), 7);
 
     // The same config this fixture was minted from, through today's emitter.
     let deed = metadata_block::parse_from_text(&mint())
@@ -236,7 +372,17 @@ fn a_launcher_minted_before_phase_two_still_reads() {
         block.scalars, deed.scalars,
         "a pre-phase launcher and a launcher minted today must carry the same values"
     );
-    assert_eq!(block.lists, deed.lists);
+    // Lists are compared per key, not wholesale: today's mint legitimately
+    // carries four the 2026-09-22 emitter did not have. Comparing the whole
+    // vector would either fail (masking a real drift) or be trimmed until it
+    // stopped noticing changes to `standards-compliance`.
+    for (key, values) in &block.lists {
+        assert_eq!(
+            deed.list(key),
+            Some(values.as_slice()),
+            "today's emitter changed list `{key}`"
+        );
+    }
 }
 
 /// The post-phase fixture: a launcher minted **by this change**, committed as

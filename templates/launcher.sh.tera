@@ -39,7 +39,22 @@
 #   (compliance :standard-version "{{ spec_version | deedstr }}"
 #               :standards ("launcher-standard.adoc"
 #                           "LM-LA-LIFECYCLE-STANDARD.adoc"
-#                           "cross-platform-system-integration-modes")))
+#                           "cross-platform-system-integration-modes"))
+{#-
+  The four declarations below were required by the standard from the start
+  and emitted by nothing: (metadata-block :required-fields) has always named
+  them, and no launcher minted before 2026-09-25 carries them (#41). The
+  platforms and the lifecycle phases come from the standard's own (platforms)
+  and (lifecycle-phases) clauses, so the vocabulary is named once rather than
+  invented here; the modes are the arms of this script's own main switch,
+  pinned to it by a test in template.rs.
+  NOTE: this tag closes WITHOUT whitespace-stripping on its right. Stripping
+  there joins the first clause below onto the compliance clause above it.
+#}
+#   (modes :accepted ({{ modes | safe }}))
+#   (platforms :supported ({{ platforms | safe }}))
+#   (lifecycle-phases :covered ({{ lifecycle_phases_covered | safe }})
+#                     :deferred ({{ lifecycle_phases_deferred | safe }})))
 # @launcher-deed end
 #
 # ============================================================================

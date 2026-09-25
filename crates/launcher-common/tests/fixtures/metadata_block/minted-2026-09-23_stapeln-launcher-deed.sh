@@ -15,7 +15,11 @@
 #   (compliance :standard-version "0.4.0"
 #               :standards ("launcher-standard.adoc"
 #                           "LM-LA-LIFECYCLE-STANDARD.adoc"
-#                           "cross-platform-system-integration-modes")))
+#                           "cross-platform-system-integration-modes"))
+#   (modes :accepted ("--start" "--stop" "--status" "--browser" "--web" "--auto" "--integ" "--disinteg" "--help"))
+#   (platforms :supported ("linux" "macos" "windows"))
+#   (lifecycle-phases :covered ("start" "stop" "status" "integ" "disinteg")
+#                     :deferred ("install" "uninstall" "update" "backup" "restore" "migrate")))
 # @launcher-deed end
 #
 # ============================================================================

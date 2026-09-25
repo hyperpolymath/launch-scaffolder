@@ -9,10 +9,10 @@
 //! ```text
 //! # @a2ml-metadata begin
 //! # (
-//! #   id                   = "burble-launcher"
+//! #   id                   = "stapeln-launcher"
 //! #   type                 = "launcher"
 //! #   version              = "0.1.0"
-//! #   app-name             = "burble"
+//! #   app-name             = "stapeln"
 //! #   runtime-kind         = "server-url"
 //! #   standards-compliance = [
 //! #     "launcher-standard.adoc"
@@ -42,11 +42,11 @@
 //! # ;; SPDX-License-Identifier: MPL-2.0
 //! # (praxis-deed
 //! #   :schema-version  "1.0.0"
-//! #   :canonical-name  "burble-launcher"
+//! #   :canonical-name  "stapeln-launcher"
 //! #   :beholding-chora #u5"estate/chora"
 //! #   (artefact :type "launcher" :version "0.1.0"
 //! #             :generator "launch-scaffolder")
-//! #   (app :name "burble" :display "Burble"
+//! #   (app :name "stapeln" :display "Stapeln"
 //! #        :runtime-kind "server-url")
 //! #   (compliance :standard-version "0.4.0"
 //! #               :standards ("launcher-standard_praxis.deed")))
@@ -69,18 +69,68 @@ use crate::deed;
 use anyhow::{Context, bail};
 use std::path::Path;
 
-/// Required scalar keys that every well-formed metadata block must
-/// carry, per `launcher-standard.adoc`.
+/// Keys every well-formed metadata block must carry.
+///
+/// This is **not** an independent opinion: it is a copy of the launcher
+/// standard's own `(metadata-block :required-fields …)`, and
+/// [`tests::required_keys_are_exactly_the_standard_required_fields`] asserts
+/// the two are equal element for element, parsed from the vendored deed at
+/// run time. Change one and the other must move with it (#41 AC1).
+///
+/// The previous list disagreed with the standard in BOTH directions: it
+/// demanded three keys the standard never asks for and silently accepted a
+/// block missing four the standard requires. Both halves are now settled:
+///
+/// * `runtime-kind`, `standard-spec-version` and `generator` are
+///   **demoted to advisory** — see [`ADVISORY_SCALAR_KEYS`].
+/// * `app-url`, `standards-compliance`, `modes`, `platforms` and the two
+///   lifecycle-phase lists are now checked, which is what closes the second
+///   half of the disagreement.
+/// * `standards-compliance` is a LIST, so the check that enforces this set
+///   looks at list keys too, not only scalars.
 pub const REQUIRED_SCALAR_KEYS: &[&str] = &[
     "id",
     "type",
     "version",
     "app-name",
     "app-display",
-    "runtime-kind",
-    "standard-spec-version",
-    "generator",
+    "app-url",
+    "standards-compliance",
+    "modes",
+    "platforms",
+    "lifecycle-phases-covered",
+    "lifecycle-phases-deferred",
 ];
+
+/// Keys this tool parses, emits and reports, but which the standard does NOT
+/// require.
+///
+/// Demoted out of the required set by #41 rather than added to the standard,
+/// and the reason is the defect the issue was filed about: all three are
+/// facts about the generator and the run, not about the launcher's contract
+/// with the estate. Requiring them is precisely what made a launcher that
+/// satisfies every published requirement read as non-conformant —
+/// `hyperpolymath/trigger`'s launcher carries all eleven required fields and
+/// none of these three, so this tool called it invalid while the standard
+/// called it conformant.
+///
+/// A requirement belongs in the standard, not in a parser; until the standard
+/// claims them, `mint` keeps emitting them (they are useful provenance, and
+/// every launcher minted so far carries them) and the guard keeps quiet about
+/// their absence.
+pub const ADVISORY_SCALAR_KEYS: &[&str] = &["runtime-kind", "standard-spec-version", "generator"];
+
+/// The comment character every line of an embedded block carries.
+///
+/// Named, and asserted equal to the standard's `(metadata-block (encoding
+/// :comment-prefix …))`, because it is the one piece of the encoding a
+/// reader cannot infer: the marker strings are visible in the file, but the
+/// rule that every line is commented with a `#` before the grammar sees it
+/// lived only in this module until #41.
+pub const COMMENT_PREFIX: &str = "#";
+
+/// The document head an embedded block must carry.
+pub const DEED_HEAD: &str = "praxis-deed";
 
 /// Markers for the legacy block emitted by every launcher minted to date.
 pub const LEGACY_BEGIN: &str = "# @a2ml-metadata begin";
@@ -128,11 +178,28 @@ impl MetadataBlock {
 
     /// Validate the block carries every required key. Returns the list
     /// of missing keys (empty on success).
+    ///
+    /// Checks list keys as well as scalars. That matters for
+    /// `standards-compliance`: it is one of the standard's required fields and
+    /// it is a list, so a scalar-only check could never have found it missing
+    /// — the requirement was unfalsifiable as written (#41).
     pub fn missing_required(&self) -> Vec<&'static str> {
         REQUIRED_SCALAR_KEYS
             .iter()
             .copied()
-            .filter(|k| self.scalar(k).is_none())
+            .filter(|k| self.scalar(k).is_none() && self.list(k).is_none())
+            .collect()
+    }
+
+    /// Which of [`REQUIRED_SCALAR_KEYS`] this block does carry.
+    ///
+    /// The complement of [`Self::missing_required`], for callers that want to
+    /// say what a block has rather than only what it lacks.
+    pub fn present_required(&self) -> Vec<&'static str> {
+        REQUIRED_SCALAR_KEYS
+            .iter()
+            .copied()
+            .filter(|k| self.scalar(k).is_some() || self.list(k).is_some())
             .collect()
     }
 
@@ -235,9 +302,10 @@ fn uncomment(body: &[String]) -> Result<String> {
     let mut out = String::new();
     for (i, line) in body.iter().enumerate() {
         let trimmed = line.trim_start();
-        let Some(rest) = trimmed.strip_prefix('#') else {
+        let Some(rest) = trimmed.strip_prefix(COMMENT_PREFIX) else {
             bail!(
-                "line {} of the embedded deed block is not a `#` comment line: {:?}",
+                "line {} of the embedded deed block is not a `{COMMENT_PREFIX}` \
+                 comment line: {:?}",
                 i + 1,
                 line
             );
@@ -277,9 +345,9 @@ fn parse_deed_body(
 fn flatten_praxis_deed(
     node: &deed::Node,
 ) -> Result<(Vec<(String, String)>, Vec<(String, Vec<String>)>)> {
-    if node.head != "praxis-deed" {
+    if node.head != DEED_HEAD {
         bail!(
-            "an embedded `@launcher-deed` block must be a `praxis-deed`, got `{}`",
+            "an embedded `@launcher-deed` block must be a `{DEED_HEAD}`, got `{}`",
             node.head
         );
     }
@@ -365,7 +433,59 @@ fn flatten_praxis_deed(
         ));
     }
 
+    // The four declarations the standard has always required and no
+    // launcher has ever carried until now (#41). Each is optional here —
+    // `missing_required` is what enforces them, and it reports their absence
+    // rather than refusing the block outright, so a launcher minted before
+    // this change still reads.
+    push_list(&mut lists, node, "modes", "modes", "accepted");
+    push_list(&mut lists, node, "platforms", "platforms", "supported");
+    push_list(
+        &mut lists,
+        node,
+        "lifecycle-phases",
+        "lifecycle-phases-covered",
+        "covered",
+    );
+    push_list(
+        &mut lists,
+        node,
+        "lifecycle-phases",
+        "lifecycle-phases-deferred",
+        "deferred",
+    );
+
     Ok((scalars, lists))
+}
+
+/// Copy one declared list out of an optional clause into the flat list map.
+///
+/// `clause_head` is the deed clause, `keyword` the field inside it, and
+/// `flat_key` the name every other part of this tool knows the list by — the
+/// one the standard's `:required-fields` uses.
+fn push_list(
+    out: &mut Vec<(String, Vec<String>)>,
+    node: &deed::Node,
+    clause_head: &str,
+    flat_key: &str,
+    keyword: &str,
+) {
+    let Some(value) = node.clause(clause_head).and_then(|c| c.field(keyword)) else {
+        return;
+    };
+    let Some(raw) = value.as_list() else {
+        return;
+    };
+    let strs = value.str_list();
+    // Non-strings are skipped rather than erroring: the clause is absent as
+    // far as this block is concerned, and `missing_required` will say so.
+    if strs.len() != raw.len() {
+        return;
+    }
+    out.push((
+        flat_key.to_string(),
+        strs.into_iter().map(|s| s.to_string()).collect(),
+    ));
 }
 
 /// Push `key` only when the deed actually carried a value for it.
@@ -475,12 +595,12 @@ fn parse_body(raw_lines: &[String]) -> Result<(Vec<(String, String)>, Vec<(Strin
 /// Strip the leading `# ` (or `#`) that every metadata line carries.
 fn strip_comment_prefix(line: &str) -> &str {
     let trimmed = line.trim_start();
-    if let Some(rest) = trimmed.strip_prefix("# ") {
-        rest
-    } else if let Some(rest) = trimmed.strip_prefix('#') {
-        rest
-    } else {
-        trimmed
+    // The space after the `#` is part of the prefix: stripping only the
+    // character would leave every line a space deeper than the block wrote
+    // it, which is invisible in output and wrong in error columns.
+    match trimmed.strip_prefix(COMMENT_PREFIX) {
+        Some(rest) => rest.strip_prefix(' ').unwrap_or(rest),
+        None => trimmed,
     }
 }
 
@@ -586,25 +706,58 @@ pub fn rewrite_scalar(text: &str, key: &str, new_value: &str) -> Result<String> 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::standard::LauncherStandard;
 
     const SAMPLE: &str = r#"#!/usr/bin/env bash
 # SPDX-License-Identifier: MPL-2.0
 #
 # @a2ml-metadata begin
 # (
-#   id                   = "burble-launcher"
+#   id                   = "stapeln-launcher"
 #   type                 = "launcher"
 #   version              = "0.1.0"
-#   app-name             = "burble"
-#   app-display          = "Burble"
-#   app-url              = "http://localhost:4020"
+#   app-name             = "stapeln"
+#   app-display          = "Stapeln"
+#   app-url              = "http://localhost:4010"
 #   runtime-kind         = "server-url"
 #   standards-compliance = [
 #     "launcher-standard.adoc"
 #     "LM-LA-LIFECYCLE-STANDARD.adoc"
+#     "cross-platform-system-integration-modes"
 #   ]
-#   standard-spec-version = "0.1.0"
+#   standard-spec-version = "0.4.0"
 #   generator             = "launch-scaffolder"
+#   modes = [
+#     "--start"
+#     "--stop"
+#     "--status"
+#     "--browser"
+#     "--web"
+#     "--auto"
+#     "--integ"
+#     "--disinteg"
+#     "--help"
+#   ]
+#   platforms = [
+#     "linux"
+#     "macos"
+#     "windows"
+#   ]
+#   lifecycle-phases-covered = [
+#     "start"
+#     "stop"
+#     "status"
+#     "integ"
+#     "disinteg"
+#   ]
+#   lifecycle-phases-deferred = [
+#     "install"
+#     "uninstall"
+#     "update"
+#     "backup"
+#     "restore"
+#     "migrate"
+#   ]
 # )
 # @a2ml-metadata end
 #
@@ -614,13 +767,13 @@ echo "not the block"
     #[test]
     fn parses_scalars_and_lists() {
         let block = parse_from_text(SAMPLE).unwrap().unwrap();
-        assert_eq!(block.scalar("id"), Some("burble-launcher"));
+        assert_eq!(block.scalar("id"), Some("stapeln-launcher"));
         assert_eq!(block.scalar("version"), Some("0.1.0"));
-        assert_eq!(block.scalar("app-name"), Some("burble"));
+        assert_eq!(block.scalar("app-name"), Some("stapeln"));
         assert_eq!(block.scalar("runtime-kind"), Some("server-url"));
         assert_eq!(block.scalar("generator"), Some("launch-scaffolder"));
         let compliance = block.list("standards-compliance").unwrap();
-        assert_eq!(compliance.len(), 2);
+        assert_eq!(compliance.len(), 3);
         assert_eq!(compliance[0], "launcher-standard.adoc");
     }
 
@@ -731,7 +884,13 @@ echo "not the block"
 #   (compliance :standard-version "0.4.0"
 #               :standards ("launcher-standard.adoc"
 #                           "LM-LA-LIFECYCLE-STANDARD.adoc"
-#                           "cross-platform-system-integration-modes")))
+#                           "cross-platform-system-integration-modes"))
+#   (modes :accepted ("--start" "--stop" "--status" "--browser" "--web"
+#                     "--auto" "--integ" "--disinteg" "--help"))
+#   (platforms :supported ("linux" "macos" "windows"))
+#   (lifecycle-phases :covered ("start" "stop" "status" "integ" "disinteg")
+#                     :deferred ("install" "uninstall" "update"
+#                                "backup" "restore" "migrate")))
 # @launcher-deed end
 
 echo hi
@@ -772,10 +931,283 @@ echo hi
                 ][..]
             )
         );
+
+        // ⚠ This artefact does NOT satisfy every required field, and that is
+        // now asserted rather than smoothed over. It was minted on 2026-09-22
+        // by an emitter that predates four of the standard's requirements,
+        // which the guard of the day did not check for — the defect #41 was
+        // filed about. It still PARSES, and every value it carries still
+        // reads: that is the backwards-compatibility promise, and it is what
+        // this test is for. The four it lacks are named here so that a future
+        // change to the guard, the standard or this artefact has to say so.
+        assert_eq!(
+            block.missing_required(),
+            vec![
+                "modes",
+                "platforms",
+                "lifecycle-phases-covered",
+                "lifecycle-phases-deferred"
+            ],
+            "a pre-phase launcher is missing exactly the four declarations the \
+             pre-phase emitter never emitted (#41)"
+        );
+        assert_eq!(
+            block.present_required(),
+            vec![
+                "id",
+                "type",
+                "version",
+                "app-name",
+                "app-display",
+                "app-url",
+                "standards-compliance"
+            ],
+            "and carries all seven of the standard's required fields that existed \
+             as emitted values"
+        );
+    }
+
+    // ---------------------------------------------------------------- #41
+    // The guard against the standard, and the standard against the guard.
+    // ----------------------------------------------------------------
+
+    /// The key set this module enforces is the standard's own, read from the
+    /// vendored deed — not a list that happens to have agreed with it once.
+    ///
+    /// Non-vacuity, stated rather than assumed: the assertion is an equality
+    /// over ELEVEN names drawn from two files, and [`the_old_guard_passed_a_
+    /// block_missing_four_required_fields`] below shows a real committed
+    /// artefact that satisfies the old list and fails this one. Without that
+    /// second test this one is a tautology with extra steps.
+    #[test]
+    fn required_keys_are_exactly_the_standard_required_fields() {
+        let std_ = LauncherStandard::baked().expect("baked standard loads");
+        let from_deed = std_
+            .metadata_required_fields()
+            .expect("the standard declares its required metadata fields");
+
+        assert_eq!(
+            REQUIRED_SCALAR_KEYS,
+            from_deed.as_slice(),
+            "the guard and the standard disagree; one of them must move (#41)"
+        );
+
+        // Four of these were required by the standard all along and were not
+        // checked. Named individually so that a future edit which drops one
+        // has to drop its name here too.
+        for key in [
+            "app-url",
+            "modes",
+            "platforms",
+            "lifecycle-phases-covered",
+            "lifecycle-phases-deferred",
+        ] {
+            assert!(
+                REQUIRED_SCALAR_KEYS.contains(&key),
+                "`{key}` is a required field the guard does not enforce"
+            );
+        }
+    }
+
+    /// The pre-#41 guard accepted a launcher that is missing four required
+    /// fields. A committed artefact proves it.
+    ///
+    /// `OLD_REQUIRED_KEYS` is the list this module carried before #41, kept
+    /// here as a literal so the claim stays checkable after the constant
+    /// moved on. The frozen 2026-09-22 launcher satisfies every one of those
+    /// keys — it was, after all, minted and accepted as complete — and it
+    /// does not satisfy the standard. That contradiction is the defect, and
+    /// this test is what keeps it from being reintroduced: if the guard ever
+    /// slips back towards the old list, a block that passes it will fail the
+    /// standard again and this assertion goes red.
+    #[test]
+    fn the_old_guard_passed_a_block_missing_four_required_fields() {
+        const OLD_REQUIRED_KEYS: &[&str] = &[
+            "id",
+            "type",
+            "version",
+            "app-name",
+            "app-display",
+            "runtime-kind",
+            "standard-spec-version",
+            "generator",
+        ];
+
+        // The two lists differ, or the comparison below proves nothing.
+        assert_ne!(
+            OLD_REQUIRED_KEYS, REQUIRED_SCALAR_KEYS,
+            "vacuity: the old and new key sets are identical"
+        );
+
+        let text = std::fs::read_to_string(LEGACY_FIXTURE)
+            .unwrap_or_else(|e| panic!("reading {LEGACY_FIXTURE}: {e}"));
+        let block = parse_from_text(&text)
+            .expect("a pre-phase launcher still parses")
+            .expect("a pre-phase launcher carries a block");
+
+        for key in OLD_REQUIRED_KEYS {
+            assert!(
+                block.scalar(key).is_some(),
+                "the old guard required `{key}`, and this artefact carries it — \
+                 otherwise it proves nothing about the old guard"
+            );
+        }
+        assert_eq!(
+            block.missing_required().len(),
+            4,
+            "a launcher the old guard called complete is missing four of the \
+             standard's required fields; that is the defect #41 reports"
+        );
+    }
+
+    /// The three keys the old guard demanded and the standard does not are
+    /// advisory now: a launcher without them reads as conformant.
+    ///
+    /// `hyperpolymath/trigger`'s launcher is that launcher. It carries all
+    /// eleven fields the standard requires and none of the three this tool
+    /// invented, and every release of this tool has called it invalid while
+    /// the standard called it conformant (#41). Stripping each key in turn
+    /// from a complete block is the general statement of that case, not just
+    /// the one instance of it.
+    #[test]
+    fn the_three_keysthat_are_not_in_the_standard_are_advisory() {
+        for key in ADVISORY_SCALAR_KEYS {
+            assert!(
+                !REQUIRED_SCALAR_KEYS.contains(key),
+                "`{key}` is both required and advisory"
+            );
+            assert!(
+                SAMPLE.contains(&format!("{key} ")),
+                "vacuity: `{key}` is not in SAMPLE, so stripping it proves nothing"
+            );
+
+            let stripped: String = SAMPLE
+                .lines()
+                .filter(|l| !l.trim_start().starts_with(&format!("#   {key}")))
+                .collect::<Vec<_>>()
+                .join("\n");
+            let block = parse_from_text(&stripped)
+                .expect("a block without an advisory key still parses")
+                .expect("a block without an advisory key is still a block");
+
+            assert!(
+                block.scalar(key).is_none(),
+                "vacuity: `{key}` survived the strip, so the test below is not testing it"
+            );
+            assert_eq!(
+                block.missing_required(),
+                Vec::<&'static str>::new(),
+                "a block without the advisory key `{key}` must still read as conformant"
+            );
+        }
+    }
+
+    /// The markers and the field syntax are the ones the standard declares.
+    ///
+    /// Before #41 the block's encoding lived only in this file, so a launcher
+    /// could satisfy every requirement in the standard and still be
+    /// unreadable by the tool the standard names as its consumer. Both sides
+    /// now have to agree, and this is where the disagreement surfaces.
+    #[test]
+    fn the_block_encoding_is_the_one_the_deed_declares() {
+        let std_ = LauncherStandard::baked().expect("baked standard loads");
+        let declared = |keyword: &str| {
+            std_.metadata_encoding(keyword)
+                .unwrap_or_else(|e| panic!("the standard declares no `{keyword}`: {e}"))
+        };
+
+        assert_eq!(
+            DEED_BEGIN,
+            declared("marker-begin"),
+            "the parser and the standard disagree on the block's opening marker"
+        );
+        assert_eq!(DEED_END, declared("marker-end"));
+        assert_eq!(
+            LEGACY_BEGIN,
+            declared("retired-marker-begin"),
+            "the retired markers are what keeps every launcher minted before \
+             2026-09-23 readable, and they must stay declared"
+        );
+        assert_eq!(LEGACY_END, declared("retired-marker-end"));
+        assert_eq!(COMMENT_PREFIX, declared("comment-prefix"));
+        assert_eq!(DEED_HEAD, declared("head"));
+        assert_eq!(
+            "s-expression",
+            declared("syntax"),
+            "the block's field syntax is `(clause :key value)`; a `key = value` \
+             block is not DEED and the grammar will not read it"
+        );
+    }
+
+    /// …and the declared encoding is not merely string-equal to the
+    /// constants: a block written from the deed's own declared strings is
+    /// one this parser reads.
+    ///
+    /// Without this, `the_block_encoding_is_the_one_the_deed_declares` is an
+    /// equality between two strings this crate owns, which can hold while
+    /// the standard's copy of them describes an encoding nothing implements.
+    #[test]
+    fn a_block_written_from_the_declared_encoding_is_one_this_parser_reads() {
+        let std_ = LauncherStandard::baked().expect("baked standard loads");
+        let declared = |keyword: &str| {
+            std_.metadata_encoding(keyword)
+                .unwrap_or_else(|e| panic!("the standard declares no `{keyword}`: {e}"))
+        };
+        let (begin, end) = (declared("marker-begin"), declared("marker-end"));
+        let (prefix, head, syntax) = (
+            declared("comment-prefix"),
+            declared("head"),
+            declared("syntax"),
+        );
+        assert_eq!(
+            syntax, "s-expression",
+            "this test builds an s-expression block, so it proves nothing about \
+             any other declared syntax"
+        );
+
+        // The SPDX header is the DEED grammar's rule for every document, not
+        // this block's encoding, so it is not in the encoding clause — the
+        // emitter writes it for the same reason `;;` is required elsewhere.
+        let body = [
+            ";; SPDX-License-Identifier: MPL-2.0".to_string(),
+            format!("({head}"),
+            "  :schema-version  \"1.0.0\"".to_string(),
+            "  :canonical-name  \"declared-encoding\"".to_string(),
+            "  :beholding-chora #u5\"estate/chora\"".to_string(),
+            "  (artefact :type \"launcher\" :version \"0.1.0\"".to_string(),
+            "            :generator \"launch-scaffolder\")".to_string(),
+            "  (app :name \"x\" :display \"X\"".to_string(),
+            "       :url \"http://localhost:1\" :runtime-kind \"server-url\")".to_string(),
+            "  (compliance :standard-version \"0.4.0\"".to_string(),
+            "              :standards (\"launcher-standard.adoc\"))".to_string(),
+            "  (modes :accepted (\"--start\" \"--stop\"))".to_string(),
+            "  (platforms :supported (\"linux\"))".to_string(),
+            "  (lifecycle-phases :covered (\"start\")".to_string(),
+            "                    :deferred (\"install\")))".to_string(),
+        ];
+        // The markers carry the comment prefix themselves — that is what a
+        // marker line looks like in a shell script; the prefix is declared
+        // separately because the BODY lines carry it too and those have no
+        // marker to hide it behind.
+        let script = format!(
+            "#!/usr/bin/env bash\n{begin}\n{}\n{end}\necho hi\n",
+            body.iter()
+                .map(|l| format!("{prefix} {l}"))
+                .collect::<Vec<_>>()
+                .join("\n")
+        );
+
+        let block = parse_from_text(&script)
+            .expect("a block written from the declared encoding parses")
+            .expect("a block written from the declared encoding is found");
+
+        assert!(block.is_deed(), "the declared markers are the deed dialect");
+        assert_eq!(block.scalar("app-name"), Some("x"));
+        assert_eq!(block.list("platforms"), Some(&["linux".to_string()][..]));
         assert_eq!(
             block.missing_required(),
             Vec::<&'static str>::new(),
-            "the fixture must satisfy every required key"
+            "a block written exactly as the standard declares satisfies it"
         );
     }
 
@@ -793,14 +1225,20 @@ echo hi
         assert_eq!(block.missing_required(), Vec::<&'static str>::new());
     }
 
-    /// The compat guarantee, stated as an equality rather than as two
-    /// separate lists of assertions: every existing caller reads through
-    /// `scalars` / `lists`, so if those match, no caller can tell the
-    /// dialects apart.
+    /// The two dialects flatten to the same values.
+    ///
+    /// Measured on the SAME launcher written both ways ([`SAMPLE`] and
+    /// [`DEED_SAMPLE`]), which is what makes the equality meaningful: any
+    /// difference is a dialect bug rather than a difference between two
+    /// launchers. It used to compare the frozen 2026-09-22 fixture against
+    /// the deed sample, which stopped being a like-for-like comparison once
+    /// #41 gave the deed sample four declarations the pre-phase emitter never
+    /// emitted; the fixture has its own test
+    /// ([`the_committed_legacy_fixture_still_parses`]) and its own stated
+    /// difference from a modern block.
     #[test]
     fn both_dialects_flatten_to_the_same_values() {
-        let legacy_text = std::fs::read_to_string(LEGACY_FIXTURE).unwrap();
-        let legacy = parse_from_text(&legacy_text).unwrap().unwrap();
+        let legacy = parse_from_text(SAMPLE).unwrap().unwrap();
         let deed_block = parse_from_text(DEED_SAMPLE).unwrap().unwrap();
 
         assert_eq!(

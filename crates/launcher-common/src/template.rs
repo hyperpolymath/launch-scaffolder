@@ -26,6 +26,45 @@ pub const LAUNCHER_TEMPLATE: &str = include_str!("../../../templates/launcher.sh
 /// `launch-scaffolder provision`. Passing `None` leaves that value empty.
 /// Rendering fails if a value emitted into the DEED block contains a
 /// control character with no legal DEED string spelling.
+/// The mode flags the generated script's main switch implements.
+///
+/// This is the launcher's own mode surface, so it lives next to the template
+/// rather than in the standard's `(required-modes)` clause: that clause says
+/// what a compliant launcher MUST accept, and this says what this one DOES
+/// accept. They are not the same, and conflating them would let the block
+/// claim a mode the script does not implement (the standard also requires
+/// `--version`, which this script does not yet have — a live finding, not
+/// something to paper over by copying the standard's list).
+///
+/// [`tests::the_declared_modes_are_the_arms_of_the_main_switch`] asserts this
+/// list and the template's `case "$MODE"` arms agree in both directions, so
+/// the claim cannot drift from the script.
+pub const LAUNCHER_MODES: &[&str] = &[
+    "--start",
+    "--stop",
+    "--status",
+    "--browser",
+    "--web",
+    "--auto",
+    "--integ",
+    "--disinteg",
+    "--help",
+];
+
+/// Render a list of strings as the inside of a DEED list: `"a" "b" "c"`.
+///
+/// Each item goes through [`deed_escape`], the same filter the template
+/// applies to every other value emitted into the block. Values that arrive
+/// from the standard are not necessarily inert — a platform name holding a
+/// `"` would close the string early and make the whole block unparseable.
+fn deed_list(values: &[String]) -> Result<String> {
+    let mut out = Vec::with_capacity(values.len());
+    for v in values {
+        out.push(format!("\"{}\"", deed_escape(v).map_err(tera::Error::msg)?));
+    }
+    Ok(out.join(" "))
+}
+
 pub fn render(
     config: &LauncherConfig,
     _standard: &LauncherStandard,
@@ -183,6 +222,46 @@ pub fn render(
 
     // --- metadata -----------------------------------------------------
     ctx.insert("spec_version", &_standard.spec_version);
+
+    // The four declarations the standard's `(metadata-block
+    // :required-fields)` has always demanded and `mint` never emitted (#41).
+    // The platforms and the lifecycle phases are the standard's own
+    // vocabulary, read from its clauses rather than restated here; the modes
+    // are this template's, from [`LAUNCHER_MODES`].
+    //
+    // Anything that cannot be read out of the standard is an error rather
+    // than an empty list: a block that declares `()` for `platforms` would
+    // satisfy a presence check while claiming nothing.
+    ctx.insert(
+        "modes",
+        &deed_list(
+            &LAUNCHER_MODES
+                .iter()
+                .map(|m| m.to_string())
+                .collect::<Vec<_>>(),
+        )?,
+    );
+    ctx.insert(
+        "platforms",
+        &deed_list(&_standard.platforms().context(
+            "the standard carries no (platforms) clause, so the launcher cannot \
+             declare the `platforms` field its metadata block requires",
+        )?)?,
+    );
+    ctx.insert(
+        "lifecycle_phases_covered",
+        &deed_list(&_standard.lifecycle_phases_covered().context(
+            "the standard carries no (lifecycle-phases :covered …), so the launcher \
+             cannot declare the `lifecycle-phases-covered` field its block requires",
+        )?)?,
+    );
+    ctx.insert(
+        "lifecycle_phases_deferred",
+        &deed_list(&_standard.lifecycle_phases_deferred().context(
+            "the standard carries no (lifecycle-phases :deferred …), so the launcher \
+             cannot declare the `lifecycle-phases-deferred` field its block requires",
+        )?)?,
+    );
 
     // Absolute path back to the source config, so the generated
     // script's --integ / --disinteg arms can delegate to
@@ -370,9 +449,38 @@ mod tests {
             "the deed emitter changed a scalar the legacy block carried"
         );
 
+        // The lists need stating rather than comparing wholesale, because
+        // #41 taught the emitter four declarations the 2026-09-22 emitter did
+        // not make. Comparing `legacy.lists == minted.lists` would either fail
+        // (hiding a real drift behind a known one) or, if "fixed" by trimming
+        // the new entries, stop noticing a change to `standards-compliance`.
+        //
+        // So: every list the pre-phase launcher carries must be carried
+        // identically, no scalar may appear or vanish, and the ONLY addition
+        // may be the four declarations the standard has always required.
+        for (key, values) in &legacy.lists {
+            assert_eq!(
+                minted.list(key),
+                Some(values.as_slice()),
+                "the deed emitter changed list `{key}`"
+            );
+        }
+        let added: Vec<&String> = minted
+            .lists
+            .iter()
+            .filter(|(k, _)| legacy.list(k).is_none())
+            .map(|(k, _)| k)
+            .collect();
         assert_eq!(
-            legacy.lists, minted.lists,
-            "the deed emitter changed a list the legacy block carried"
+            added,
+            vec![
+                "modes",
+                "platforms",
+                "lifecycle-phases-covered",
+                "lifecycle-phases-deferred"
+            ],
+            "the only lists today's mint may add to a pre-phase launcher are the four \
+             declarations #41 taught it to emit"
         );
     }
 
@@ -691,5 +799,142 @@ mod tests {
             ensure < write,
             "`ensure_state_dirs` must run before the launcher writes $LOG_FILE"
         );
+    }
+
+    /// Every mode flag the template's main switch handles.
+    ///
+    /// Read out of [`LAUNCHER_TEMPLATE`] rather than restated, so the block's
+    /// `modes` declaration is pinned to the script's actual behaviour instead
+    /// of to a list that happens to match today.
+    fn main_switch_arms() -> Vec<String> {
+        let mut arms = Vec::new();
+        let mut in_switch = false;
+        for line in LAUNCHER_TEMPLATE.lines() {
+            let t = line.trim();
+            if t.starts_with("case \"$MODE\" in") {
+                in_switch = true;
+                continue;
+            }
+            if in_switch && t == "esac" {
+                break;
+            }
+            if !in_switch {
+                continue;
+            }
+            // An arm is a pattern list followed by `)`. Bodies are indented
+            // commands, tera tags, and `;;` terminators — none of which start
+            // with `--` or `*`.
+            if !(t.starts_with("--") || t.starts_with('*')) {
+                continue;
+            }
+            let Some(patterns) = t.split(')').next() else {
+                continue;
+            };
+            for p in patterns.split('|') {
+                arms.push(p.trim().to_string());
+            }
+        }
+        arms
+    }
+
+    /// The `modes` the block declares are the modes the script implements, in
+    /// both directions (#41).
+    ///
+    /// A one-directional check would be satisfiable by declaring modes the
+    /// script does not have (the block claims a surface it does not offer) or
+    /// by implementing modes it does not declare (the standard's required
+    /// field under-reports). Both are checked, and the wildcard `*)` and the
+    /// `-h` alias are excluded by name rather than silently — a new arm that
+    /// is neither must be declared here or the test fails.
+    ///
+    /// Vacuity guard: the arms are read from the template, so if the main
+    /// switch were ever renamed or removed the extraction returns nothing and
+    /// the test fails instead of passing on an empty list.
+    #[test]
+    fn the_declared_modes_are_the_arms_of_the_main_switch() {
+        let arms = main_switch_arms();
+        assert!(
+            arms.len() >= LAUNCHER_MODES.len(),
+            "vacuity: the template's main switch was not found; found {arms:?}"
+        );
+
+        for mode in LAUNCHER_MODES {
+            assert!(
+                arms.iter().any(|a| a == mode),
+                "`mint` declares `{mode}`, but the template's main switch has no such \
+                 arm — the block would claim a mode the script does not implement"
+            );
+        }
+
+        let undeclared: Vec<&String> = arms
+            .iter()
+            .filter(|a| a.as_str() != "*" && a.as_str() != "-h")
+            .filter(|a| !LAUNCHER_MODES.contains(&a.as_str()))
+            .collect();
+        assert_eq!(
+            undeclared,
+            Vec::<&String>::new(),
+            "the main switch handles arms the block does not declare; add them to \
+             LAUNCHER_MODES so the launcher's declared surface is complete"
+        );
+    }
+
+    /// The emitted block declares the four fields the standard has always
+    /// required and no launcher carried until #41.
+    ///
+    /// Values are checked here as well as presence: a `platforms` field is a
+    /// claim about the world, and an empty or invented list would satisfy a
+    /// presence check while saying nothing.
+    #[test]
+    fn a_minted_launcher_declares_the_four_fields_it_never_used_to_carry() {
+        let block = crate::metadata_block::parse_from_text(&render_stapeln())
+            .expect("parses")
+            .expect("has a block");
+
+        let declared_modes: Vec<String> = LAUNCHER_MODES.iter().map(|m| m.to_string()).collect();
+        assert_eq!(
+            block.list("modes"),
+            Some(declared_modes.as_slice()),
+            "the declared modes must be exactly the modes the script implements"
+        );
+
+        let std_ = LauncherStandard::baked().expect("baked standard loads");
+        assert_eq!(
+            block.list("platforms"),
+            Some(
+                std_.platforms()
+                    .expect("the standard declares platforms")
+                    .as_slice()
+            )
+        );
+        assert_eq!(
+            block.list("lifecycle-phases-covered"),
+            Some(
+                std_.lifecycle_phases_covered()
+                    .expect("the standard declares the covered phases")
+                    .as_slice()
+            )
+        );
+        assert_eq!(
+            block.list("lifecycle-phases-deferred"),
+            Some(
+                std_.lifecycle_phases_deferred()
+                    .expect("the standard declares the deferred phases")
+                    .as_slice()
+            )
+        );
+
+        for key in [
+            "modes",
+            "platforms",
+            "lifecycle-phases-covered",
+            "lifecycle-phases-deferred",
+        ] {
+            assert!(
+                !block.list(key).unwrap().is_empty(),
+                "`{key}` is declared empty, which is no declaration at all"
+            );
+        }
+        assert_eq!(block.missing_required(), Vec::<&'static str>::new());
     }
 }
