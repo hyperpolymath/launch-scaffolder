@@ -50,7 +50,6 @@ ICON_SOURCE=""
 CONFIG_FILE=""
 
 URL="http://localhost:4010"
-APP_PORT="0"
 WAIT_SECONDS="15"
 
 PID_FILE="/tmp/stapeln-server.pid"
@@ -78,7 +77,10 @@ gui_error() {
     local title="$1"
     local body="$2"
     err "$title"
-    echo "$body" | sed 's/^/  /' >&2
+    # ${body//…} rather than `echo "$body" | sed 's/^/  /'` (shellcheck SC2001):
+    # the same two-space indent on every line, including empty ones, with no
+    # subprocess per call.
+    printf '  %s\n' "${body//$'\n'/$'\n  '}" >&2
     if is_gui_context; then
         if   command -v kdialog     >/dev/null 2>&1; then kdialog --title "$APP_DISPLAY: $title" --error "$body" 2>/dev/null &
         elif command -v zenity      >/dev/null 2>&1; then zenity --error --title="$APP_DISPLAY: $title" --text="$body" --width=500 2>/dev/null &
@@ -299,7 +301,17 @@ EOF
 
 do_integ_linux() {
     mkdir -p "$APPS_DIR" "$ICON_DIR" "$BIN_DIR" "$DESKTOP_SHORTCUT_DIR"
-    local script_path="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
+    # Declared and assigned separately (shellcheck SC2155). `local x="$(cmd)"`
+    # takes its exit status from `local`, so a failed `cd` was swallowed and the
+    # next line copied this script to $LAUNCHER_TARGET from a path assembled out
+    # of nothing — the one finding of the three with real failure-masking.
+    local script_dir
+    local script_path
+    if ! script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; then
+        err "cannot resolve this script's own directory"
+        return 1
+    fi
+    script_path="$script_dir/$(basename "${BASH_SOURCE[0]}")"
     cp "$script_path" "$LAUNCHER_TARGET"
     chmod +x "$LAUNCHER_TARGET"
     log "  + launcher: $LAUNCHER_TARGET"
