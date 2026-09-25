@@ -590,7 +590,7 @@ mod tests {
     fn falls_back_to_the_baked_copy_when_no_rung_exists() {
         let s = LauncherStandard::resolve_with(None, env_of(&[]), |_| false)
             .expect("baked fallback must work");
-        assert_eq!(s.spec_version, "0.4.0");
+        assert_eq!(s.spec_version, "0.4.1");
     }
 
     /// Pin the vendored standard by content hash.
