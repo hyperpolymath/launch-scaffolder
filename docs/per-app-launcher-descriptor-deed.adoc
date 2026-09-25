@@ -1,0 +1,299 @@
+// SPDX-License-Identifier: MPL-2.0
+// SPDX-FileCopyrightText: © 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
+= Design: per-app launcher descriptors migrate to `.deed` (2026-09-25)
+
+*Issue:* #42. *Authority:* `hyperpolymath/standards#960` AC2 — the owner
+ruled *migrate to `.deed`* (2026-09-22). *Normative grammar:*
+`1-formats/deed/spec/abnf/deed.abnf` **v1.0.0** on `standards` `origin/main`
+— not the stale v0.1.0 draft in a peer branch's working tree, which an
+earlier draft of this issue cited in error.
+
+**This document moves no files.** It is the design the ruling creates, and it
+sequences behind #40 under the dual-accept rule: a reader that accepts both
+forms lands first, then a dry-run manifest, then the conversion. Nothing here
+is a bulk pass.
+
+---
+
+== Ruling 1 — the filename is Arm B: `<app>.launcher_praxis.deed`
+
+*Deed filenames are a normatively closed production* (`deed.abnf:66-71`):
+`estate-file / atlas-file / praxis-file / repo-file`, with a semantic
+constraint at `:50-56` — **the doc-head MUST match the filename dispatch,
+and a mismatch is a validation error.** `<app>.launcher.deed`, matching none
+of the four, is not a deed.
+
+[cols="1,4",options="header"]
+|===
+|Arm |Ruling
+
+|**B — `<app>.launcher_praxis.deed`**
+|**CHOSEN.** A stem may contain dots: `deed.abnf:71` admits `.`, and
+`deed.abnf:62-64` says so explicitly — *"Do NOT split on `.` — the stem may
+contain dots."* So `stapeln.launcher_praxis.deed` is a legal deed filename
+with stem `stapeln.launcher`, dispatching to `praxis-deed`. The rename is a
+suffix swap, `.launcher.a2ml` → `.launcher_praxis.deed`, and the existing
+`.launcher` infix survives, so no discovery pattern in the estate has to
+learn a new stem shape. The head is also the right one: the stem→head table
+(`DEED-GRAMMAR-SPEC.adoc:276-295`) makes `praxis-deed` the *verb* — *what a
+tool DOES* — and a per-app descriptor states what the launcher does for that
+app. It composes with what already ships: `launcher-standard_praxis.deed`
+states the general rules; `<app>.launcher_praxis.deed` states that app's
+conforming praxis. Same head, two scopes.
+
+|A — add a fifth head `launcher-deed`
+|Rejected. Honest cost is **six sites across three repos** plus an owner
+ruling — every existing head is an owner ruling, and `praxis-deed` was ruled
+a genuine fourth head, not a facet of `repo-deed`, on standards#752
+(2026-09-08). Arm A is justified only if a launcher descriptor is a fifth
+document *form* rather than a praxis document, and after #41's work the
+descriptor's substance reads as exactly that: rules for one app's launcher,
+drawn from the same vocabulary as the standard. Arm A also makes
+`DOC_HEADS: [&str; 4]` in this repo a typed change and every other site a
+silent one. The burden is not met.
+
+|C — `<app>_chora.deed`
+|Rejected as semantically wrong, and recorded so it is not rediscovered.
+`repo-deed` is *"What a repo IS — a record"*, a noun. A launcher descriptor
+is not a record of what a repo is. It also discards the `.launcher` infix
+that Arm B keeps for free.
+|===
+
+*Consequence in this repo:* `discovery::is_live_config` and its
+`LIVE_EXT` / `FIXTURE_EXT` constants learn the new extension;
+`deed.rs::DOC_HEADS` does **not** change, because `praxis-deed` is already in
+the closed set.
+
+== Ruling 2 — beholding: `#u5"estate/chora"`, named once
+
+A praxis deed **requires** `:schema-version`, `:canonical-name` and
+`:beholding-chora`, and the last must be a **uuid5**, never a bare filename
+(`DEED-GRAMMAR-SPEC.adoc:379-414`; the one-declaration-site rule at
+`:398-400` and `:420-433` — *a tool may not declare its own vocabulary*).
+
+**Ruled: every converted descriptor beholds `#u5"estate/chora"`.**
+
+The reason is the rule itself. No launcher-specific vocabulary has been
+declared by the chora; writing `#u5"estate/chora/launcher"` because it reads
+well would be a tool naming its own chora — the precise failure the spec
+exists to stop. `launcher-standard_praxis.deed` already beholds
+`#u5"estate/chora"`, and the per-app descriptors draw on exactly that
+vocabulary, so they behold the same chora the document they conform to
+beholds.
+
+*Trigger to revisit, so this is one decision and not 21:* when the estate
+chora declares a launcher vocabulary, all 21 descriptors switch in a single
+change. The field appears in N files; the vocabulary is declared in one.
+Until then, `estate/chora` is the only honest answer.
+
+This repo's `deed.rs` carries the uuid5 **name** and derives no digest —
+nothing in `launch-scaffolder` needs it — so `#u5"estate/chora"` is stored
+verbatim and compared verbatim.
+
+== Ruling 3 — the field vocabulary, named once
+
+The praxis field set beyond the required three is formally provisional: the
+spec warns that the owner ruled the head but not the fields, and that
+inventing them is the failure the document exists to stop. There is working
+precedent in the very file D73-C shipped — `launcher-standard_praxis.deed`
+carries `:standard-version`, `:standard-date` and `:compliance` beyond the
+three — so the practical question is *which fields, named once, for all 21*.
+
+The vocabulary below is derived from `crates/launcher-common/src/config.rs`,
+which is the only schema a per-app descriptor has today. Every TOML key in it
+has a deed spelling here. `kebab-case` keywords, matching both the current
+TOML and the deed keyword charset.
+
+.Required form fields
+[cols="1,2,3",options="header"]
+|===
+|Field |Value |Note
+
+|`:schema-version`
+|`"1.0.0"`
+|The **grammar** version. See the two-versions warning below.
+
+|`:canonical-name`
+|`"stapeln"`
+|The app stem, as the estate names it.
+
+|`:beholding-chora`
+|`#u5"estate/chora"`
+|Ruling 2. A uuid5, never a filename.
+|===
+
+.`(compliance …)` — which standard this descriptor conforms to
+[cols="1,2,3",options="header"]
+|===
+|`:standard-version`
+|`"0.4.0"`
+|The **document** version of `launcher-standard`, mirroring the clause of the
+same name in `launcher-standard_praxis.deed`. ⚠ Not `:schema-version`: that
+is the grammar. Conflating them makes a stale document read as a newer spec.
+|===
+
+.`(project …)` — from `[project]`
+[cols="1,1,2",options="header"]
+|===
+|TOML |Deed |Type / note
+|`name` |`:name` |string
+|`display` |`:display` |string
+|`description` |`:description` |string, optional
+|`categories` |`:categories ("…" "…")` |list of strings
+|`version` |`:version` |string (kept a string: `0.1.0` is not a number)
+|`license` |`:license` |string, e.g. `"MPL-2.0"`
+|`generic-name` |`:generic-name` |string, freedesktop `GenericName=`
+|===
+
+.`(repo …)` — from `[repo]`
+[cols="1,1,2",options="header"]
+|===
+|`path` |`:path` |string. `{repo-dir}` placeholders elsewhere expand against it.
+|===
+
+.`(runtime …)` — from `[runtime]`
+[cols="1,1,2",options="header"]
+|===
+|`kind` |`:kind` |string — one of `"server-url"`, `"process"`, `"remote"`
+|`port` |`:port` |integer
+|`url` |`:url` |string, optional
+|`startup-command-search` |`:startup-command-search ("…" …)` |ordered list; first executable wins
+|`command` |`:command ("nqc" "--gui")` |explicit argv; if present, the search list is ignored
+|`pid-file` |`:pid-file` |string, optional; `~` expanded
+|`log-file` |`:log-file` |string, optional; `~` expanded
+|`wait-for-url-timeout-seconds` |`:wait-for-url-timeout-seconds 15` |integer
+|===
+
+.`(icon …)`, `(soft-attach …)`
+[cols="1,1,2",options="header"]
+|===
+|`[icon].source` |`(icon :source "…")` |string; `{repo-dir}` expands
+|`[soft-attach].tools` |`(soft-attach :tools ("…" …))` |list; empty = take the standard's list
+|===
+
+=== Findings recorded, not silently dropped
+
+**F1 — `[integration]` has no schema.** `config.rs` types it as
+`toml::Value`: it is per-platform overrides of the standard's
+`[integration.linux|macos|windows]` sections, and neither this repo nor the
+standard specifies its keys. A deed clause cannot be "whatever TOML was
+there". Recorded as open: the vocabulary for `(integration …)` is declared
+when the launcher standard specifies it, and until then the section is
+carried as an *opaque quoted string* — preserved, round-trippable, not
+interpreted — rather than dropped or invented.
+
+**F2 — `[exceptions]` has no schema either**, and needs one most: `realign`
+preserves exceptions across regeneration specifically so a human does not
+have to re-justify them. The documented shape is an array of tables:
+
+[source,toml]
+----
+[[exceptions.override]]
+path      = "integration.linux.icon-fallback"
+value     = "applications-development"
+rationale = "Team prefers the hammer icon over the box icon for dev tools."
+added-by  = "Jonathan D.A. Jewell"
+added-on  = "2026-04-10"
+----
+
+Deed has no array-of-tables, but its clause model already expresses the same
+thing: one repeated `(override …)` clause per entry, each carrying
+`:path`, `:value`, `:rationale`, `:added-by`, `:added-on`. Repetition is the
+deed spelling of a list of records, and it preserves order. Recorded as the
+proposed shape, pending the same standard-side specification as F1.
+
+**F3 — no UUIDs appear in any descriptor today**, so the uuid5-only rule
+costs the conversion nothing. Recorded because it is the kind of constraint
+that only surfaces mid-migration.
+
+**F4 — the grammar forbids three things the current files may contain:**
+`=` as a separator, `[section]` headers, and **tabs as separators**. Only
+four escapes are legal: `\"`, `\\`, `\n`, `\t` — `\r` and `\uXXXX` are
+invalid. Booleans are `#t` / `#f`, never `true` / `false`. None of these
+occur in `config.rs`'s typed surface, but `[integration]` and `[exceptions]`
+are untyped, so the conversion pass must scan them rather than assume.
+
+== Conformance fixtures
+
+The vendored corpus under `tests/fixtures/deed/` is **manifest-locked**:
+`MANIFEST.sha256` asserts set equality between what is vendored and what is
+recorded, so files cannot be added there without refreshing it from
+`standards`. The pair for this form therefore lands in its own tree,
+`tests/fixtures/per_app_deed/{valid,invalid}/`, exercised by
+`tests/per_app_deed.rs`:
+
+[cols="1,1,3",options="header"]
+|===
+|File |Kind |What it pins
+
+|`valid/stapeln.launcher_praxis.deed`
+|valid
+|The vocabulary above, in full: every clause, both list shapes, the integer
+fields, and the required three with the estate chora.
+
+|`invalid/insection_launcher_praxis.deed`
+|invalid
+|The `[project]` header the current files carry. Rejected *for that defect* —
+*a `[section]` header is not a deed* — not incidentally.
+
+|`invalid/intab_launcher_praxis.deed`
+|invalid
+|A tab used as a separator, which TOML permits and the grammar does not.
+|===
+
+Upstreaming the trio into `1-formats/deed/tools/fixtures/` is follow-up; the
+local tree keeps the design testable before that lands.
+
+== Dry-run manifest
+
+Nothing moves until a manifest is reviewed. The manifest is generated, not
+written by hand:
+
+[source,bash]
+----
+launch-scaffolder realign --dry-run   # as the conversion pass must print it
+----
+
+and must list, per file: current path, proposed path, the arm that produced
+it, and whether the file needs an F1/F2 opaque carry. For this repository the
+walk yields **two** descriptors, and neither is live:
+
+[cols="2,2,2",options="header"]
+|===
+|Current |Proposed |Live?
+
+|`examples/stapeln.launcher.fixture.a2ml`
+|`examples/stapeln.launcher_praxis.deed`
+|No — `discovery::is_live_config` excludes `.fixture.a2ml`
+
+|`crates/launcher-common/tests/fixtures/config/stapeln.launcher.fixture.a2ml`
+|`crates/launcher-common/tests/fixtures/config/stapeln.launcher_praxis.deed`
+|No — same rule
+|===
+
+⚠ **Renaming either one re-mints the committed launcher artefacts**, whose
+input path is load-bearing (`tests/fixtures/metadata_block/README.adoc` and
+the `launcher-artefacts.yml` gate both mint from that exact path). The
+conversion of these two must be one change with the re-mint, not a rename
+that strands the gate.
+
+The 21 live descriptors are across the estate, not in this repository. Their
+manifest is produced by the same walk at conversion time
+(`discovery::walk_estate`, which already skips `.fixture.a2ml`), reviewed
+before any file moves.
+
+*Overlap window:* both forms are accepted from the day the reader lands until
+the conversion completes and a release has shipped with it. The old form is
+refused only after that, and the refusal names the new path.
+
+== Still open
+
+* **AC5 — `launch-scaffolder` reads the new form with a byte-identical
+  round-trip.** Not implemented here. It needs a descriptor reader
+  (`(project …)` → `Project`, and so on) *and* a canonical writer, because
+  byte-identical round-trip is a property of a writer as much as of a reader.
+  The vocabulary above is the input to it.
+* F1 and F2 — the `(integration …)` and `(exceptions …)` shapes need
+  specifying in the launcher standard before the conversion can carry them as
+  anything better than opaque strings.
+* Upstreaming the conformance trio to `hyperpolymath/standards`.

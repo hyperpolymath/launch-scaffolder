@@ -1,0 +1,10 @@
+;; SPDX-License-Identifier: MPL-2.0
+;;
+;; INVALID — carries the `[project]` section header the current TOML
+;; descriptors use. A deed has no sections; the only bracket is `(`.
+(praxis-deed
+  :schema-version  "1.0.0"
+  :canonical-name  "stapeln"
+  :beholding-chora #u5"estate/chora"
+[project]
+name = "stapeln")
