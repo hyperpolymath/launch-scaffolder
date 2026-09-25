@@ -45,6 +45,19 @@ emits today. They remain here on purpose: this file is a record of what the old
 emitter wrote, and a scanner finding against it is a finding about history, not
 about the tool. Only the currency-locked artefact is linted in CI.
 
+It also carries a fifth defect, and this one is fixed nowhere: it is missing
+four of the standard's required metadata fields — `modes`, `platforms`,
+`lifecycle-phases-covered` and `lifecycle-phases-deferred`. The emitter of
+2026-09-22 never wrote them and the guard of the day never asked for them, so
+this artefact was accepted as complete while being incomplete. That
+contradiction is the defect #41 was filed about, and it is asserted rather
+than smoothed over: `missing_required()` is pinned to exactly those four names
+in both
+`metadata_block::tests::the_committed_legacy_fixture_still_parses` and
+`round_trip::a_launcher_minted_before_phase_two_still_reads`. What the file
+still proves is the compat promise — it parses, and every value it carries
+reads back unchanged.
+
 == Re-minting the currency-locked artefact
 
 Never hand-edit it. Regenerate it, so the bytes come from the emitter:

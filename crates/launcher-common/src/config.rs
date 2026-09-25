@@ -88,8 +88,30 @@ pub struct Runtime {
     #[serde(default)]
     pub command: Vec<String>,
 
+    /// Where the generated launcher writes its pid file.
+    ///
+    /// Default (when unset): `+$XDG_RUNTIME_DIR+`, falling back to
+    /// `+$XDG_STATE_HOME+` and then to `+~/.local/state+`, as
+    /// `+<app>-server.pid+`. Before 2026-09-25 the default was
+    /// `+/tmp/<app>-server.pid+` — world-writable and predicted entirely by
+    /// the app name, so any local user could create or symlink the path
+    /// before the launcher's first run and steer what it later killed or
+    /// removed (#48). The default is emitted into the script as a SHELL
+    /// expression, not resolved here, because the launcher runs on the
+    /// user's machine rather than the one it was minted on; the script
+    /// creates the directory `+0700+` before it writes.
+    ///
+    /// Set it to override, e.g. `+pid-file = "/var/run/myapp.pid"+`. A
+    /// leading `+~+` is expanded (see `+integration::expand_home+`).
     #[serde(default)]
     pub pid_file: Option<String>,
+    /// Where the generated launcher writes its log.
+    ///
+    /// Default (when unset): `+$XDG_STATE_HOME+`, falling back to
+    /// `+~/.local/state+`, as `+<app>-server.log+`. The state directory
+    /// rather than the runtime directory because a log has to survive a
+    /// logout, which `+$XDG_RUNTIME_DIR+` does not promise. Same history and
+    /// the same override mechanism as [`Runtime::pid_file`].
     #[serde(default)]
     pub log_file: Option<String>,
 

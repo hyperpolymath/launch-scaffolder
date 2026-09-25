@@ -176,6 +176,107 @@ impl LauncherStandard {
 
         ladder_from(search, env)
     }
+
+    // ---------------------------------------------------------------
+    // The metadata block, as the STANDARD states it (#41)
+    // ---------------------------------------------------------------
+
+    /// The `(metadata-block :required-fields …)` list, in the standard's own
+    /// order.
+    ///
+    /// The guard in [`crate::metadata_block`] is asserted equal to this, so
+    /// the standard is the source and the Rust list is the copy that has to
+    /// keep up — not the other way round.
+    pub fn metadata_required_fields(&self) -> Result<Vec<String>> {
+        let Some(block) = self.doc.clause("metadata-block") else {
+            anyhow::bail!("standard is missing the (metadata-block) clause");
+        };
+        let Some(value) = block.field("required-fields") else {
+            anyhow::bail!("(metadata-block) is missing :required-fields");
+        };
+        str_list_of(value, "(metadata-block :required-fields …)")
+    }
+
+    /// One string field of the `(metadata-block (encoding …))` clause.
+    ///
+    /// The encoding clause is what makes "conformant with the standard" and
+    /// "readable by launch-scaffolder" the same property: the parser's marker
+    /// constants are asserted equal to these strings, so a change on either
+    /// side becomes a failing test rather than a silent stranding of every
+    /// launcher already on disk (#41 AC3).
+    pub fn metadata_encoding(&self, keyword: &str) -> Result<String> {
+        let Some(block) = self.doc.clause("metadata-block") else {
+            anyhow::bail!("standard is missing the (metadata-block) clause");
+        };
+        let Some(encoding) = block.clause("encoding") else {
+            anyhow::bail!(
+                "(metadata-block) is missing its (encoding) clause; without it the \
+                 delimiter and field syntax live only in this tool's parser (#41)"
+            );
+        };
+        encoding
+            .str_field(keyword)
+            .map(str::to_string)
+            .with_context(|| format!("(metadata-block (encoding …)) is missing :{keyword}"))
+    }
+
+    /// The platforms a compliant launcher handles, from `(platforms …)`.
+    ///
+    /// The standard requires every launcher to declare `platforms`; this is
+    /// where that set is named, once, rather than invented per launcher.
+    pub fn platforms(&self) -> Result<Vec<String>> {
+        let Some(clause) = self.doc.clause("platforms") else {
+            anyhow::bail!("standard is missing the (platforms) clause");
+        };
+        let Some(value) = clause.field("supported") else {
+            anyhow::bail!("(platforms) is missing :supported");
+        };
+        str_list_of(value, "(platforms :supported …)")
+    }
+
+    /// The lifecycle phases a launcher covers, from `(lifecycle-phases …)`.
+    pub fn lifecycle_phases_covered(&self) -> Result<Vec<String>> {
+        self.lifecycle_phases("covered")
+    }
+
+    /// The lifecycle phases a launcher defers to the provisioning layer.
+    pub fn lifecycle_phases_deferred(&self) -> Result<Vec<String>> {
+        self.lifecycle_phases("deferred")
+    }
+
+    fn lifecycle_phases(&self, keyword: &str) -> Result<Vec<String>> {
+        let Some(clause) = self.doc.clause("lifecycle-phases") else {
+            anyhow::bail!("standard is missing the (lifecycle-phases) clause");
+        };
+        let Some(value) = clause.field(keyword) else {
+            anyhow::bail!("(lifecycle-phases) is missing :{keyword}");
+        };
+        str_list_of(value, &format!("(lifecycle-phases :{keyword} …)"))
+    }
+}
+
+/// Every element of a list value, as owned strings, or an error naming the
+/// clause that was malformed.
+///
+/// [`crate::deed::Value::str_list`] silently skips non-strings; a declared
+/// set must not be silently trimmed, so the counts are compared here and a
+/// non-string is reported rather than dropped.
+fn str_list_of(value: &deed::Value, what: &str) -> Result<Vec<String>> {
+    let Some(items) = value.as_list() else {
+        anyhow::bail!("{what} must be a list");
+    };
+    let strs = value.str_list();
+    if strs.len() != items.len() {
+        anyhow::bail!(
+            "{what} must hold only strings; {} of {} entries are not",
+            items.len() - strs.len(),
+            items.len()
+        );
+    }
+    if strs.is_empty() {
+        anyhow::bail!("{what} is empty; a required field with no members is no claim at all");
+    }
+    Ok(strs.into_iter().map(str::to_string).collect())
 }
 
 /// Read one `*-search` clause's rungs into concrete paths.
@@ -499,12 +600,30 @@ mod tests {
     /// and no test naming the change. The pin makes that edit announce
     /// itself. The digest is sha256 of the file as vendored from
     /// `hyperpolymath/standards` (git blob `c751c4ec`); update both together.
+    ///
+    /// ⚠ **This copy has deliberately diverged from canon**, and the pin is
+    /// what records it. Blob `c751c4ec` is still the last vendored state;
+    /// on top of it this file now carries three clauses the canon does not
+    /// have yet, added for #41:
+    ///
+    /// * `(platforms :supported …)` and `(lifecycle-phases …)` — the value
+    ///   domains behind four names in `(metadata-block :required-fields)`.
+    ///   The standard demanded those fields without ever saying what they
+    ///   may contain, which made the requirement unfalsifiable.
+    /// * `(metadata-block (encoding …))` — the marker pair, the comment
+    ///   prefix and the field syntax, which until now lived only in
+    ///   `metadata_block.rs`, so a launcher could satisfy every requirement
+    ///   in the standard and still be unreadable by this tool.
+    ///
+    /// They are upstreamed as `hyperpolymath/standards` PRs; until those
+    /// land, `diff` against canon reports three added clauses and nothing
+    /// else. Bump the pin and this comment together if either side moves.
     #[test]
     fn the_vendored_standard_is_pinned_by_content() {
         use sha2::{Digest, Sha256};
         let got = format!("{:x}", Sha256::digest(BAKED_STANDARD.as_bytes()));
         assert_eq!(
-            got, "73dd64f3d2a2282c9bfee06acf4a1d511bcc7ded5c7b30dcf15b6f85c8e4f871",
+            got, "8f55bcbbd06a7a8dd78ebff532af32009b7fc6cc7f07064fdef7d0402ad5cefe",
             "standards/launcher-standard_praxis.deed changed; re-vendor deliberately \
              and update this pin in the same commit"
         );

@@ -39,7 +39,22 @@
 #   (compliance :standard-version "{{ spec_version | deedstr }}"
 #               :standards ("launcher-standard.adoc"
 #                           "LM-LA-LIFECYCLE-STANDARD.adoc"
-#                           "cross-platform-system-integration-modes")))
+#                           "cross-platform-system-integration-modes"))
+{#-
+  The four declarations below were required by the standard from the start
+  and emitted by nothing: (metadata-block :required-fields) has always named
+  them, and no launcher minted before 2026-09-25 carries them (#41). The
+  platforms and the lifecycle phases come from the standard's own (platforms)
+  and (lifecycle-phases) clauses, so the vocabulary is named once rather than
+  invented here; the modes are the arms of this script's own main switch,
+  pinned to it by a test in template.rs.
+  NOTE: this tag closes WITHOUT whitespace-stripping on its right. Stripping
+  there joins the first clause below onto the compliance clause above it.
+#}
+#   (modes :accepted ({{ modes | safe }}))
+#   (platforms :supported ({{ platforms | safe }}))
+#   (lifecycle-phases :covered ({{ lifecycle_phases_covered | safe }})
+#                     :deferred ({{ lifecycle_phases_deferred | safe }})))
 # @launcher-deed end
 #
 # ============================================================================
@@ -94,6 +109,21 @@ URL=""
 
 PID_FILE="{{ pid_file }}"
 LOG_FILE="{{ log_file }}"
+
+# Both defaults live under a per-user XDG directory. Create them 0700 before
+# the first write: a predictable path inside a world-writable directory (the
+# old /tmp default) let any local user pre-create or symlink the pid file and
+# steer what this script later killed or removed (Hypatia 82/83, #48).
+# `mkdir -p -m` cannot do the job: with -p the mode applies only to the
+# deepest directory created, so the chmod is stated separately and applies
+# whether or not the directory was just made.
+ensure_state_dirs() {
+    local pid_dir log_dir
+    pid_dir="$(dirname "$PID_FILE")"
+    log_dir="$(dirname "$LOG_FILE")"
+    mkdir -p "$pid_dir" "$log_dir"
+    chmod 0700 "$pid_dir" "$log_dir"
+}
 
 {% if explicit_command | length > 0 -%}
 # Explicit argv from [runtime].command
@@ -229,6 +259,7 @@ wait_for_url() {
 {%- endif %}
 
 start_server() {
+    ensure_state_dirs
     clear_stale_pid
 {% if runtime_kind == "remote" -%}
     log "$APP_DISPLAY is a remote web app — nothing to start locally."
