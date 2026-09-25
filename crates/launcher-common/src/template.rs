@@ -73,10 +73,7 @@ pub fn render(
         "app_version",
         config.project.version.as_deref().unwrap_or("1.0.0"),
     );
-    ctx.insert(
-        "app_license",
-        config.project.license.as_deref().unwrap_or("MPL-2.0"),
-    );
+    ctx.insert("app_license", config.project.license.as_deref().unwrap_or("MPL-2.0"));
 
     // --- [repo] --------------------------------------------------------
     ctx.insert("repo_dir", &config.repo.path);
