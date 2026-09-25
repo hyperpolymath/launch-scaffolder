@@ -1,0 +1,160 @@
+// SPDX-License-Identifier: MPL-2.0
+// SPDX-FileCopyrightText: © 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
+= `@a2ml-metadata` → `@launcher-deed` — compatibility verification (2026-09-25)
+
+*Issue:* #40. *Phases:* reader PR #44 (2026-09-22), emitter PR #46 (2026-09-23),
+fixture PR #43 (2026-09-22). *Verified against:* `main` at the merge of PR #54,
+98 tests passing (`cargo test --all-targets`: 85 lib + 5 `deed_corpus` + 8
+`round_trip`).
+
+This file is the write-up criterion 6 asks for: what was measured, on what
+commit, and what the numbers were. It does not change code.
+
+== 1. The fixture predates both phases
+
+Committed by PR #43 (`minted-2026-09-22_stapeln-launcher.sh`), minted by the
+emitter as it stood before either phase landed, carrying the retired
+`# @a2ml-metadata` dialect. Its provenance is the whole point: capture it after
+phase 2 and the test asserts the new emitter against the new parser, which
+passes whether or not compatibility survived.
+
+Verified: the artefact still carries `/tmp/stapeln-server.pid` and the
+`+# @a2ml-metadata begin+` markers — both impossible for an emitter minted
+after PR #46.
+
+== 2. Phase 1 shipped alone, and did not touch the emitter
+
+`gh pr view 44 --json files` reports exactly two files:
+
+[cols="1",options="header"]
+|===
+|`crates/launcher-common/src/metadata_block.rs`
+|`crates/launcher-common/tests/round_trip.rs`
+|===
+
+`templates/launcher.sh.tera` is not among them, so `mint` was still emitting
+the retired dialect while the reader was already dual — the sequencing the
+issue exists to protect. PR #46 is the change that touches the template.
+
+== 3. The phase-1 fixture test after phase 2
+
+The issue's criterion is strict: the phase-1 test must still pass unchanged,
+and "if it needed editing to pass, backwards compatibility was broken and the
+edit hid it".
+
+Measured on 2026-09-25, the phase-1/2-era assertion restored verbatim:
+
+[source,text]
+----
+assert_eq!(
+    block.missing_required(),
+    Vec::<&'static str>::new(),
+    "the fixture must satisfy every required key"
+);
+
+→ FAILED
+  left:  ["modes", "platforms", "lifecycle-phases-covered", "lifecycle-phases-deferred"]
+  right: []
+----
+
+**That failure is not a compatibility break, and saying so is a claim that
+needs its own evidence — here it is.** Every other assertion in the test is
+untouched since phase 1 and still passes: `id`, `app-name`, `app-display`,
+`app-url`, `generator`, `standard-spec-version` and all three
+`standards-compliance` entries read back identically, and `is_deed()` is still
+false. What changed is the *definition of complete*, not the *ability to read*:
+#41 replaced this parser's invented key list with the standard's own
+`(metadata-block :required-fields …)`, which has always named four fields the
+pre-phase emitter never wrote.
+
+The test was therefore edited to assert the shortfall by name rather than to
+accept it silently:
+
+[source,rust]
+----
+assert_eq!(
+    block.missing_required(),
+    vec!["modes", "platforms", "lifecycle-phases-covered", "lifecycle-phases-deferred"],
+    "a pre-phase launcher is missing exactly the four declarations the \
+     pre-phase emitter never emitted (#41)"
+);
+----
+
+The compat promise — the artefact still parses and every value it carries
+still reads — is asserted unchanged. The artefact's incompleteness, which the
+old guard could not see, is now asserted too. Both facts are pinned, which the
+old `Vec::new()` assertion could not do.
+
+== 4. Round trip on both dialects
+
+`crates/launcher-common/tests/round_trip.rs`, 8 tests, all passing:
+
+[cols="2,3",options="header"]
+|===
+|Test |What it pins
+
+|`mint_parse_realign_parse_is_stable_for_the_deed_form`
+|`mint → parse → realign → parse` on the DEED form; the second render is
+byte-identical, which is what `Outcome::Unchanged` is decided on.
+
+|`phase_two_mint_emits_the_deed_markers_and_not_the_legacy_ones`
+|Direction of travel, stated as a test so a revert has to delete a line.
+
+|`both_dialects_agree_on_what_todays_emitter_produces`
+|The live emitter's values, carried in the *retired* dialect, flatten to
+exactly what the deed reader returns. Generated from `mint`'s own output, not
+typed into the test.
+
+|`the_four_new_declarations_survive_mint_parse_legacy_parse`
+|#41's four declarations round-trip through the retired dialect with their
+values intact.
+
+|`realign_cannot_edit_a_minted_deed_launcher_in_place`
+|The deed leg of `realign`: refusal rather than corruption.
+
+|`a_launcher_minted_before_phase_two_still_reads`
+|The committed pre-phase fixture, and every value it carries.
+
+|`a_launcher_minted_by_phase_two_reads_and_matches_todays_emitter`
+|Mirror of the above for a launcher minted during phase 2.
+
+|`the_committed_deed_fixture_is_what_mint_emits_today`
+|Currency lock: the committed post-phase artefact is byte-identical to today's
+`mint`, which is what makes linting it in CI meaningful.
+|===
+
+== 5. Mutant kill
+
+Criterion 6's last item, measured rather than assumed. The compat branch of
+`parse_from_text` — the `(Some((start, end)), None)` arm that reads the legacy
+dialect — was reverted to `return Ok(None)`:
+
+[source,diff]
+----
+-        (Some((start, end)), None) => {
++        (Some(_), None) => return Ok(None), // MUTANT: compat branch reverted
++        (Some((start, end)), None) => {
+             let raw_lines: Vec<String> = lines[start..=end].iter().map(|s| s.to_string()).collect();
+             let (scalars, lists) = parse_body(&raw_lines)?;
+----
+
+Result: **11 tests fail**, including every test in the table above that reads
+a legacy artefact — `the_committed_legacy_fixture_still_parses`,
+`parses_scalars_and_lists`, `validates_required_keys`,
+`the_old_guard_passed_a_block_missing_four_required_fields`,
+`rewrites_scalar_in_place`, `rejects_set_on_list_key`,
+`both_dialects_flatten_to_the_same_values` and
+`template::tests::the_deed_emitter_agrees_with_the_legacy_fixture_on_every_value`.
+
+Reverted: 98 passing again. The mutant dies, so the green suite is evidence
+and not an accident.
+
+== 6. What is still open
+
+* #45 AC4: `.github/workflows/actions.lock` has not been generated — this
+  environment cannot reach the `gh actions-lock` release assets, and the lock
+  may not be hand-edited.
+* #41's finding, recorded not fixed: the standard's `(required-modes)` lists
+  `--version`, which the generated script does not implement.
+* `standards/launcher-standard_praxis.deed` carries three clauses canon does
+  not have yet; upstreaming to `hyperpolymath/standards` is pending.
