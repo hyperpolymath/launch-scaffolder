@@ -1,0 +1,65 @@
+= `+tests/fixtures/metadata_block/+` — committed launcher artefacts
+
+Three kinds of artefact live in this repository, and the difference between
+them is load-bearing. Two are *frozen records*; one is *currency-locked*.
+Editing the wrong kind destroys evidence rather than updating it.
+
+[cols="1,1,2",options="header"]
+|===
+|Artefact |Kind |What it proves
+
+|`+minted-2026-09-22_stapeln-launcher.sh+`
+|*Frozen.* Never re-mint.
+|A real launcher minted by the emitter as it stood BEFORE phase 2, carrying the
+retired `+# @a2ml-metadata+` dialect. This is the backwards-compatibility
+promise of #40 asserted against an artefact rather than a reconstruction: the
+dual-accept reader must still parse what is already on disk across the estate.
+Re-minting it is not possible without reverting the emitter, and a re-minted
+copy would prove nothing — it would be the new emitter checked against the new
+parser, which passes whether or not compatibility survived.
+
+|`+minted-2026-09-23_stapeln-launcher-deed.sh+`
+|*Currency-locked.* Re-mint whenever the template or renderer moves.
+|What `+mint+` emits TODAY, in the `+# @launcher-deed+` dialect. Pinned
+byte-for-byte by `+round_trip::the_committed_deed_fixture_is_what_mint_emits_today+`
+and again in CI by `+.github/workflows/launcher-artefacts.yml+`, which mints
+from `+../config/stapeln.launcher.fixture.a2ml+` and diffs. Because it is
+currency-locked it is also the artefact the scanners read, so a finding against
+it is a finding against what the tool produces (#48, #49). The date in the name
+records when the DEED dialect landed, not when the bytes were last refreshed.
+
+|`+../config/stapeln.launcher.fixture.a2ml+`
+|Input.
+|The one config both stapeln artefacts are minted from. A file rather than a
+TOML literal in a test so the Rust round-trip tests and the CI mint cannot
+drift onto different inputs.
+|===
+
+== Why the frozen artefact keeps its defects
+
+The 2026-09-22 launcher carries `+/tmp/stapeln-server.pid+`, an unused
+`+APP_PORT+`, a `+sed+` where parameter expansion would do, and a
+`+local x="$(…)"+` that masks a return value. All four are fixed in
+`+templates/launcher.sh.tera+` (#48, #49) and absent from anything `+mint+`
+emits today. They remain here on purpose: this file is a record of what the old
+emitter wrote, and a scanner finding against it is a finding about history, not
+about the tool. Only the currency-locked artefact is linted in CI.
+
+== Re-minting the currency-locked artefact
+
+Never hand-edit it. Regenerate it, so the bytes come from the emitter:
+
+[source,bash]
+----
+cargo build
+./target/debug/launch-scaffolder mint \
+  crates/launcher-common/tests/fixtures/config/stapeln.launcher.fixture.a2ml \
+  --stdout \
+  | sed -E 's|^CONFIG_FILE=.*|CONFIG_FILE=""|' \
+  > crates/launcher-common/tests/fixtures/metadata_block/minted-2026-09-23_stapeln-launcher-deed.sh
+----
+
+The `+CONFIG_FILE+` normalisation is required because `+mint+` embeds the
+CANONICALISED absolute path of the config that produced the script — which is
+checkout-location-specific by design, and empty when `+template::render+` is
+called with no config path (as the tests do).

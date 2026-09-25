@@ -20,19 +20,15 @@ use launch_scaffolder_common::{
     config::LauncherConfig, metadata_block, standard::LauncherStandard, template,
 };
 
-const CFG: &str = r#"
-[project]
-name = "stapeln"
-display = "Stapeln"
-version = "0.1.0"
-
-[repo]
-path = "/srv/stapeln"
-
-[runtime]
-kind = "server-url"
-url = "http://localhost:4010"
-"#;
+/// The config both committed stapeln artefacts are minted from.
+///
+/// A committed file rather than a TOML literal here so the CI artefact gate
+/// (`launcher-artefacts.yml`) mints from the SAME input these tests render —
+/// one config, two consumers, no drift between them.
+const CFG: &str = include_str!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/tests/fixtures/config/stapeln.launcher.fixture.a2ml"
+));
 
 fn mint() -> String {
     let cfg = LauncherConfig::parse(CFG).expect("config parses");
@@ -276,4 +272,61 @@ fn a_launcher_minted_by_phase_two_reads_and_matches_todays_emitter() {
         "the committed deed fixture and today's mint must agree on every scalar"
     );
     assert_eq!(block.lists, minted.lists);
+}
+
+/// ⭐ The committed DEED fixture is **currency-locked**: it must be byte-identical
+/// to what `mint` emits today.
+///
+/// The two tests above compare the fixture's parsed metadata against a fresh
+/// mint, which is the right check for the compat question and the wrong one for
+/// the artefact question. Nothing pinned the fixture's *body*, so the shell the
+/// scanners read (Hypatia's #48 findings, shellcheck's #49 findings) could sit
+/// arbitrarily far from the shell the tool actually writes — a stale artefact
+/// that keeps a closed defect looking open, or an open one looking closed.
+///
+/// Byte equality is also what makes the fixture safe to lint in CI: the gate
+/// lints a launcher minted during the run, and this test is the proof that the
+/// committed copy of it is the same file.
+///
+/// Re-mint it rather than editing it — see `fixtures/metadata_block/README.adoc`.
+#[test]
+fn the_committed_deed_fixture_is_what_mint_emits_today() {
+    let fixture = std::fs::read_to_string(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/tests/fixtures/metadata_block/minted-2026-09-23_stapeln-launcher-deed.sh"
+    ))
+    .expect("the post-phase fixture is committed");
+
+    let minted = mint();
+    assert!(fixture == minted, "{}", first_difference(&fixture, &minted));
+}
+
+/// Name the lines where two texts diverge.
+///
+/// Without this a currency failure dumps two ~460-line scripts into the log and
+/// leaves the reader to diff them by eye — which is how a stale fixture gets
+/// "fixed" by regenerating it without anyone reading what moved.
+fn first_difference(fixture: &str, minted: &str) -> String {
+    let want: Vec<&str> = fixture.lines().collect();
+    let got: Vec<&str> = minted.lines().collect();
+    let mut out = format!(
+        "the committed fixture ({} lines) is not what mint emits today ({} lines)\n",
+        want.len(),
+        got.len()
+    );
+    let mut shown = 0;
+    for i in 0..want.len().max(got.len()) {
+        let a = want.get(i).copied().unwrap_or("<no such line>");
+        let b = got.get(i).copied().unwrap_or("<no such line>");
+        if a != b {
+            out.push_str(&format!("  line {n}\n    fixture {a:?}\n    minted  {b:?}\n", n = i + 1));
+            shown += 1;
+            if shown == 20 {
+                out.push_str("  … (further differences omitted)\n");
+                break;
+            }
+        }
+    }
+    out.push_str("re-mint the fixture; see fixtures/metadata_block/README.adoc");
+    out
 }
