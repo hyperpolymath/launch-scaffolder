@@ -95,6 +95,21 @@ URL=""
 PID_FILE="{{ pid_file }}"
 LOG_FILE="{{ log_file }}"
 
+# Both defaults live under a per-user XDG directory. Create them 0700 before
+# the first write: a predictable path inside a world-writable directory (the
+# old /tmp default) let any local user pre-create or symlink the pid file and
+# steer what this script later killed or removed (Hypatia 82/83, #48).
+# `mkdir -p -m` cannot do the job: with -p the mode applies only to the
+# deepest directory created, so the chmod is stated separately and applies
+# whether or not the directory was just made.
+ensure_state_dirs() {
+    local pid_dir log_dir
+    pid_dir="$(dirname "$PID_FILE")"
+    log_dir="$(dirname "$LOG_FILE")"
+    mkdir -p "$pid_dir" "$log_dir"
+    chmod 0700 "$pid_dir" "$log_dir"
+}
+
 {% if explicit_command | length > 0 -%}
 # Explicit argv from [runtime].command
 START_COMMAND=({% for arg in explicit_command %}{{ arg | safe }} {% endfor %})
@@ -229,6 +244,7 @@ wait_for_url() {
 {%- endif %}
 
 start_server() {
+    ensure_state_dirs
     clear_stale_pid
 {% if runtime_kind == "remote" -%}
     log "$APP_DISPLAY is a remote web app — nothing to start locally."

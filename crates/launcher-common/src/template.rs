@@ -122,17 +122,43 @@ pub fn render(
     }
     ctx.insert("url", &url_string);
 
-    // PID / log file defaults follow the standard's pattern when unset.
-    let pid_file = config
-        .runtime
-        .pid_file
-        .clone()
-        .unwrap_or_else(|| format!("/tmp/{}-server.pid", config.project.name));
-    let log_file = config
-        .runtime
-        .log_file
-        .clone()
-        .unwrap_or_else(|| format!("/tmp/{}-server.log", config.project.name));
+    // PID / log file defaults, per-user rather than in a world-writable
+    // directory.
+    //
+    // The previous defaults were `/tmp/<name>-server.pid` and
+    // `/tmp/<name>-server.log`: world-writable AND predicted entirely by the
+    // project name, so any local user could create or symlink the path before
+    // the launcher's first run and steer the `kill` / `rm` the script later
+    // performs on it (`is_running`, `clear_stale_pid`, `stop_server`). That is
+    // Hypatia alerts 82 and 83 (#48).
+    //
+    // Both defaults are therefore SHELL expressions, not paths resolved here:
+    //
+    //   * `$XDG_RUNTIME_DIR` for the pid, because the pid is per-session state
+    //     and the runtime directory is already per-user and 0700. It falls
+    //     back to `$XDG_STATE_HOME` and then to `~/.local/state`, per the XDG
+    //     base directory spec, so the launcher still works on a host with no
+    //     runtime directory (cron, containers, a bare tty).
+    //   * `$XDG_STATE_HOME` for the log, because a log must survive a logout —
+    //     which is precisely what `$XDG_RUNTIME_DIR` does not promise.
+    //     `mktemp` is deliberately not used for either: an unpredictable name
+    //     is unusable for a pid file that another invocation has to find.
+    //
+    // Resolving them at mint time instead would bake one machine's paths into
+    // a script that may run on another, so the expansion is left to the shell
+    // and the directory is created by the script before first write.
+    let pid_file = config.runtime.pid_file.clone().unwrap_or_else(|| {
+        format!(
+            "${{XDG_RUNTIME_DIR:-${{XDG_STATE_HOME:-$HOME/.local/state}}}}/{}-server.pid",
+            config.project.name
+        )
+    });
+    let log_file = config.runtime.log_file.clone().unwrap_or_else(|| {
+        format!(
+            "${{XDG_STATE_HOME:-$HOME/.local/state}}/{}-server.log",
+            config.project.name
+        )
+    });
     ctx.insert("pid_file", &pid_file);
     ctx.insert("log_file", &log_file);
     ctx.insert("wait_seconds", &config.runtime.wait_for_url_timeout_seconds);
@@ -343,6 +369,7 @@ mod tests {
             legacy.scalars, minted.scalars,
             "the deed emitter changed a scalar the legacy block carried"
         );
+
         assert_eq!(
             legacy.lists, minted.lists,
             "the deed emitter changed a list the legacy block carried"
@@ -530,5 +557,139 @@ mod tests {
             "a launcher with an explicit [runtime].url must not also state the port"
         );
         assert!(script.contains("URL=\"http://localhost:4010\""));
+    }
+
+    // ---------------------------------------------------------------
+    // #48 — the default pid/log location is not a predictable path in a
+    // world-writable directory.
+    // ---------------------------------------------------------------
+
+    /// The DEFAULT pid/log paths, spelled out as literals.
+    ///
+    /// Written as literal strings on purpose. #48 AC4 forbids asserting them
+    /// by recomputing the same `format!` the renderer uses: an equality whose
+    /// right-hand side is derived from the left cannot fail when both move
+    /// together, so such a test would have passed happily while the default sat
+    /// in `/tmp`. The fixture config sets neither value (see
+    /// `stapeln.launcher.fixture.a2ml`), so these are defaults, not overrides.
+    ///
+    /// They are shell expressions rather than paths: the launcher runs on the
+    /// user's machine, which is not necessarily the machine it was minted on.
+    const DEFAULT_PID_LINE: &str =
+        "PID_FILE=\"${XDG_RUNTIME_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}}/stapeln-server.pid\"";
+    const DEFAULT_LOG_LINE: &str =
+        "LOG_FILE=\"${XDG_STATE_HOME:-$HOME/.local/state}/stapeln-server.log\"";
+
+    /// A config that sets neither `pid-file` nor `log-file` mints a launcher
+    /// whose state lands under a per-user directory — never in `/tmp`.
+    #[test]
+    fn default_pid_and_log_paths_are_per_user_not_world_writable() {
+        let cfg = stapeln_config();
+        assert!(
+            cfg.runtime.pid_file.is_none() && cfg.runtime.log_file.is_none(),
+            "the fixture config must set neither, or this asserts nothing"
+        );
+        let script = render_stapeln();
+
+        assert!(
+            script.contains(DEFAULT_PID_LINE),
+            "the default pid line changed; it must stay out of world-writable space. \\
+             Looking for: {DEFAULT_PID_LINE}"
+        );
+        assert!(
+            script.contains(DEFAULT_LOG_LINE),
+            "the default log line changed; it must stay out of world-writable space. \\
+             Looking for: {DEFAULT_LOG_LINE}"
+        );
+
+        // The finding, stated directly: no `/tmp` path is emitted by default.
+        for line in script.lines() {
+            if line.starts_with("PID_FILE=") || line.starts_with("LOG_FILE=") {
+                assert!(
+                    !line.contains("/tmp/"),
+                    "`{line}` puts launcher state in world-writable /tmp with a name \\
+                     predictable from the project (#48)"
+                );
+            }
+        }
+    }
+
+    /// An explicit `pid-file` / `log-file` in the config still wins, unchanged
+    /// (#48 AC2).
+    ///
+    /// Including the `~/` spelling, which is expanded by `integration.rs`
+    /// rather than by the renderer.
+    #[test]
+    fn explicit_pid_and_log_paths_still_win_unchanged() {
+        let std_ = LauncherStandard::baked().expect("baked standard should parse");
+        let mut cfg = stapeln_config();
+        cfg.runtime.pid_file = Some("/var/run/stapeln.pid".into());
+        cfg.runtime.log_file = Some("~/logs/stapeln.log".into());
+
+        let script = render(&cfg, &std_, None).expect("renders");
+
+        assert!(
+            script.contains("PID_FILE=\"/var/run/stapeln.pid\""),
+            "an explicit pid-file must be emitted verbatim"
+        );
+        assert!(
+            script.contains("LOG_FILE=\"~/logs/stapeln.log\""),
+            "an explicit log-file must be emitted verbatim, `~` included"
+        );
+        assert!(
+            !script.contains("XDG_RUNTIME_DIR") && !script.contains("XDG_STATE_HOME"),
+            "the XDG defaults must not appear when the config states both paths"
+        );
+        // The directory-creation helper is unconditional: it also has to work
+        // for an explicit path the user has not created yet.
+        assert!(
+            script.contains("ensure_state_dirs"),
+            "state directories must be created whatever path the config chose"
+        );
+    }
+
+    /// The generated launcher creates its state directories 0700 before writing
+    /// (#48 AC3).
+    ///
+    /// Two assertions, because either alone is vacuous: `mkdir -p` without a
+    /// mode creates the directory with the caller's umask (commonly 0755), and
+    /// `mkdir -p -m` applies the mode only to the deepest directory it creates
+    /// — so the mode is stated separately, and the test looks for both halves.
+    #[test]
+    fn the_launcher_creates_its_state_directories_0700_before_writing() {
+        let script = render_stapeln();
+
+        assert!(
+            script.contains("chmod 0700 \"$pid_dir\" \"$log_dir\""),
+            "the launcher must set 0700 on the directories it is about to write into"
+        );
+        assert!(
+            script.contains("mkdir -p \"$pid_dir\" \"$log_dir\""),
+            "the launcher must create the directories it is about to write into"
+        );
+    }
+
+    /// `ensure_state_dirs` runs BEFORE the first write, not after.
+    ///
+    /// The previous test pins what the helper does; this one pins the ordering
+    /// property that makes it a fix rather than a decoration: a directory
+    /// created after the pid file is written is no protection at all.
+    #[test]
+    fn state_dirs_are_ensured_before_the_first_pid_write() {
+        let script = render_stapeln();
+        let start = script
+            .find("start_server()")
+            .expect("start_server is defined in the template");
+        let body = &script[start..];
+        let ensure = body
+            .find("ensure_state_dirs")
+            .expect("start_server must ensure its state dirs before writing");
+        let write = body
+            .find(">\"$LOG_FILE\"")
+            .expect("start_server writes the log");
+        assert!(
+            ensure < write,
+            "`ensure_state_dirs` must run before the launcher writes $LOG_FILE"
+        );
     }
 }

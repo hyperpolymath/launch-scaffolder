@@ -52,8 +52,23 @@ CONFIG_FILE=""
 URL="http://localhost:4010"
 WAIT_SECONDS="15"
 
-PID_FILE="/tmp/stapeln-server.pid"
-LOG_FILE="/tmp/stapeln-server.log"
+PID_FILE="${XDG_RUNTIME_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}}/stapeln-server.pid"
+LOG_FILE="${XDG_STATE_HOME:-$HOME/.local/state}/stapeln-server.log"
+
+# Both defaults live under a per-user XDG directory. Create them 0700 before
+# the first write: a predictable path inside a world-writable directory (the
+# old /tmp default) let any local user pre-create or symlink the pid file and
+# steer what this script later killed or removed (Hypatia 82/83, #48).
+# `mkdir -p -m` cannot do the job: with -p the mode applies only to the
+# deepest directory created, so the chmod is stated separately and applies
+# whether or not the directory was just made.
+ensure_state_dirs() {
+    local pid_dir log_dir
+    pid_dir="$(dirname "$PID_FILE")"
+    log_dir="$(dirname "$LOG_FILE")"
+    mkdir -p "$pid_dir" "$log_dir"
+    chmod 0700 "$pid_dir" "$log_dir"
+}
 
 START_COMMAND=""
 
@@ -169,6 +184,7 @@ wait_for_url() {
 }
 
 start_server() {
+    ensure_state_dirs
     clear_stale_pid
 if is_running; then
         log "Already running (PID $(cat "$PID_FILE"))"

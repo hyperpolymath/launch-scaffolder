@@ -210,6 +210,40 @@ stance`"* — this tool is Rust-primary now, with SPARK/Ada hooks planned
 for the correctness-critical `+integrity.rs+` path (called via Zig FFI
 per the hyperpolymath ABI/FFI standard).
 
+=== Where a launcher keeps its state
+
+A generated launcher writes two files: a pid file and a log. Unless the
+config says otherwise (`+[runtime]+` `+pid-file+` / `+log-file+`) they land
+under the invoking user's own XDG directories, never in shared,
+world-writable space:
+
+[cols="1,2,1",options="header"]
+|===
+|File |Default |Overridden by
+
+|pid
+|`+$XDG_RUNTIME_DIR+`, else `+$XDG_STATE_HOME+`, else
+`+~/.local/state+` — as `+<app>-server.pid+`
+|`+[runtime]+` `+pid-file+`
+
+|log
+|`+$XDG_STATE_HOME+`, else `+~/.local/state+` — as
+`+<app>-server.log+`
+|`+[runtime]+` `+log-file+`
+|===
+
+The log goes to the *state* directory rather than the runtime directory
+because it has to survive a logout, which `+$XDG_RUNTIME_DIR+` does not
+promise. Both directories are created `+0700+` by the launcher before the
+first write.
+
+Before 2026-09-25 both defaults were `+/tmp/<app>-server.{pid,log}+`:
+world-writable, and predictable from nothing but the app name, so any local
+user could create or symlink the path before the launcher's first run and
+influence what it later killed or removed (issue #48). Launchers minted
+before that date keep their old paths until they are re-minted — set the
+two keys explicitly, or re-mint, to move them.
+
 === Why a declarative format for inputs
 
 * A launcher carries a metadata block in its own header, so a generated
