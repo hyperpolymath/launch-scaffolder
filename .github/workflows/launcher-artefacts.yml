@@ -61,6 +61,27 @@ jobs:
       - name: Cache cargo registry and build
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
 
+      - name: Report rustfmt drift as an annotation
+        shell: bash
+        run: |
+          set -uo pipefail
+          # Diagnostic, not a second gate: `cargo fmt --all -- --check` is gated
+          # by the estate reusable (rust-ci.yml), and this step never fails the
+          # job. Its output is a DIFF, and a diff is only actionable where a
+          # reviewer reads it — the run log is not that place — so it is
+          # re-emitted as a check annotation.
+          cargo fmt --all -- --check > "$RUNNER_TEMP/fmt.diff" 2>&1
+          if [ -s "$RUNNER_TEMP/fmt.diff" ]; then
+            echo "rustfmt wants $(wc -l < "$RUNNER_TEMP/fmt.diff") line(s) changed"
+            awk 'NR <= 80 { gsub(/%/, "%25"); gsub(/\r/, "%0D"); printf "%s%s", sep, $0; sep = "%0A" }
+                 END { if (NR > 80) printf "%s… %d more line(s) in the run log", sep, NR - 80 }' \
+              "$RUNNER_TEMP/fmt.diff" > "$RUNNER_TEMP/fmt.ann"
+            echo "::error title=cargo fmt --check drift::$(cat "$RUNNER_TEMP/fmt.ann")"
+          else
+            echo "✓ cargo fmt --all -- --check is clean"
+          fi
+          exit 0
+
       - name: Build every target
         run: cargo build --locked --all-targets
 
@@ -95,7 +116,10 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
           if [ "$STATUS" -ne 0 ]; then
-            echo "::error::cargo test exited $STATUS"
+            sed -n '/^failures:$/,$p' "$LOG" | head -100 > "$RUNNER_TEMP/failures.txt"
+            awk '{ gsub(/%/, "%25"); gsub(/\r/, "%0D"); printf "%s%s", sep, $0; sep = "%0A" }' \
+              "$RUNNER_TEMP/failures.txt" > "$RUNNER_TEMP/failures.ann"
+            echo "::error title=cargo test exited $STATUS::$(cat "$RUNNER_TEMP/failures.ann")"
             exit 1
           fi
           if [ "$FAILED" -ne 0 ]; then
@@ -129,12 +153,15 @@ jobs:
         run: |
           set -euo pipefail
           MINTED="$RUNNER_TEMP/minted/stapeln-launcher.sh"
-          if diff -u "$FIXTURE_SCRIPT" "$MINTED"; then
-            echo "✓ $FIXTURE_SCRIPT is current"
+          if diff -u "$FIXTURE_SCRIPT" "$MINTED" > "$RUNNER_TEMP/fixture.diff"; then
+            echo "✓ $FIXTURE_SCRIPT is byte-identical to a fresh mint"
           else
-            echo "::error::$FIXTURE_SCRIPT has drifted from what mint emits today. \
-          Re-mint it (just mint $FIXTURE_CONFIG, normalise CONFIG_FILE to \"\") \
-          rather than editing it by hand — the diff above is the whole change."
+            cat "$RUNNER_TEMP/fixture.diff"
+            awk 'NR <= 80 { gsub(/%/, "%25"); gsub(/\r/, "%0D"); printf "%s%s", sep, $0; sep = "%0A" }' \
+              "$RUNNER_TEMP/fixture.diff" > "$RUNNER_TEMP/fixture.ann"
+            echo "::error title=$FIXTURE_SCRIPT has drifted from what mint emits today::$(cat "$RUNNER_TEMP/fixture.ann")"
+            echo "::notice::re-mint it rather than editing it by hand — see \
+          crates/launcher-common/tests/fixtures/metadata_block/README.adoc"
             exit 1
           fi
 
