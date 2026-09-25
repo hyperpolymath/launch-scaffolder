@@ -319,7 +319,10 @@ fn first_difference(fixture: &str, minted: &str) -> String {
         let a = want.get(i).copied().unwrap_or("<no such line>");
         let b = got.get(i).copied().unwrap_or("<no such line>");
         if a != b {
-            out.push_str(&format!("  line {n}\n    fixture {a:?}\n    minted  {b:?}\n", n = i + 1));
+            out.push_str(&format!(
+                "  line {n}\n    fixture {a:?}\n    minted  {b:?}\n",
+                n = i + 1
+            ));
             shown += 1;
             if shown == 20 {
                 out.push_str("  … (further differences omitted)\n");

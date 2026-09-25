@@ -73,7 +73,10 @@ pub fn render(
         "app_version",
         config.project.version.as_deref().unwrap_or("1.0.0"),
     );
-    ctx.insert("app_license", config.project.license.as_deref().unwrap_or("MPL-2.0"));
+    ctx.insert(
+        "app_license",
+        config.project.license.as_deref().unwrap_or("MPL-2.0"),
+    );
 
     // --- [repo] --------------------------------------------------------
     ctx.insert("repo_dir", &config.repo.path);
@@ -88,6 +91,13 @@ pub fn render(
     ctx.insert("has_url", &(config.runtime.url.is_some()));
 
     // Default URL/port fallbacks so Tera `{{ url }}` never explodes.
+    //
+    // The port gets ONE answer in the generated script. With no explicit
+    // `[runtime].url` the template emits `APP_PORT` and composes the URL from
+    // it; with one, it emits the URL and no `APP_PORT` at all, because a second
+    // spelling of the port could only disagree with the URL the launcher
+    // actually dials (#49 AC3 — shellcheck saw the unused variable, the defect
+    // was the duplicate).
     let port = config.runtime.port.unwrap_or(0);
     ctx.insert("app_port", &port);
     let url_string = match (&config.runtime.url, config.runtime.port) {
@@ -95,6 +105,21 @@ pub fn render(
         (None, Some(p)) => format!("http://localhost:{p}"),
         (None, None) => String::new(),
     };
+    // A config that sets both and has them disagree is almost certainly a
+    // mistake, and the generated script no longer carries the second value that
+    // would once have shown it — so say so at mint time instead.
+    let disagreement = config
+        .runtime
+        .url
+        .as_deref()
+        .zip(config.runtime.port)
+        .filter(|(url, p)| !url.contains(&format!(":{p}")));
+    if let Some((url, p)) = disagreement {
+        tracing::warn!(
+            "[runtime].url = {url} does not carry [runtime].port = {p}; the URL wins, so \
+             the port is not emitted into the launcher separately"
+        );
+    }
     ctx.insert("url", &url_string);
 
     // PID / log file defaults follow the standard's pattern when unset.
@@ -469,5 +494,41 @@ mod tests {
             Some("#!/usr/bin/env bash"),
             "shebang must be on line 1 of the rendered launcher"
         );
+    }
+
+    /// The port has exactly one spelling in the generated script (#49 AC3).
+    ///
+    /// `APP_PORT` used to be emitted into every `server-url` launcher and read
+    /// by none of them — shellcheck SC2034 — while the `URL` line above it
+    /// hardcoded the same port. The unused variable was the symptom; two answers
+    /// to one question was the defect, and the two could silently disagree.
+    #[test]
+    fn the_port_has_exactly_one_spelling_in_the_generated_script() {
+        let std_ = LauncherStandard::baked().expect("baked standard should parse");
+
+        // No explicit URL, so APP_PORT is emitted — because something reads it:
+        // the very next line composes the URL out of it.
+        let composed = stapeln_config();
+        assert_eq!(composed.runtime.url, None, "fixture config sets no url");
+        let script = render(&composed, &std_, None).expect("renders");
+        assert!(
+            script.contains("APP_PORT=\"4010\""),
+            "the composed arm must state the port it composes from"
+        );
+        assert!(
+            script.contains("URL=\"http://localhost:${APP_PORT}\""),
+            "and must compose the URL from it, so the two cannot disagree"
+        );
+
+        // An explicit URL is the whole answer: the port is inside it, and a
+        // second `APP_PORT=` beside it could only contradict it.
+        let mut explicit = stapeln_config();
+        explicit.runtime.url = Some("http://localhost:4010".into());
+        let script = render(&explicit, &std_, None).expect("renders");
+        assert!(
+            !script.contains("APP_PORT="),
+            "a launcher with an explicit [runtime].url must not also state the port"
+        );
+        assert!(script.contains("URL=\"http://localhost:4010\""));
     }
 }
