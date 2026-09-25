@@ -1,0 +1,39 @@
+# SPDX-License-Identifier: MPL-2.0
+# Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
+#
+# stapeln.launcher.fixture.a2ml — the single input both committed stapeln
+# launcher fixtures were minted from.
+#
+# It is a FILE rather than a TOML literal inside a test for one reason: the
+# `.github/workflows/launcher-artefacts.yml` gate mints from this path with the
+# real binary, and `tests/round_trip.rs` renders it with `template::render`.
+# One input, two consumers, so the shellcheck/fixture-currency gate and the
+# Rust round-trip tests cannot drift onto different configs.
+#
+# The `.launcher.fixture.a2ml` suffix keeps estate walks off it (see
+# `discovery::is_live_config` and examples/README.adoc).
+#
+# ⚠ Every value here is load-bearing for a committed artefact:
+#
+#   * no `pid-file` and no `log-file`, so the minted script carries the
+#     DEFAULT locations — which is the only way the default is pinned by an
+#     artefact rather than by the transform that computes it (#48 AC4);
+#   * no `command` and no `startup-command-search`, so `START_COMMAND=""` and
+#     the search-list arm of the template is exercised;
+#   * an explicit `url` with no `port`, so `APP_PORT` renders as 0 and the
+#     URL-composition arm is the explicit one (#49 AC3).
+#
+# Changing any of these re-mints the fixtures; see
+# tests/fixtures/metadata_block/README.adoc.
+
+[project]
+name = "stapeln"
+display = "Stapeln"
+version = "0.1.0"
+
+[repo]
+path = "/srv/stapeln"
+
+[runtime]
+kind = "server-url"
+url = "http://localhost:4010"

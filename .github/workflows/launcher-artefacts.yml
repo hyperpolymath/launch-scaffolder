@@ -1,0 +1,211 @@
+# SPDX-License-Identifier: MPL-2.0
+# Launcher artefact gates — the three checks that belong to THIS repo and
+# cannot live in the estate's rust-ci-reusable.yml.
+#
+#   1. test-count floor (#45 AC6). `cargo test` exits 0 on a suite that
+#      collected nothing, so "the job is green" is not evidence any test ran.
+#      The floor is a ratchet: raise it as tests are added, never lower it.
+#   2. shellcheck over a launcher MINTED DURING THE RUN (#49 AC4/AC5). The
+#      `.tera` source is not valid shell, so linting the template file cannot
+#      work — only a minted artefact can be linted. And a linter that finds
+#      zero files to lint has failed, not passed, so that case exits non-zero.
+#   3. fixture currency (#48 AC5, #49 AC6). The committed deed-dialect fixture
+#      must be byte-identical to what today's mint emits, so the artefacts the
+#      scanners read are the artefacts the tool actually produces.
+#
+# The committed PRE-phase-2 fixture
+# (minted-2026-09-22_stapeln-launcher.sh) is deliberately neither linted nor
+# currency-checked: it is a frozen historical artefact, the evidence that a
+# launcher minted by the old emitter still reads (#40). See
+# crates/launcher-common/tests/fixtures/metadata_block/README.adoc.
+name: Launcher artefacts
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # #45 AC6: the count must be non-zero and >= 59 (the number of #[test]
+  # functions measured when the gap was filed). Ratchet upward, never lower.
+  TEST_COUNT_FLOOR: "59"
+  FIXTURE_CONFIG: crates/launcher-common/tests/fixtures/config/stapeln.launcher.fixture.a2ml
+  FIXTURE_SCRIPT: crates/launcher-common/tests/fixtures/metadata_block/minted-2026-09-23_stapeln-launcher-deed.sh
+  # The three codes #49 fixed, pinned at EVERY severity so a regression cannot
+  # slip under the warning-level gate by being reclassified.
+  BANNED_SHELLCHECK_CODES: SC2034 SC2001 SC2155
+
+jobs:
+  launcher-artefacts:
+    name: Build, count, mint, lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install Rust toolchain
+        # `toolchain:` is mandatory under a SHA pin: dtolnay/rust-toolchain
+        # infers the toolchain from the `@`-ref, and a SHA carries no version.
+        uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # stable
+        with:
+          toolchain: stable
+
+      - name: Cache cargo registry and build
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+
+      - name: Report rustfmt drift as an annotation
+        shell: bash
+        run: |
+          set -uo pipefail
+          # Diagnostic, not a second gate: `cargo fmt --all -- --check` is gated
+          # by the estate reusable (rust-ci.yml), and this step never fails the
+          # job. Its output is a DIFF, and a diff is only actionable where a
+          # reviewer reads it — the run log is not that place — so it is
+          # re-emitted as a check annotation.
+          cargo fmt --all -- --check > "$RUNNER_TEMP/fmt.diff" 2>&1
+          if [ -s "$RUNNER_TEMP/fmt.diff" ]; then
+            echo "rustfmt wants $(wc -l < "$RUNNER_TEMP/fmt.diff") line(s) changed"
+            awk 'NR <= 80 { gsub(/%/, "%25"); gsub(/\r/, "%0D"); printf "%s%s", sep, $0; sep = "%0A" }
+                 END { if (NR > 80) printf "%s… %d more line(s) in the run log", sep, NR - 80 }' \
+              "$RUNNER_TEMP/fmt.diff" > "$RUNNER_TEMP/fmt.ann"
+            echo "::error title=cargo fmt --check drift::$(cat "$RUNNER_TEMP/fmt.ann")"
+          else
+            echo "✓ cargo fmt --all -- --check is clean"
+          fi
+          exit 0
+
+      - name: Build every target
+        run: cargo build --locked --all-targets
+
+      - name: Run the suite and count what actually ran
+        shell: bash
+        run: |
+          set -uo pipefail
+          LOG="$RUNNER_TEMP/cargo-test.log"
+          cargo test --locked --all 2>&1 | tee "$LOG"
+          STATUS="${PIPESTATUS[0]}"
+          set -e
+
+          # Sum the `N passed` of every `test result:` line the run printed —
+          # one per test binary, so a suite that silently stopped collecting
+          # in one crate still shows up in the total.
+          read -r PASSED FAILED < <(awk '
+            /^test result:/ {
+              for (i = 1; i <= NF; i++) {
+                if ($i == "passed;") { p += $(i - 1) }
+                if ($i == "failed;") { f += $(i - 1) }
+              }
+            }
+            END { printf "%d %d", p + 0, f + 0 }
+          ' "$LOG")
+
+          echo "cargo test exit status: $STATUS"
+          echo "tests passed: $PASSED   failed: $FAILED   floor: $TEST_COUNT_FLOOR"
+          {
+            echo "## Launcher artefact gates"
+            echo ""
+            echo "- \`cargo test --all\`: **$PASSED passed**, $FAILED failed (floor $TEST_COUNT_FLOOR)"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$STATUS" -ne 0 ]; then
+            sed -n '/^failures:$/,$p' "$LOG" | head -100 > "$RUNNER_TEMP/failures.txt"
+            awk '{ gsub(/%/, "%25"); gsub(/\r/, "%0D"); printf "%s%s", sep, $0; sep = "%0A" }' \
+              "$RUNNER_TEMP/failures.txt" > "$RUNNER_TEMP/failures.ann"
+            echo "::error title=cargo test exited $STATUS::$(cat "$RUNNER_TEMP/failures.ann")"
+            exit 1
+          fi
+          if [ "$FAILED" -ne 0 ]; then
+            echo "::error::$FAILED test(s) failed"
+            exit 1
+          fi
+          if [ "$PASSED" -lt "$TEST_COUNT_FLOOR" ]; then
+            echo "::error::only $PASSED tests ran, floor is $TEST_COUNT_FLOOR — a suite that \
+          collects nothing exits 0, so this gate is what makes 'green' mean 'ran' (#45 AC6)"
+            exit 1
+          fi
+
+      - name: Mint a launcher from the committed fixture config
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$RUNNER_TEMP/minted"
+          mkdir -p "$OUT"
+          # `--stdout` so nothing is written next to the fixture config.
+          # CONFIG_FILE is normalised because mint embeds the CANONICALISED
+          # absolute path of the config that produced the script, which is
+          # checkout-location-specific by design and not a template property.
+          ./target/debug/launch-scaffolder mint "$FIXTURE_CONFIG" --stdout \
+            | sed -E 's|^CONFIG_FILE=.*|CONFIG_FILE=""|' \
+            > "$OUT/stapeln-launcher.sh"
+          chmod +x "$OUT/stapeln-launcher.sh"
+          echo "minted $(wc -l < "$OUT/stapeln-launcher.sh") lines to $OUT/stapeln-launcher.sh"
+
+      - name: Committed fixture is byte-identical to a fresh mint
+        shell: bash
+        run: |
+          set -euo pipefail
+          MINTED="$RUNNER_TEMP/minted/stapeln-launcher.sh"
+          if diff -u "$FIXTURE_SCRIPT" "$MINTED" > "$RUNNER_TEMP/fixture.diff"; then
+            echo "✓ $FIXTURE_SCRIPT is byte-identical to a fresh mint"
+          else
+            cat "$RUNNER_TEMP/fixture.diff"
+            awk 'NR <= 80 { gsub(/%/, "%25"); gsub(/\r/, "%0D"); printf "%s%s", sep, $0; sep = "%0A" }' \
+              "$RUNNER_TEMP/fixture.diff" > "$RUNNER_TEMP/fixture.ann"
+            echo "::error title=$FIXTURE_SCRIPT has drifted from what mint emits today::$(cat "$RUNNER_TEMP/fixture.ann")"
+            echo "::notice::re-mint it rather than editing it by hand — see \
+          crates/launcher-common/tests/fixtures/metadata_block/README.adoc"
+            exit 1
+          fi
+
+      - name: Shellcheck the minted launcher
+        shell: bash
+        run: |
+          set -euo pipefail
+          command -v shellcheck >/dev/null || {
+            echo "::error::shellcheck is not installed on the runner"; exit 1; }
+          shellcheck --version | sed -n '2,3p'
+
+          mapfile -t FILES < <(find "$RUNNER_TEMP/minted" -type f -name '*.sh' | sort)
+
+          # #49 AC5: zero files is a failure, not a pass.
+          if [ "${#FILES[@]}" -eq 0 ]; then
+            echo "::error::the shellcheck gate found ZERO files to lint — a linter \
+          with nothing to lint has failed, not passed"
+            exit 1
+          fi
+          printf 'linting %d minted artefact(s):\n' "${#FILES[@]}"
+          printf '  %s\n' "${FILES[@]}"
+
+          # Hard gate: nothing at warning or above (#49 AC2).
+          if ! shellcheck --format=gcc --severity=warning "${FILES[@]}" > "$RUNNER_TEMP/sc-warning.txt"; then
+            cat "$RUNNER_TEMP/sc-warning.txt"
+            echo "::error::shellcheck found warning-or-above findings in a freshly \
+          minted launcher; the fix belongs in templates/launcher.sh.tera, never in \
+          the committed fixtures"
+            exit 1
+          fi
+
+          # Pinned gate: the three codes #49 fixed must stay fixed at ANY
+          # severity, so a reclassification cannot hide a regression.
+          shellcheck --format=gcc "${FILES[@]}" > "$RUNNER_TEMP/sc-all.txt" || true
+          for code in $BANNED_SHELLCHECK_CODES; do
+            if grep -q "\[$code\]" "$RUNNER_TEMP/sc-all.txt"; then
+              grep "\[$code\]" "$RUNNER_TEMP/sc-all.txt"
+              echo "::error::$code is back in a freshly minted launcher (#49)"
+              exit 1
+            fi
+          done
+
+          echo "✓ zero findings at warning+; $BANNED_SHELLCHECK_CODES all absent"
+          if [ -s "$RUNNER_TEMP/sc-all.txt" ]; then
+            echo "--- remaining sub-warning notes, for the record ---"
+            cat "$RUNNER_TEMP/sc-all.txt"
+          fi
