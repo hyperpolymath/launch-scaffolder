@@ -448,9 +448,9 @@ fn desktop_string_value(value: &str) -> String {
 fn desktop_exec_arg(value: &str) -> String {
     let escaped = value
         .replace('\\', "\\\\")
-        .replace('"', "\\"")
-        .replace('`', "\\`")
-        .replace('$', "\\$")
+        .replace('"', r#"\""#)
+        .replace('`', r#"\`"#)
+        .replace('$', r#"\$"#)
         .replace('%', "%%");
     format!("\"{escaped}\"")
 }

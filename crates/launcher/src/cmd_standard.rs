@@ -40,7 +40,8 @@ fn show(standard_path: Option<&Path>) -> Result<()> {
             BAKED_STANDARD.to_string()
         }
     };
-    let standard = LauncherStandard::parse(&text).context("validating selected launcher standard")?;
+    let standard =
+        LauncherStandard::parse(&text).context("validating selected launcher standard")?;
     print!("{text}");
     tracing::debug!("showed launcher standard version {}", standard.spec_version);
     Ok(())
@@ -61,8 +62,7 @@ fn validate(standard_path: Option<&Path>) -> Result<()> {
         let field = modes
             .field(key)
             .with_context(|| format!("(required-modes) is missing :{key}"))?;
-        let entries = field
-            .str_list();
+        let entries = field.str_list();
         if entries.is_empty() {
             anyhow::bail!("(required-modes :{key}) must be a non-empty string list");
         }
