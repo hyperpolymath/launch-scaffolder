@@ -11,39 +11,35 @@ schema-version  = "0.1"
 # `updated` is ISO 8601 UTC with a `Z` suffix. Same-day intermittent
 # writes are distinguished by the time component so git history
 # shows the progression of checkpoints.
-updated         = "2026-04-10T21:09:09Z"
+updated         = "2026-09-26T00:00:00Z"
 author          = "Jonathan D.A. Jewell"
 
 [project]
 name           = "launch-scaffolder"
 version        = "0.1.0"
 phase          = "alpha"
-one-line       = "Rust/SPARK cross-platform desktop launcher minter/provisioner/configurator."
+one-line       = "Rust and shell launcher minter/configurator with Linux desktop provisioning."
 
 [current-position]
-milestone          = "phase-4-config-inspector"
-milestone-complete = true
-completion-percent = 65
+milestone          = "phase-5-launcher-hardening"
+milestone-complete = false
+completion-percent = 75
 summary = """
-Mint + realign + provision all working end-to-end. Provision is
-option-(b): desktop integration (.desktop writing, icon copy, launcher
-install, best-effort gio/update-desktop-database) lives in the Rust
-binary in `launch-scaffolder-common::integration`. The generated
-shell script's --integ / --disinteg arms now fast-path to the binary
-via `launch-scaffolder provision --integ "$CONFIG_FILE" --no-confirm`
-when the binary is on PATH, and fall back to the in-script shell
-implementation otherwise — so the binary is authoritative without
-making itself a hard dependency. CONFIG_FILE is embedded into each
-rendered launcher by the template. Bulk provision requires --all for
-safety, prompts before touching $HOME unless --no-confirm is set,
-supports --force for reinstall, and has a --dry-run preview.
+The five CLI subcommands (mint, realign, provision, config, standard) are
+implemented. Launcher artefact CI runs locked Rust checks, enforces a test
+count floor, re-mints a committed DEED fixture, checks fixture currency, and
+ShellChecks the generated script. The template now shell-quotes config
+values, validates app identifiers and URLs, uses private per-app XDG PID/log
+folders, validates PID content before signaling, and routes browser aliases
+through --auto. Native Linux integration writes atomically and only replaces
+or removes files carrying a launch-scaffolder ownership marker. GitHub
+community health files and project-specific contractiles are present.
 
-Discovery (walk + prune + fixture filter) is now shared via
-`launch-scaffolder-common::discovery`, consumed by both realign and
-provision. Nine passing unit tests cover discovery, integration
-rendering, standard parsing, and config validation. The 7 live
-launchers in the estate have been realigned to pick up the new
-delegation arms. 5 declared exceptions remain out of scope.
+Still outstanding: native macOS/Windows integration, all-seven-consumer
+golden coverage, implementations for the platform/integrity/exceptions
+library placeholders, the per-app descriptor migration to DEED, and the five
+hand-written estate exceptions. The CLI's native integration backend remains
+Linux-only; do not present it as fully cross-platform yet.
 """
 
 [[completed]]
@@ -91,7 +87,7 @@ item = "cmd_realign (bulk re-mint): estate-root default, --search-root override,
 on   = "2026-04-10"
 
 [[completed]]
-item = "Fixture/live suffix convention: `.launcher.fixture.a2ml` vs `.launcher.a2ml`. Renamed examples/stapeln.launcher.a2ml -> examples/stapeln.launcher.fixture.a2ml, documented in examples/README.md"
+item = "Fixture/live suffix convention: `.launcher.fixture.a2ml` vs `.launcher.a2ml`. Renamed examples/stapeln.launcher.a2ml -> examples/stapeln.launcher.fixture.a2ml, documented in examples/README.adoc"
 on   = "2026-04-10"
 
 [[completed]]
@@ -111,7 +107,7 @@ item = "Template delegation: launcher.sh.tera now embeds CONFIG_FILE and its --i
 on   = "2026-04-10T19:08:08Z"
 
 [[completed]]
-item = "launch-scaffolder-common::metadata_block: hand-rolled parser and in-place rewriter for the `# @a2ml-metadata begin...end` block embedded in every generated launcher. Scalar + list keys, REQUIRED_SCALAR_KEYS exported from one place, 8 unit tests covering parse, validate, rewrite round-trip, unterminated-block error, list-key set rejection"
+item = "launch-scaffolder-common::metadata_block: hand-rolled parser and in-place rewriter for the `# @a2ml-metadata begin...end` block embedded in generated launchers at the time. Current launchers use DEED; legacy scalar editing remains supported, REQUIRED_SCALAR_KEYS exported from one place, 8 unit tests covering parse, validate, rewrite round-trip, unterminated-block error, list-key set rejection"
 on   = "2026-04-10T19:30:49Z"
 
 [[completed]]
@@ -127,27 +123,51 @@ item = "Wave 1 remediation: 21 MISSING repos brought to the 5-rule reference sta
 on   = "2026-04-10T21:00:00Z"
 
 [[completed]]
-item = "Documentation sweep: README.adoc commands + status overhauled, META.a2ml ADR-006/007/008/009 added, 0-AI-MANIFEST.a2ml fixture-suffix invariant added, ECOSYSTEM.a2ml timestamp refreshed, new docs/branch-protection-remediation-2026-04-10.md post-mortem, audit artefacts moved out of /tmp into docs/ruleset-audit-2026-04-10/"
+item = "Documentation sweep: README.adoc commands + status overhauled, META.a2ml ADR-006/007/008/009 added, 0-AI-MANIFEST.a2ml fixture-suffix invariant added, ECOSYSTEM.a2ml timestamp refreshed, new docs/branch-protection-remediation-2026-04-10.adoc post-mortem, audit artefacts moved out of /tmp into docs/ruleset-audit-2026-04-10/"
 on   = "2026-04-10T21:09:09Z"
+
+[[completed]]
+item = "Implement standard show/validate CLI; update launcher mode surface with --version and browser/web aliases"
+on   = "2026-09-26"
+
+[[completed]]
+item = "Harden template rendering against shell injection; validate project identity, metadata and runtime URLs"
+on   = "2026-09-26"
+
+[[completed]]
+item = "Move default PID/log files to private per-app XDG locations; validate PID state and reject shared writable directories"
+on   = "2026-09-26"
+
+[[completed]]
+item = "Make file replacement atomic; mark managed desktop entries and refuse clobber/removal of unmarked integrations"
+on   = "2026-09-26"
+
+[[completed]]
+item = "Add GitHub-recognized security and conduct policies; tailor stale template contractiles and repo state"
+on   = "2026-09-26"
 
 [[next]]
 priority = 1
-item     = "Golden-file regression tests pinning mint output for the 7 managed launchers"
+item     = "Add native macOS and Windows integration backends and platform CI"
 
 [[next]]
 priority = 2
-item     = "Add a macOS integration backend to launch-scaffolder-common::integration (currently Linux-only)"
+item     = "Convert per-app launcher descriptors from TOML/A2ML naming to the normative DEED format with standards#960"
 
 [[next]]
 priority = 3
-item     = "SPARK integration hook for integrity.rs via Zig FFI"
+item     = "Implement and test platform, integrity, and exception-merge library APIs before advertising them"
+
+[[next]]
+priority = 4
+item     = "Add golden mint fixtures for each managed estate consumer and plan migration of five declared exceptions"
 
 [blockers]
-# None as of 2026-04-10 — phase-1 delivered cleanly.
+# No external blockers are recorded as of 2026-09-26.
 
 [exceptions]
 # The 5 launchers NOT migrated to scaffolder management today, with reasons.
-# Full rationale in docs/launcher-exceptions-2026-04-10.md.
+# Full rationale in docs/launcher-exceptions-2026-04-10.adoc.
 hypatia        = "remote + gossamer fallback + bespoke CLI modes"
 invariant-path = "Rust CLI wrapper with scan/cli/status modes over cargo run"
 opsm           = "interactive bash environment setup (sources ~/.bashrc.d/tools/opsm)"

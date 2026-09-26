@@ -32,9 +32,8 @@ pub const LAUNCHER_TEMPLATE: &str = include_str!("../../../templates/launcher.sh
 /// rather than in the standard's `(required-modes)` clause: that clause says
 /// what a compliant launcher MUST accept, and this says what this one DOES
 /// accept. They are not the same, and conflating them would let the block
-/// claim a mode the script does not implement (the standard also requires
-/// `--version`, which this script does not yet have — a live finding, not
-/// something to paper over by copying the standard's list).
+/// claim a mode the script does not implement. The explicit list below is
+/// asserted against the generated main switch so the two cannot drift.
 ///
 /// [`tests::the_declared_modes_are_the_arms_of_the_main_switch`] asserts this
 /// list and the template's `case "$MODE"` arms agree in both directions, so
@@ -49,6 +48,7 @@ pub const LAUNCHER_MODES: &[&str] = &[
     "--integ",
     "--disinteg",
     "--help",
+    "--version",
 ];
 
 /// Render a list of strings as the inside of a DEED list: `"a" "b" "c"`.
@@ -70,6 +70,7 @@ pub fn render(
     _standard: &LauncherStandard,
     config_path: Option<&Path>,
 ) -> Result<String> {
+    config.validate()?;
     let mut tera = Tera::default();
     tera.add_raw_template("launcher.sh", LAUNCHER_TEMPLATE)
         .context("registering launcher template with Tera")?;
@@ -77,6 +78,7 @@ pub fn render(
     // applies at exactly the emission sites — the embedded deed block —
     // and every other interpolation in the script keeps its raw value.
     tera.register_filter("deedstr", deedstr_filter);
+    tera.register_filter("shquote", shquote_filter);
 
     let mut ctx = TeraContext::new();
 
@@ -108,10 +110,16 @@ pub fn render(
         s
     };
     ctx.insert("app_categories", &categories_joined);
-    ctx.insert(
-        "app_version",
-        config.project.version.as_deref().unwrap_or("1.0.0"),
-    );
+    let app_version = config.project.version.as_deref().unwrap_or("1.0.0");
+    ctx.insert("app_version", app_version);
+    let build_sha_short = std::env::var("LAUNCH_SCAFFOLDER_BUILD_SHA")
+        .ok()
+        .filter(|sha| {
+            (7..=40).contains(&sha.len()) && sha.bytes().all(|b| b.is_ascii_hexdigit())
+        })
+        .map(|sha| sha[..7].to_ascii_lowercase())
+        .unwrap_or_else(|| "unknown".to_string());
+    ctx.insert("build_sha_short", &build_sha_short);
     ctx.insert(
         "app_license",
         config.project.license.as_deref().unwrap_or("MPL-2.0"),
@@ -186,20 +194,40 @@ pub fn render(
     // Resolving them at mint time instead would bake one machine's paths into
     // a script that may run on another, so the expansion is left to the shell
     // and the directory is created by the script before first write.
-    let pid_file = config.runtime.pid_file.clone().unwrap_or_else(|| {
-        format!(
-            "${{XDG_RUNTIME_DIR:-${{XDG_STATE_HOME:-$HOME/.local/state}}}}/{}-server.pid",
-            config.project.name
-        )
-    });
-    let log_file = config.runtime.log_file.clone().unwrap_or_else(|| {
-        format!(
-            "${{XDG_STATE_HOME:-$HOME/.local/state}}/{}-server.log",
-            config.project.name
-        )
-    });
-    ctx.insert("pid_file", &pid_file);
-    ctx.insert("log_file", &log_file);
+    let (pid_file, pid_file_is_default) = match &config.runtime.pid_file {
+        Some(path) => (path.clone(), false),
+        None => (
+            format!(
+                "${{XDG_RUNTIME_DIR:-${{XDG_STATE_HOME:-$HOME/.local/state}}}}/launch-scaffolder/{}/server.pid",
+                config.project.name
+            ),
+            true,
+        ),
+    };
+    let (log_file, log_file_is_default) = match &config.runtime.log_file {
+        Some(path) => (path.clone(), false),
+        None => (
+            format!(
+                "${{XDG_STATE_HOME:-$HOME/.local/state}}/launch-scaffolder/{}/server.log",
+                config.project.name
+            ),
+            true,
+        ),
+    };
+    let pid_file_shell = if pid_file_is_default {
+        format!("\"{pid_file}\"")
+    } else {
+        shell_path_quote(&pid_file)
+    };
+    let log_file_shell = if log_file_is_default {
+        format!("\"{log_file}\"")
+    } else {
+        shell_path_quote(&log_file)
+    };
+    ctx.insert("pid_file_shell", &pid_file_shell);
+    ctx.insert("log_file_shell", &log_file_shell);
+    ctx.insert("pid_file_is_default", &pid_file_is_default);
+    ctx.insert("log_file_is_default", &log_file_is_default);
     ctx.insert("wait_seconds", &config.runtime.wait_for_url_timeout_seconds);
 
     // Explicit command vector vs search list.
@@ -218,7 +246,7 @@ pub fn render(
         .as_ref()
         .map(|i| i.source.replace("{repo-dir}", &config.repo.path))
         .unwrap_or_default();
-    ctx.insert("icon_source", &icon_source);
+    ctx.insert("icon_source_shell", &shell_path_quote(&icon_source));
 
     // --- metadata -----------------------------------------------------
     ctx.insert("spec_version", &_standard.spec_version);
@@ -308,6 +336,34 @@ fn deed_escape(s: &str) -> std::result::Result<String, String> {
         }
     }
     Ok(out)
+}
+
+/// Quote a string as one POSIX-shell word. The generated program is Bash,
+/// whose single-quoted strings preserve every character except a literal
+/// single quote; that character is emitted using the standard close/escape/
+/// reopen sequence. Config values must never be interpolated as shell code.
+fn shell_quote(value: &str) -> String {
+    format!("'{}'", value.replace('\'', r"'\''"))
+}
+
+fn shell_path_quote(path: &str) -> String {
+    if let Some(rest) = path.strip_prefix("~/") {
+        format!("\"${{HOME}}\"/{}", shell_quote(rest))
+    } else if path == "~" {
+        "\"${HOME}\"".to_string()
+    } else {
+        shell_quote(path)
+    }
+}
+
+fn shquote_filter(
+    value: &tera::Value,
+    _args: &std::collections::HashMap<String, tera::Value>,
+) -> tera::Result<tera::Value> {
+    let s = value
+        .as_str()
+        .ok_or_else(|| tera::Error::msg(format!("`shquote` takes a string, got `{value}`")))?;
+    Ok(tera::Value::from(shell_quote(s)))
 }
 
 /// Tera filter wrapping [`deed_escape`], registered as `deedstr`.
@@ -401,6 +457,34 @@ mod tests {
     /// A freshly minted launcher carries a block the Phase-1 reader accepts,
     /// and accepts *as a deed* rather than by falling back to the legacy arm.
     ///
+    #[test]
+    fn icon_home_paths_are_expanded_without_losing_shell_quoting() {
+        let std_ = LauncherStandard::baked().expect("baked standard should parse");
+        let mut cfg = stapeln_config();
+        cfg.icon = Some(crate::config::Icon {
+            source: "~/icons/app image.png".into(),
+        });
+        let script = render(&cfg, &std_, None).expect("renders");
+        assert!(script.contains("ICON_SOURCE=\"${HOME}\"/'icons/app image.png'"));
+    }
+
+    #[test]
+    fn shell_metacharacters_in_config_are_data_not_code() {
+        let mut config = sample_config();
+        config.project.display = r#"x"; touch /tmp/launch-scaffolder-pwned; #"#.into();
+        config.repo.path = r#"/tmp/a"$(touch /tmp/launch-scaffolder-pwned)"#.into();
+        config.runtime.command = vec![
+            "program with spaces".into(),
+            "$(touch /tmp/launch-scaffolder-pwned)".into(),
+            "it's fine".into(),
+        ];
+        let rendered = render(&config, &LauncherStandard::baked().unwrap(), None).unwrap();
+        assert!(rendered.contains(r#"APP_DISPLAY='x"; touch /tmp/launch-scaffolder-pwned; #'"#));
+        assert!(rendered.contains(r#"REPO_DIR='/tmp/a"$(touch /tmp/launch-scaffolder-pwned)'"#));
+        assert!(rendered.contains(r#"START_COMMAND=('program with spaces' '$(touch /tmp/launch-scaffolder-pwned)' 'it'\''s fine')"#));
+        assert!(!rendered.contains(r#"APP_DISPLAY="x"; touch"#));
+    }
+
     /// Asserting `is_deed()` is what separates this from "some block parsed":
     /// the reader still understands both dialects, so a template that had
     /// silently kept emitting the legacy form would pass a parse-only test.
@@ -684,9 +768,9 @@ mod tests {
     /// They are shell expressions rather than paths: the launcher runs on the
     /// user's machine, which is not necessarily the machine it was minted on.
     const DEFAULT_PID_LINE: &str =
-        "PID_FILE=\"${XDG_RUNTIME_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}}/stapeln-server.pid\"";
+        "PID_FILE=\"${XDG_RUNTIME_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}}/launch-scaffolder/stapeln/server.pid\"";
     const DEFAULT_LOG_LINE: &str =
-        "LOG_FILE=\"${XDG_STATE_HOME:-$HOME/.local/state}/stapeln-server.log\"";
+        "LOG_FILE=\"${XDG_STATE_HOME:-$HOME/.local/state}/launch-scaffolder/stapeln/server.log\"";
 
     /// A config that sets neither `pid-file` nor `log-file` mints a launcher
     /// whose state lands under a per-user directory — never in `/tmp`.
@@ -725,8 +809,8 @@ mod tests {
     /// An explicit `pid-file` / `log-file` in the config still wins, unchanged
     /// (#48 AC2).
     ///
-    /// Including the `~/` spelling, which is expanded by `integration.rs`
-    /// rather than by the renderer.
+    /// Including the `~/` spelling, which must be expanded safely by the
+    /// generated shell at runtime.
     #[test]
     fn explicit_pid_and_log_paths_still_win_unchanged() {
         let std_ = LauncherStandard::baked().expect("baked standard should parse");
@@ -737,12 +821,12 @@ mod tests {
         let script = render(&cfg, &std_, None).expect("renders");
 
         assert!(
-            script.contains("PID_FILE=\"/var/run/stapeln.pid\""),
-            "an explicit pid-file must be emitted verbatim"
+            script.contains("PID_FILE='/var/run/stapeln.pid'"),
+            "an explicit pid-file must be shell-quoted"
         );
         assert!(
-            script.contains("LOG_FILE=\"~/logs/stapeln.log\""),
-            "an explicit log-file must be emitted verbatim, `~` included"
+            script.contains("LOG_FILE=\"${HOME}\"/'logs/stapeln.log'"),
+            "an explicit leading `~/` must expand safely at runtime"
         );
         assert!(
             !script.contains("XDG_RUNTIME_DIR") && !script.contains("XDG_STATE_HOME"),
@@ -756,24 +840,26 @@ mod tests {
         );
     }
 
-    /// The generated launcher creates its state directories 0700 before writing
+    /// The generated launcher creates private per-app state directories before writing
     /// (#48 AC3).
     ///
-    /// Two assertions, because either alone is vacuous: `mkdir -p` without a
-    /// mode creates the directory with the caller's umask (commonly 0755), and
-    /// `mkdir -p -m` applies the mode only to the deepest directory it creates
-    /// — so the mode is stated separately, and the test looks for both halves.
+    /// Creation and mode are separate assertions. The private per-app leaf is
+    /// chmodded, while a configured external parent is never chmodded.
     #[test]
     fn the_launcher_creates_its_state_directories_0700_before_writing() {
         let script = render_stapeln();
 
         assert!(
-            script.contains("chmod 0700 \"$pid_dir\" \"$log_dir\""),
-            "the launcher must set 0700 on the directories it is about to write into"
+            script.contains("chmod 0700 \"$pid_dir\""),
+            "the launcher must set 0700 on its default per-app state directory"
         );
         assert!(
             script.contains("mkdir -p \"$pid_dir\" \"$log_dir\""),
             "the launcher must create the directories it is about to write into"
+        );
+        assert!(
+            script.contains("chmod 0700 \"$log_dir\""),
+            "the launcher must separately set 0700 on its default log directory"
         );
     }
 
@@ -850,6 +936,29 @@ mod tests {
     /// Vacuity guard: the arms are read from the template, so if the main
     /// switch were ever renamed or removed the extraction returns nothing and
     /// the test fails instead of passing on an empty list.
+    #[test]
+    fn shell_integration_validates_each_managed_target_independently() {
+        let script = render_stapeln();
+        assert!(script.contains("local marker_targets=(\"$LAUNCHER_TARGET\" \"$DESKTOP_FILE_TARGET\" \"$DESKTOP_SHORTCUT_TARGET\")"));
+        assert!(script.contains("grep -Fxq '# X-Launch-Scaffolder=launch-scaffolder'"));
+        assert!(script.contains("ICON_MARKER_TARGET=\"$ICON_TARGET.launch-scaffolder-managed\""));
+        assert!(script.contains("grep -Fxq 'launch-scaffolder managed icon'"));
+        assert!(script.contains("printf -v quoted_launcher '%q' \"$LAUNCHER_TARGET\""));
+        assert!(script.contains("desktop_exec_arg()"));
+        assert!(script.contains("${value//%/%%}"));
+        assert!(script.contains("\"$ICON_MARKER_TARGET\""));
+    }
+
+    #[test]
+    fn version_and_browser_aliases_are_implemented() {
+        let script = render_stapeln();
+        assert!(script.contains("APP_VERSION='0.1.0'"));
+        assert!(script.contains("printf '%s %s (%s) [%s]\\n'"));
+        assert!(script.contains("--browser|--web)"));
+        assert!(script.contains("start_server && open_browser"));
+        assert!(LAUNCHER_MODES.contains(&"--version"));
+    }
+
     #[test]
     fn the_declared_modes_are_the_arms_of_the_main_switch() {
         let arms = main_switch_arms();

@@ -4,7 +4,7 @@
 # examples/stapeln.launcher.fixture.a2ml — worked example per-app config.
 # FIXTURE ONLY — the `.fixture.` infix marks this as a test input so
 # `launch-scaffolder realign` estate walks do not pick it up alongside
-# the live `stapeln/stapeln.launcher.a2ml`. See examples/README.md.
+# the live `stapeln/stapeln.launcher.a2ml`. See examples/README.adoc.
 #
 # This is the input to `launch-scaffolder mint examples/stapeln.launcher.fixture.a2ml`.
 # The output is a compliant stapeln-launcher.sh (equivalent to the current
@@ -33,8 +33,7 @@ startup-command-search = [
     "{repo-dir}/scripts/run.sh",
     "{repo-dir}/dev.sh",
 ]
-pid-file     = "/tmp/stapeln-server.pid"
-log-file     = "/tmp/stapeln-server.log"
+# Leave PID/log paths unset to use the secure per-app XDG defaults.
 wait-for-url-timeout-seconds = 15
 
 [icon]

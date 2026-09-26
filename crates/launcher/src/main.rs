@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright (c) Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
-//! launch-scaffolder — cross-platform launcher minter, provisioner, configurator.
+//! launch-scaffolder — portable launcher minter and Linux provisioner/configurator.
 //!
 //! One binary, five subcommands:
 //!
@@ -23,7 +23,7 @@ mod cmd_provision;
 mod cmd_realign;
 mod cmd_standard;
 
-/// launch-scaffolder — build and maintain cross-platform launchers from A2ML specs.
+/// launch-scaffolder — build and maintain launchers from per-app specs.
 #[derive(Debug, Parser)]
 #[command(
     name = "launch-scaffolder",
@@ -94,5 +94,19 @@ fn main() -> Result<()> {
         Command::Config(args) => cmd_config::run(args, cli.standard.as_deref()),
         Command::Realign(args) => cmd_realign::run(args, cli.standard.as_deref()),
         Command::Standard(args) => cmd_standard::run(args, cli.standard.as_deref()),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn standard_show_and_validate_are_registered() {
+        for action in ["show", "validate"] {
+            let cli = Cli::try_parse_from(["launch-scaffolder", "standard", action])
+                .expect("standard action must be available from the CLI");
+            assert!(matches!(cli.command, Command::Standard(_)));
+        }
     }
 }

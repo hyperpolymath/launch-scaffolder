@@ -5,7 +5,12 @@
 
 use anyhow::{Context, Result};
 use clap::Args as ClapArgs;
-use launch_scaffolder_common::{config::LauncherConfig, standard::LauncherStandard, template};
+use launch_scaffolder_common::{
+    config::LauncherConfig,
+    fs_utils::{existing_mode_or, write_atomic, write_atomic_unmodified},
+    standard::LauncherStandard,
+    template,
+};
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, ClapArgs)]
@@ -45,16 +50,17 @@ pub fn run(args: Args, standard_path: Option<&Path>) -> Result<()> {
         parent.join(format!("{}-launcher.sh", config.project.name))
     });
 
-    std::fs::write(&out, &script).with_context(|| format!("writing {}", out.display()))?;
-
-    if !args.no_chmod {
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            let mut perms = std::fs::metadata(&out)?.permissions();
-            perms.set_mode(0o755);
-            std::fs::set_permissions(&out, perms)?;
-        }
+    if args.no_chmod && !out.exists() {
+        write_atomic_unmodified(&out, script.as_bytes())
+            .with_context(|| format!("writing {}", out.display()))?;
+    } else {
+        let mode = if args.no_chmod {
+            existing_mode_or(&out, 0o644)
+        } else {
+            0o755
+        };
+        write_atomic(&out, script.as_bytes(), mode)
+            .with_context(|| format!("writing {}", out.display()))?;
     }
 
     tracing::info!("minted {} → {}", config.project.name, out.display());

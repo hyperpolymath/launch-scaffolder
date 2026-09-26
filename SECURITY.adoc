@@ -1,4 +1,9 @@
-== Security Policy
+// SPDX-License-Identifier: CC-BY-SA-4.0
+= Security Policy
+
+GitHub's recognized community-health version is maintained at
+link:.github/SECURITY.md[`.github/SECURITY.md`]. This document is the
+AsciiDoc companion.
 
 === Reporting a Vulnerability
 

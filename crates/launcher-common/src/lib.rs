@@ -2,27 +2,29 @@
 // Copyright (c) Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
 //! launch-scaffolder shared library.
 //!
-//! This crate is the heart of the launch-scaffolder tool. It contains:
+//! This crate contains the implemented shared logic for the CLI:
 //!
-//! - [`deed`] — parse the estate's `.deed` format (DEED v1.0.0 grammar).
-//! - [`standard`] — parse the `launcher-standard_praxis.deed` spec file.
-//! - [`config`] — parse per-app `<app>.launcher.a2ml` config files.
-//! - [`template`] — render a launcher shell script from a standard + config.
-//! - [`platform`] — cross-platform file path, permission, and dispatch helpers.
-//! - [`integrity`] — SHA-256 integrity manifest generation (SPARK-verifiable
-//!   in a future phase via Zig FFI to an Ada/SPARK module).
-//! - [`exceptions`] — merge logic for standard + config + per-app `[exceptions]`
-//!   overrides.
+//! - [`deed`] and [`standard`] — parse DEED and resolve/validate the launcher standard.
+//! - [`config`] — parse and validate per-app TOML descriptors with legacy `.a2ml` names.
+//! - [`template`] — render a Bash launcher with safely quoted config values.
+//! - [`discovery`] — find live estate descriptors while excluding fixtures.
+//! - [`integration`] — atomically install/remove Linux desktop entries and launcher files.
+//! - [`fs_utils`] — same-filesystem atomic file replacement.
+//! - [`metadata_block`] — read current DEED metadata and legacy A2ML metadata.
+//!
+//! [`platform`], [`integrity`], and [`exceptions`] remain placeholders, are not
+//! called by the CLI, and must not be advertised as implemented APIs. Native
+//! macOS and Windows integration are also outstanding.
 //!
 //! The `launch-scaffolder` binary crate in this workspace is a thin CLI over
-//! these modules; all meaningful logic lives here so future surfaces (PanLL
-//! panel, library consumers, test harnesses) can reuse it without depending
-//! on the `clap` or subcommand infrastructure.
+//! these modules; future library consumers can reuse the implemented logic
+//! without depending on the `clap` or subcommand infrastructure.
 
 pub mod config;
 pub mod deed;
 pub mod discovery;
 pub mod exceptions;
+pub mod fs_utils;
 pub mod integration;
 pub mod integrity;
 pub mod metadata_block;

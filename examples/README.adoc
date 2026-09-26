@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: CC-BY-SA-4.0
+// SPDX-FileCopyrightText: 2026 Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
 == `+examples/+` — fixture inputs for `+launch-scaffolder+`
 
 Every file in this directory is a *test fixture*, not a live per-app

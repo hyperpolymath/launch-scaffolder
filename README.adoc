@@ -1,4 +1,6 @@
-*Build cross-platform desktop launchers from a declarative spec.*
+// SPDX-License-Identifier: CC-BY-SA-4.0
+// SPDX-FileCopyrightText: 2026 Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
+*Mint portable launcher scripts and manage Linux desktop integration from a declarative spec.*
 
 https://www.bestpractices.dev/en/projects/new?repo_url=https://github.com/hyperpolymath/launch-scaffolder[image:https://img.shields.io/badge/OpenSSF-Best_Practices-green?logo=opensourcesecurity[OpenSSF
 Best Practices]]
@@ -18,9 +20,10 @@ working]
 == What it does
 
 `+launch-scaffolder+` is a single Rust binary that generates, installs,
-and maintains cross-platform desktop launcher scripts for any
-hyperpolymath project (or any other project that adopts the
-hyperpolymath launcher standard). It turns launcher scripts into
+and maintains launcher scripts for any hyperpolymath project (or any
+other project that adopts the hyperpolymath launcher standard). Native
+provisioning currently targets Linux; macOS and Windows integration remain
+planned. It turns launcher scripts into
 *generated artefacts*, not hand-edited files.
 
 Inputs:
@@ -70,7 +73,7 @@ file, not 11 near-identical launcher scripts.
 
 == Commands
 
-All four working subcommands, in the order you’re likely to use them:
+CLI subcommands, in the order you’re likely to use them:
 
 [source,bash]
 ----
@@ -103,17 +106,29 @@ launch-scaffolder provision --integ --all            # everything in the estate
 launch-scaffolder provision --integ --all --no-confirm --force
 launch-scaffolder provision --integ --all --dry-run  # preview only
 
+# ─── standard ──────────────────────────────────────────────────────────────
+launch-scaffolder standard show
+launch-scaffolder standard validate
+
 # ─── config ────────────────────────────────────────────────────────────────
-# Inspect or edit the `@a2ml-metadata` block embedded at the top of any
-# generated launcher script.
+# Read/validate either metadata dialect. `set` can edit legacy A2ML blocks;
+# current DEED blocks are read-only and should be changed at the source config.
 launch-scaffolder config get      ./stapeln-launcher.sh version
 launch-scaffolder config get      ./stapeln-launcher.sh standards-compliance
 launch-scaffolder config validate ./stapeln-launcher.sh
-launch-scaffolder config set      ./stapeln-launcher.sh version 0.2.0
-# NOTE: `config set` rewrites the generated script in place and warns
-# that `realign` will overwrite the change. The durable fix is to edit
-# the source <app>.launcher.a2ml and re-mint.
+# Legacy launcher only: current @launcher-deed blocks are intentionally read-only.
+launch-scaffolder config set      ./legacy-launcher.sh version 0.2.0
+# For current launchers, edit the source config and re-mint.
 ----
+
+=== Managed integration ownership
+
+Both the native Rust provisioner and generated-shell fallback refuse to replace
+or remove an existing unmarked launcher or desktop entry, even with `--force`.
+Each desktop/launcher file is checked independently; installed icons carry a
+sidecar ownership marker. Move or inspect a conflicting file rather than
+expecting the tool to claim it automatically. Writes use same-filesystem atomic
+replacement.
 
 === Generated script → binary delegation
 
@@ -147,11 +162,10 @@ launch-scaffolder/
 │   │       ├── integration.rs    # Native Rust .desktop writer,
 │   │       │                     #   icon/launcher install, gio,
 │   │       │                     #   update-desktop-database
-│   │       ├── metadata_block.rs # Parser + in-place rewriter for the
-│   │       │                     #   embedded @a2ml-metadata block
-│   │       ├── platform.rs       # Linux/macOS/Windows dispatch (stub)
-│   │       ├── integrity.rs      # SHA-256 manifests (stub)
-│   │       └── exceptions.rs     # Standard + config + exception merge (stub)
+│   │       ├── metadata_block.rs # Reads DEED and legacy metadata; edits legacy blocks
+│   │       ├── platform.rs       # Planned platform helpers (not wired yet)
+│   │       ├── integrity.rs      # Planned integrity manifests (not wired yet)
+│   │       └── exceptions.rs     # Planned exception merge (not wired yet)
 │   └── launcher/                 # Thin CLI binary
 │       └── src/
 │           ├── main.rs           # clap dispatch
@@ -159,21 +173,20 @@ launch-scaffolder/
 │           ├── cmd_realign.rs    # ✓ working
 │           ├── cmd_provision.rs  # ✓ working (native Rust; option b)
 │           ├── cmd_config.rs     # ✓ working
-│           └── cmd_standard.rs   # stub
+│           └── cmd_standard.rs   # standard show / validate
 ├── standards/
-│   └── launcher-standard_praxis.deed  # Canonical standard (baked in)
+│   └── launcher-standard_praxis.deed  # Vendored/baked standard fallback
 ├── templates/
 │   └── launcher.sh.tera          # Bash launcher template rendered by Tera
 ├── examples/
-│   ├── README.md                 # Fixture-vs-live naming convention
+│   ├── README.adoc               # Fixture-vs-live naming convention
 │   └── stapeln.launcher.fixture.a2ml  # Worked example (fixture suffix!)
 ├── docs/
-│   ├── launcher-exceptions-2026-04-10.md
-│   ├── compliance-audit-2026-04-10.md
-│   ├── branch-protection-remediation-2026-04-10.md
+│   ├── launcher-exceptions-2026-04-10.adoc
+│   ├── compliance-audit-2026-04-10.adoc
+│   ├── branch-protection-remediation-2026-04-10.adoc
 │   └── ruleset-audit-2026-04-10/  # Audit artefacts (read-only record)
-└── tests/
-    └── regression/               # Golden-file regression fixtures (planned)
+└── crates/launcher-common/tests/  # Parser, renderer, fixture and integration tests
 ....
 
 === Fixture-vs-live naming convention
@@ -194,21 +207,21 @@ discovery +
 is_live_config` enforces this rule. Fixture files can live anywhere —
 including inside a consumer repo’s `+examples/+` directory — without
 being swept up by `+realign+` or `+provision+` `+--all+`. See
-`+examples/README.md+` for the full contributor-facing version of the
+`+examples/README.adoc+` for the full contributor-facing version of the
 rule.
 
 === Why Rust/SPARK
 
-Per the hyperpolymath language policy (see
-`+standards/rhodium-standard-repositories/spec/LANGUAGE-POLICY.adoc+`):
+Per the hyperpolymath language policy
+(link:https://github.com/hyperpolymath/standards/blob/main/0-canon/rsr/LANGUAGE-POLICY.adoc[canonical policy]):
 
 * *Rust* is the preferred language for CLI tools — zero-dep binary, fast
 cold start, strong types, excellent ecosystem (clap, tera, sha2,
 anyhow).
 * *"`Rust`" always means "`Rust with SPARK integration as the default
-stance`"* — this tool is Rust-primary now, with SPARK/Ada hooks planned
-for the correctness-critical `+integrity.rs+` path (called via Zig FFI
-per the hyperpolymath ABI/FFI standard).
+stance`"*. This project is Rust-primary and designed in that direction,
+but it has no SPARK/FFI implementation today; the `+integrity+` module is
+still a placeholder.
 
 === Where a launcher keeps its state
 
@@ -223,26 +236,30 @@ world-writable space:
 
 |pid
 |`+$XDG_RUNTIME_DIR+`, else `+$XDG_STATE_HOME+`, else
-`+~/.local/state+` — as `+<app>-server.pid+`
+`+~/.local/state+` — under `+launch-scaffolder/<app>/server.pid+`
 |`+[runtime]+` `+pid-file+`
 
 |log
-|`+$XDG_STATE_HOME+`, else `+~/.local/state+` — as
-`+<app>-server.log+`
+|`+$XDG_STATE_HOME+`, else `+~/.local/state+` — under
+`+launch-scaffolder/<app>/server.log+`
 |`+[runtime]+` `+log-file+`
 |===
 
 The log goes to the *state* directory rather than the runtime directory
 because it has to survive a logout, which `+$XDG_RUNTIME_DIR+` does not
-promise. Both directories are created `+0700+` by the launcher before the
-first write.
+promise. The unique per-app default directories are created with mode
+`+0700+`. Explicit override paths are never chmodded; the generated launcher
+refuses a state directory that is not user-owned or is group/world-writable,
+so a legacy `+/tmp+` override cannot change `/tmp` permissions or expose a PID
+file to other users.
 
 Before 2026-09-25 both defaults were `+/tmp/<app>-server.{pid,log}+`:
 world-writable, and predictable from nothing but the app name, so any local
 user could create or symlink the path before the launcher's first run and
 influence what it later killed or removed (issue #48). Launchers minted
 before that date keep their old paths until they are re-minted — set the
-two keys explicitly, or re-mint, to move them.
+two keys explicitly, or re-mint, to move them. The worked example now leaves
+those overrides unset so it demonstrates the secure defaults.
 
 === Why a declarative format for inputs
 
@@ -264,9 +281,9 @@ longer applies.
 
 == Status
 
-*Alpha, ~65% complete. Four of five subcommands fully wired end-to-end;
-one remains a stub (`+standard+`). Last updated 2026-04-10 (phase
-`+phase-4-config-inspector+`).*
+*Alpha. The five CLI subcommands (`+mint+`, `+realign+`, `+provision+`, `+config+`,
+`+standard+`) are implemented; platform/integrity/exception-library modules and
+non-Linux integration remain planned. Last reviewed 2026-09-26.*
 
 Implemented:
 
@@ -287,8 +304,8 @@ runtime-kind validation
 icon/launcher install, best-effort `+gio+` + `+update-desktop-database+`
 (Linux only; macOS/Windows return `IntegError +
 UnsupportedPlatform`)
-* [x] `+metadata_block+` module — hand-rolled parser and in-place
-rewriter for the embedded `+@a2ml-metadata+` block
+* [x] `+metadata_block+` module — reads current `+@launcher-deed+` and
+legacy `+@a2ml-metadata+` blocks; safe scalar editing remains legacy-only
 * [x] `+templates/launcher.sh.tera+` — parameterised over
 `+runtime_kind+` `+∈+` `+{server-url,+` `+process,+` `+remote}+`;
 `+--integ+` / `+--disinteg+` fast-path to `+launch-scaffolder+`
@@ -302,31 +319,28 @@ tolerant
 `+--all+`, `+--force+`, `+--no-confirm+`, `+--dry-run+`; bulk mode
 prompts before touching `+$HOME+`
 * [x] *`+config+`* subcommand — `+get+` / `+set+` / `+validate+`;
-`+set+` preserves column alignment in the embedded metadata block
-* [x] 17 unit tests passing across both crates
+`+set+` safely edits legacy blocks and refuses current DEED blocks
+* [x] *`+standard+`* subcommand — `+show+` / semantic `+validate+`
+* [x] Generated launcher implements standard `+--version+` output and routes
+`+--browser+` / `+--web+` to `+--auto+`
+* [x] Unit and integration tests run by locked Rust CI; launcher-artifact CI enforces a 59-test floor, a current golden mint, and ShellCheck
 * [x] 7 launchers fully managed: aerie, burble, game-server-admin, nqc,
 panll, project-wharf, stapeln
 * [x] 5 declared exceptions documented in
-`+docs/launcher-exceptions-2026-04-10.md+`
+`+docs/launcher-exceptions-2026-04-10.adoc+`
 * [x] Fixture-vs-live file-naming convention documented and enforced
 * [x] All 7 managed launchers regenerated with template delegation arms
 (2026-04-10)
 
-Remaining work (ordered by current priority in STATE.a2ml):
+Remaining work (see `.machine_readable/6a2/STATE.a2ml` for the current checkpoint):
 
-* [ ] Golden-file regression tests pinning mint output for the 7 managed
-launchers
-+
-* [ ] macOS integration backend in `launch-scaffolder-common +
-integration`
-* [ ] SPARK integration hook for `+integrity.rs+` via Zig FFI
-* [ ] `+standard+` subcommand — still a scaffold stub
-* [ ] `+platform+` module — still a stub (runtime dispatch handled
-inside the generated script today)
-* [ ] `+integrity+` module — still a stub (pending SHA-256 manifest
-generator)
-* [ ] `+exceptions+` module — still a stub (per-app override merge)
-* [ ] Cross-platform CI (Linux/macOS/Windows matrix)
+* [x] Mint output is currency-locked against the committed DEED fixture in
+unit tests and CI; seven-consumer golden coverage remains future work
+* [ ] macOS and Windows integration backends in `launch-scaffolder-common::integration`
+* [ ] SPARK integration hook for a future implemented `+integrity+` API via Zig FFI
+* [x] `+standard+` subcommand — `show` and semantic `validate`
+* [ ] `+platform+`, `+integrity+` and `+exceptions+` library APIs — currently placeholders and explicitly not used by the CLI
+* [ ] Cross-platform CI (Linux/macOS/Windows matrix); current CI runs on Linux
 * [ ] Migration of the 5 declared exceptions once the template grows
 custom-mode hooks
 
@@ -378,7 +392,7 @@ at the new per-repo paths.
 * *project-wharf* — container/workload staging (process)
 
 *Declared exceptions* (still hand-written; see
-`+docs/launcher-exceptions-2026-04-10.md+` for reasoning and migration
+`+docs/launcher-exceptions-2026-04-10.adoc+` for reasoning and migration
 triggers):
 
 * `+hypatia+`, `+invariant-path+`, `+opsm+`, `+ambientops+`, `+idaptik+`

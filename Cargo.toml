@@ -16,7 +16,7 @@ license = "MPL-2.0"
 repository = "https://github.com/hyperpolymath/launch-scaffolder"
 homepage = "https://github.com/hyperpolymath/launch-scaffolder"
 readme = "README.adoc"
-keywords = ["launcher", "desktop", "cross-platform", "deed", "rsr"]
+keywords = ["launcher", "desktop", "deed", "rsr", "cli"]
 categories = ["command-line-utilities", "development-tools"]
 
 [workspace.dependencies]
@@ -37,7 +37,7 @@ tera = "1.20"
 dirs = "5"
 walkdir = "2.5"
 
-# Hashing for integrity manifests
+# Checksums for the standard pin and test fixture manifests; integrity API is planned.
 sha2 = "0.10"
 hex = "0.4"
 

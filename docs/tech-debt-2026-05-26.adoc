@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: CC-BY-SA-4.0
+// SPDX-FileCopyrightText: 2026 Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
 == Tech-Debt Audit — launch-scaffolder — 2026-05-26
 
 *Source:* estate-wide automated scan 2026-05-26. *Companion:*

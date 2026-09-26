@@ -8,20 +8,19 @@ format          = "a2ml"
 schema          = "ecosystem"
 schema-version  = "0.1"
 # ISO 8601 UTC timestamp (see STATE.a2ml for convention).
-updated         = "2026-04-10T20:00:00Z"
+updated         = "2026-09-26T00:00:00Z"
 
 [ecosystem]
 version = "0.1"
 name    = "launch-scaffolder"
 type    = "cross-cutting-tool"
-purpose = "Generate/install/maintain cross-platform desktop launchers for every hyperpolymath project from a single declarative spec."
+purpose = "Generate and maintain portable launcher scripts from a shared standard, with native Linux desktop provisioning."
 
 position-in-ecosystem = """
 launch-scaffolder is estate-wide tooling. It sits between the launcher
-*standard* (lives in standards/ monorepo) and every project that needs a
-desktop launcher. It is a *producer* of launcher scripts, not a runtime
-library — its output is consumed by desktop environments, not by other
-hyperpolymath tools at runtime.
+*standard* (maintained in the standards monorepo) and projects that need a
+launcher. It produces scripts and manages Linux desktop entries; it is not a
+runtime library. Native macOS and Windows provisioning remain unsupported.
 """
 
 [[related-projects]]
@@ -75,7 +74,7 @@ detail       = "Process-kind launcher."
 [[related-projects]]
 name         = "hyperpolymath-ecosystem"
 relationship = "umbrella"
-detail       = "Every hyperpolymath repo that ships a desktop launcher is a potential consumer. The 5 declared exceptions in docs/launcher-exceptions-2026-04-10.md are the current non-consumers and have explicit migration triggers."
+detail       = "Every hyperpolymath repo that ships a desktop launcher is a potential consumer. The 5 declared exceptions in docs/launcher-exceptions-2026-04-10.adoc are the current non-consumers and have explicit migration triggers."
 
 [[related-projects]]
 name         = "invariant-path"
@@ -90,9 +89,9 @@ relationship = "declared-exception"
 detail       = "Stays hand-written — remote web app with gossamer fallback and bespoke modes."
 
 [integration-points]
-input-config-format  = "A2ML (TOML-compatible today) at <repo-root>/<app>.launcher.a2ml"
-input-standard       = "praxis DEED (DEED v1.0.0), launcher-standard_praxis.deed, located via the :priority search ladder the deed declares for itself under (resolution) -> standard-search"
-output-launcher      = "POSIX bash script at <repo-root>/<app>-launcher.sh (chmod 755)"
-output-desktop-entry = "Freedesktop .desktop file written by the generated script's --integ mode"
-output-bundle-macos  = ".app bundle written by the generated script's --integ mode"
-output-shortcut-win  = ".lnk or .bat written by the generated script's --integ mode"
+input-config-format  = "TOML content under the legacy <repo-root>/<app>.launcher.a2ml filename; DEED migration is tracked with standards#960"
+input-standard       = "Praxis DEED v1.0.0, launcher-standard_praxis.deed, located via the :priority search ladder declared under (resolution) -> standard-search"
+output-launcher      = "Bash script at <repo-root>/<app>-launcher.sh (mode 0755 unless --no-chmod)"
+output-desktop-entry = "Freedesktop .desktop files installed by the native Linux provisioner or generated-shell fallback"
+output-bundle-macos  = "Not implemented; native macOS integration is planned"
+output-shortcut-win  = "Not implemented; native Windows integration is planned"

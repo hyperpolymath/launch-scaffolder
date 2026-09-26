@@ -1,8 +1,10 @@
+// SPDX-License-Identifier: CC-BY-SA-4.0
+// SPDX-FileCopyrightText: 2026 Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
 == `+docs/ruleset-audit-2026-04-10/+`
 
 Raw data and scripts from the estate-wide branch-protection ruleset
 audit conducted on 2026-04-10. The human-readable post-mortem lives at
-link:../branch-protection-remediation-2026-04-10.md[`+../branch-protection-remediation-2026-04-10.md+`]
+link:../branch-protection-remediation-2026-04-10.adoc[`+../branch-protection-remediation-2026-04-10.adoc+`]
 — *read that first*.
 
 === Contents

@@ -2,7 +2,8 @@
 // Copyright (c) Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
 //! Parser, renderer, and in-place rewriter for the
 //! `# @a2ml-metadata begin ... # @a2ml-metadata end` block embedded at
-//! the top of every generated launcher script.
+//! generated launcher scripts: current `@launcher-deed` blocks and the legacy
+//! `@a2ml-metadata` dialect.
 //!
 //! Example input (from a real generated launcher):
 //!
@@ -625,6 +626,12 @@ fn unquote_owned(s: &str) -> Option<String> {
 /// read-only DEED dialect, the key is absent or names a list, or the parsed
 /// scalar cannot be located safely for replacement.
 pub fn rewrite_scalar(text: &str, key: &str, new_value: &str) -> Result<String> {
+    if new_value
+        .chars()
+        .any(|c| c.is_control() || matches!(c, '"' | '\\'))
+    {
+        bail!("metadata scalar values must not contain quotes, backslashes, or control characters");
+    }
     let block = parse_from_text(text)?
         .context("no launcher metadata block (@launcher-deed or @a2ml-metadata) found in input")?;
 
@@ -818,6 +825,14 @@ echo "not the block"
     #[test]
     fn returns_none_when_no_block_present() {
         assert!(parse_from_text("no block here\n").unwrap().is_none());
+    }
+
+    #[test]
+    fn rewrite_scalar_rejects_values_that_break_quoted_metadata_literals() {
+        for value in [r#"" injected"#, r"back\slash", "line\nbreak"] {
+            let err = rewrite_scalar(SAMPLE, "version", value).unwrap_err();
+            assert!(err.to_string().contains("must not contain"));
+        }
     }
 
     /// Name both dialects when there is no block at all.

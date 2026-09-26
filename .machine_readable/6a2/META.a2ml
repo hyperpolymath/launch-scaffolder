@@ -10,7 +10,7 @@ schema          = "meta"
 schema-version  = "0.1"
 # ISO 8601 UTC with `Z` suffix — same-day intermittent writes stay
 # distinguishable in git history. See STATE.a2ml for the same convention.
-updated         = "2026-04-10T20:00:00Z"
+updated         = "2026-09-26T00:00:00Z"
 
 [project]
 name    = "launch-scaffolder"
@@ -129,7 +129,7 @@ present for each kind.
 consequences = """
 Most launchers fit one of the three shapes cleanly. 5 outliers are
 declared exceptions and stay hand-written until the scaffolder grows a
-custom-modes hook (see docs/launcher-exceptions-2026-04-10.md).
+custom-modes hook (see docs/launcher-exceptions-2026-04-10.adoc).
 """
 
 [[architecture-decisions]]
@@ -155,13 +155,13 @@ build/dev noise (`target/`, `.git/`, `node_modules/`, `_exploratory/`,
 `.archive*/`) — never directories that might hold real work.
 The scaffolder's own `examples/stapeln.launcher.a2ml` was renamed to
 `examples/stapeln.launcher.fixture.a2ml` as the first consumer of the
-new rule, and the convention is documented in `examples/README.md`.
+new rule, and the convention is documented in `examples/README.adoc`.
 """
 consequences = """
 Fixtures can live anywhere, including inside consumer repos, without
 interfering with estate walks. Contributors must name new fixtures
 with the `.fixture.` infix — there is no directory-based safety net.
-The `examples/README.md` is the single contributor-facing source of
+The `examples/README.adoc` is the single contributor-facing source of
 truth for the rule.
 """
 
@@ -231,12 +231,11 @@ title    = "Hand-rolled metadata-block parser, not coerced TOML"
 status   = "accepted"
 date     = "2026-04-10T20:00:00Z"
 context  = """
-cmd_config needs to get/set/validate fields inside the
+Historically, cmd_config needed to get/set/validate fields inside the
 `# @a2ml-metadata begin ... # @a2ml-metadata end` block embedded at the
-top of every generated launcher. The format is `#`-prefixed lines,
-wrapped in `(` / `)`, with scalar values in double quotes and list
-values on their own lines inside `[ ... ]`. It is neither standard
-TOML nor any other off-the-shelf format.
+top of generated launchers. The legacy format is `#`-prefixed lines, wrapped in `(` / `)`, with
+scalar values in double quotes and list values on their own lines inside
+`[ ... ]`. Current launchers emit a DEED `@launcher-deed` block instead.
 """
 decision = """
 Write a small hand-rolled scanner in
@@ -249,12 +248,9 @@ of the target line, preserving column alignment and surrounding
 whitespace.
 """
 consequences = """
-The format is 100% controlled by `launcher.sh.tera`, so brittleness is
-bounded. `REQUIRED_SCALAR_KEYS` is a module-level const — the single
-source of truth for what `config validate` enforces. List keys are
-read-only via `config get`; `config set` on a list key returns a
-structured error. Round-trip (parse → rewrite → reparse) is covered
-by tests.
+The legacy format is retained for reads and safe scalar edits, while
+current DEED blocks are parsed and validated but not edited by `config set`.
+List keys remain read-only, and round-trip behavior is covered by tests.
 """
 
 # ---------------------------------------------------------------------------
@@ -262,11 +258,12 @@ by tests.
 # ---------------------------------------------------------------------------
 
 [development-practices]
-build            = "cargo build --release"
-test             = "cargo test --release"
-lint             = "cargo clippy --workspace --all-targets -- -D warnings"
+build            = "cargo build --locked --workspace"
+test             = "cargo test --locked --workspace"
+lint             = "cargo clippy --locked --workspace --all-targets -- -D warnings"
 format           = "cargo fmt --all"
-pre-commit       = "just pre-commit  (fmt-check + lint + test)"
+pre-commit       = "just pre-commit (fmt-check + check + lint + test)"
+validate         = "just validate (fmt-check + check + lint + test + standard validation)"
 license-header   = "SPDX-License-Identifier: MPL-2.0 on every .rs, .tera, .a2ml, .adoc, .sh file"
 author           = "Jonathan D.A. Jewell <6759885+hyperpolymath@users.noreply.github.com>"
 

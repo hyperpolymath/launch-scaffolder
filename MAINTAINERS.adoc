@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: CC-BY-SA-4.0
 // SPDX-FileCopyrightText: 2026 Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
 = Maintainers
+:revdate: 2026-09-26
 :toc: preamble
 
 == Current Maintainers
@@ -61,5 +62,5 @@ For questions about project governance:
 == See Also
 
 * link:GOVERNANCE.adoc[Governance Model]
-* link:CODE_OF_CONDUCT.md[Code of Conduct]
+* link:CODE_OF_CONDUCT.adoc[Code of Conduct]
 * link:.github/CONTRIBUTING.md[Contributing Guide]
