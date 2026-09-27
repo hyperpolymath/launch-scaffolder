@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MPL-2.0
 # Dependabot configuration for RSR-compliant repositories
-# Covers common ecosystems - remove unused ones for your project
+# Only ecosystems used by this Rust/SPARK repository are configured.
 
 version: 2
 updates:
@@ -25,27 +25,3 @@ updates:
     # current Dependabot behaviour. See rsr-template-repo commit 78b050e
     # and 007-lang/audits/audit-dependabot-automation-gap-2026-04-17.md.
     open-pull-requests-limit: 0
-
-  # Elixir/Mix
-  - package-ecosystem: "mix"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-
-  # Node.js/npm
-  - package-ecosystem: "npm"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-
-  # Python/pip
-  - package-ecosystem: "pip"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-
-  # Nix flakes
-  - package-ecosystem: "nix"
-    directory: "/"
-    schedule:
-      interval: "weekly"

@@ -18,7 +18,10 @@
 
 use anyhow::{Context, Result};
 use clap::{Args as ClapArgs, Subcommand};
-use launch_scaffolder_common::metadata_block;
+use launch_scaffolder_common::{
+    fs_utils::{existing_mode_or, write_atomic},
+    metadata_block,
+};
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, ClapArgs)]
@@ -90,7 +93,9 @@ fn cmd_set(script: &Path, key: &str, value: &str) -> Result<()> {
     let text =
         std::fs::read_to_string(script).with_context(|| format!("reading {}", script.display()))?;
     let rewritten = metadata_block::rewrite_scalar(&text, key, value)?;
-    std::fs::write(script, &rewritten).with_context(|| format!("writing {}", script.display()))?;
+    let mode = existing_mode_or(script, 0o644);
+    write_atomic(script, rewritten.as_bytes(), mode)
+        .with_context(|| format!("writing {}", script.display()))?;
     println!("✓ {}: {} = \"{}\"", script.display(), key, value);
     eprintln!(
         "⚠ realign will overwrite this change. Update the source <app>.launcher.a2ml \

@@ -10,7 +10,7 @@ license.workspace = true
 repository.workspace = true
 homepage.workspace = true
 readme.workspace = true
-description = "Shared types, standard parser, template engine, and platform detection for the launch-scaffolder tool."
+description = "Shared config, DEED standard, renderer, discovery, and Linux integration logic for launch-scaffolder."
 
 [dependencies]
 toml.workspace = true
@@ -19,8 +19,10 @@ serde_json.workspace = true
 tera.workspace = true
 dirs.workspace = true
 walkdir.workspace = true
-sha2.workspace = true
-hex.workspace = true
 anyhow.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
+
+[dev-dependencies]
+sha2.workspace = true
+hex.workspace = true

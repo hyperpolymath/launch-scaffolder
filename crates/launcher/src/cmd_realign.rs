@@ -27,12 +27,16 @@
 //! are treated as test fixtures and skipped; only `.launcher.a2ml`
 //! (without `.fixture.`) is considered a live config. This is the
 //! project-wide convention for distinguishing fixture inputs from
-//! estate-owned configs — see `examples/README.md`.
+//! estate-owned configs — see `examples/README.adoc`.
 
 use anyhow::{Context, Result};
 use clap::Args as ClapArgs;
 use launch_scaffolder_common::{
-    config::LauncherConfig, discovery, standard::LauncherStandard, template,
+    config::LauncherConfig,
+    discovery,
+    fs_utils::{existing_mode_or, write_atomic, write_atomic_unmodified},
+    standard::LauncherStandard,
+    template,
 };
 use std::path::{Path, PathBuf};
 
@@ -169,16 +173,17 @@ fn realign_one(
         return Ok(outcome);
     }
 
-    std::fs::write(&out, &script).with_context(|| format!("writing {}", out.display()))?;
-
-    if !no_chmod {
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            let mut perms = std::fs::metadata(&out)?.permissions();
-            perms.set_mode(0o755);
-            std::fs::set_permissions(&out, perms)?;
-        }
+    if no_chmod && !out.exists() {
+        write_atomic_unmodified(&out, script.as_bytes())
+            .with_context(|| format!("writing {}", out.display()))?;
+    } else {
+        let mode = if no_chmod {
+            existing_mode_or(&out, 0o644)
+        } else {
+            0o755
+        };
+        write_atomic(&out, script.as_bytes(), mode)
+            .with_context(|| format!("writing {}", out.display()))?;
     }
 
     tracing::info!("realigned {} → {}", config.project.name, out.display());

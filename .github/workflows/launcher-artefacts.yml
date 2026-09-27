@@ -111,7 +111,12 @@ jobs:
           if [ -s "$RUNNER_TEMP/fmt.diff" ]; then
             echo "rustfmt wants changes ($(wc -l < "$RUNNER_TEMP/fmt.diff") line(s)):"
             cat "$RUNNER_TEMP/fmt.diff"
-            annotate "cargo fmt --check drift" "$RUNNER_TEMP/fmt.diff" 80
+            # GitHub truncates large annotations. Split the diff so every
+            # rustfmt hunk remains actionable even when log archives are unavailable.
+            split -l 35 "$RUNNER_TEMP/fmt.diff" "$RUNNER_TEMP/fmt-part-"
+            for part in "$RUNNER_TEMP"/fmt-part-*; do
+              annotate "cargo fmt --check drift ${part##*-}" "$part" 35
+            done
           else
             echo "✓ cargo fmt --all -- --check is clean"
           fi
@@ -191,7 +196,7 @@ jobs:
           # absolute path of the config that produced the script, which is
           # checkout-location-specific by design and not a template property.
           ./target/debug/launch-scaffolder mint "$FIXTURE_CONFIG" --stdout \
-            | sed -E 's|^CONFIG_FILE=.*|CONFIG_FILE=""|' \
+            | sed -E "s|^CONFIG_FILE=.*|CONFIG_FILE=''|" \
             > "$OUT/stapeln-launcher.sh"
           STATUS="${PIPESTATUS[0]}"
           if [ "$STATUS" -ne 0 ]; then

@@ -1,57 +1,18 @@
+# SPDX-License-Identifier: MPL-2.0
+# Minimal development toolchain for the Rust/SPARK CLI repository.
+# Keep this project free of unrelated JavaScript/Node/Deno runtimes per the
+# estate language policy.
+
 [tools]
-# Language runtimes
-node = "latest"
-python = "latest"
-rust = "latest"
-go = "latest"
-zig = "latest"
-java = "latest"
-bun = "latest"
-denojs = "latest"
-
-# Package managers
-npm = "latest"
-yarn = "latest"
-pnpm = "latest"
-pip = "latest"
-cargo = "latest"
-go-task = "latest"
-
-# Formatting & Linting
-gofmt = "latest"
-black = "latest"
-isort = "latest"
-ruff = "latest"
-prettier = "latest"
-shfmt = "latest"
-stylua = "latest"
-
-# Build tools
-cmake = "latest"
-make = "latest"
-ninja = "latest"
-
-# Shell tools
-git = "latest"
-gnu-sed = "latest"
-gnu-tar = "latest"
-gnu-grep = "latest"
-
-# Testing
-vitest = "latest"
-pytest = "latest"
-jest = "latest"
+rust = "1.85.0"
+just = "latest"
+shellcheck = "latest"
 
 [env]
-# Common environment variables
-NODE_ENV = "development"
-PYTHONDONTWRITEBYTECODE = "1"
-PYTHONUNBUFFERED = "1"
+RUST_BACKTRACE = "1"
 
-# Task runner alias
 [alias]
-task = "go-task"
-build = "cargo build --release || npm run build || go build"
-test = "cargo test || npm test || go test ./..."
-lint = "ruff check . || prettier --check . || black --check ."
-fmt = "ruff format . || prettier --write . || black ."
+build = "cargo build --locked --workspace"
+test = "cargo test --locked --workspace"
+lint = "cargo clippy --locked --workspace --all-targets -- -D warnings"
+fmt = "cargo fmt --all"

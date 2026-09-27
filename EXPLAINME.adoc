@@ -8,30 +8,31 @@
 This file maps README.adoc claims to their implementation evidence for
 sceptical developers.
 
-== "Build cross-platform desktop launchers from a declarative spec"
+== "Mint portable launcher scripts and manage Linux desktop integration"
 
 [quote, README.adoc]
 ____
-launch-scaffolder is a single Rust binary that generates, installs, and
-maintains cross-platform desktop launcher scripts for any hyperpolymath
-project.
+launch-scaffolder is a single Rust binary that generates and maintains
+launcher scripts for hyperpolymath projects. Native provisioning is Linux-only;
+macOS and Windows integration remain planned.
 ____
 
 How this is implemented::
 The Cargo workspace at link:Cargo.toml[`Cargo.toml`] defines two crates:
 link:crates/launcher-common/[`crates/launcher-common/`] (the library with all
 real logic) and link:crates/launcher/[`crates/launcher/`] (the thin CLI
-binary). The four working subcommands each have a dedicated module:
+binary). The five CLI subcommands each have a dedicated module:
 link:crates/launcher/src/cmd_mint.rs[`cmd_mint.rs`],
 link:crates/launcher/src/cmd_realign.rs[`cmd_realign.rs`],
 link:crates/launcher/src/cmd_provision.rs[`cmd_provision.rs`],
-link:crates/launcher/src/cmd_config.rs[`cmd_config.rs`].
+link:crates/launcher/src/cmd_config.rs[`cmd_config.rs`], and
+link:crates/launcher/src/cmd_standard.rs[`cmd_standard.rs`].
 link:crates/launcher/src/main.rs[`main.rs`] dispatches via `clap`.
 
 Caveat::
-`cmd_standard.rs` exists but is a scaffold stub — the `standard` subcommand
-is not yet wired. Cross-platform support is Linux-only for the `provision`
-backend; macOS and Windows return `IntegError::UnsupportedPlatform`.
+The `standard` subcommand implements `show` and semantic `validate`.
+Cross-platform integration remains Linux-only; macOS and Windows return
+`IntegError::UnsupportedPlatform`.
 
 == "The standard is a single file — changing it is a one-line edit"
 
@@ -42,9 +43,10 @@ ____
 
 How this is implemented::
 link:standards/launcher-standard_praxis.deed[`standards/launcher-standard_praxis.deed`]
-is the canonical specification, written in the estate's DEED v1.0.0 format and
-parsed by
+is this repository's vendored DEED v1.0.0 fallback, parsed by
 link:crates/launcher-common/src/deed.rs[`crates/launcher-common/src/deed.rs`].
+The canonical source is maintained at
+link:https://github.com/hyperpolymath/standards/blob/main/launcher/launcher-standard_praxis.deed[`hyperpolymath/standards/launcher/launcher-standard_praxis.deed`].
 It is baked into the binary at compile time via `include_str!()` in
 link:crates/launcher-common/src/standard.rs[`crates/launcher-common/src/standard.rs`]
 as a fallback. `LauncherStandard::resolve` walks: `--standard <file>` CLI flag
@@ -94,14 +96,14 @@ link:crates/launcher-common/src/config.rs[`crates/launcher-common/src/config.rs`
 and rendered by link:crates/launcher-common/src/template.rs[`src/template.rs`]
 using the Tera template at link:templates/launcher.sh.tera[`templates/launcher.sh.tera`].
 The generated scripts embed:
-* `CONFIG_FILE=<absolute-path-to-config>` — the source config path
+* A shell-quoted `CONFIG_FILE=<absolute-path-to-config>` — the source config path
 * A fast-path that delegates to `launch-scaffolder provision` when the binary is on `PATH`
 * A shell fallback for when the binary is absent
 
 Caveat::
 5 declared exceptions (hypatia, invariant-path, opsm, ambientops, idaptik)
 remain hand-written. Their migration triggers are documented in
-link:docs/launcher-exceptions-2026-04-10.md[`docs/launcher-exceptions-2026-04-10.md`].
+link:docs/launcher-exceptions-2026-04-10.adoc[`docs/launcher-exceptions-2026-04-10.adoc`].
 
 == "Native Rust .desktop writer for provision"
 
@@ -145,6 +147,10 @@ Fedora 43 Atomic (Wayland/KDE).
 | Bash launcher template with variable substitution
 | Unique to this repo
 
+| Generated artifact security
+| Config interpolation is shell-quoted; state directories and managed integration targets are guarded
+| Unique to this generator; covered by Rust regression tests
+
 | Fixture-vs-live suffix convention
 | `.launcher.fixture.a2ml` excluded from estate walks
 | Formalised here; referenced in memory notes
@@ -156,13 +162,9 @@ Fedora 43 Atomic (Wayland/KDE).
 
 == Known Gaps
 
-`cmd_standard.rs` is a scaffold stub — the `standard` subcommand (which would
-print or validate the current standard spec) is not yet implemented.
-
 `crates/launcher-common/src/platform.rs`, `integrity.rs`, and `exceptions.rs`
-are stubs. The `integrity` module (SHA-256 manifest generation) and
-`exceptions` module (per-app override merge) are required for full spec
-compliance.
+are placeholders and are not called by the CLI. Linux is the only native
+provisioning backend; macOS and Windows support and tests remain outstanding.
 
-Golden-file regression tests pinning `mint` output for the 7 managed launchers
-are planned but not yet written (see `tests/regression/`).
+Mint output is pinned by a committed fixture and the CI artefact gate; golden
+coverage for all seven estate consumers is not yet present.

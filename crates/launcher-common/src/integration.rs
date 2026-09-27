@@ -23,6 +23,7 @@
 
 use crate::Result;
 use crate::config::{LauncherConfig, RuntimeKind};
+use crate::fs_utils::write_atomic;
 use anyhow::Context;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -48,6 +49,7 @@ pub struct InstallPaths {
     pub desktop_file_target: PathBuf,
     pub desktop_shortcut_target: PathBuf,
     pub icon_target: PathBuf,
+    pub icon_marker_target: PathBuf,
     pub launcher_target: PathBuf,
 }
 
@@ -63,6 +65,7 @@ impl InstallPaths {
             desktop_file_target: apps_dir.join(format!("{app_name}.desktop")),
             desktop_shortcut_target: desktop_shortcut_dir.join(format!("{app_name}.desktop")),
             icon_target: icon_dir.join(format!("{app_name}.png")),
+            icon_marker_target: icon_dir.join(format!("{app_name}.png.launch-scaffolder-managed")),
             launcher_target: bin_dir.join(format!("{app_name}-launcher")),
             apps_dir,
             icon_dir,
@@ -72,11 +75,12 @@ impl InstallPaths {
     }
 
     /// All removal targets, in the order disinteg should visit them.
-    pub fn removal_targets(&self) -> [&Path; 4] {
+    pub fn removal_targets(&self) -> [&Path; 5] {
         [
             &self.desktop_file_target,
             &self.desktop_shortcut_target,
             &self.icon_target,
+            &self.icon_marker_target,
             &self.launcher_target,
         ]
     }
@@ -113,6 +117,7 @@ pub struct IntegReport {
 /// target — the pattern established by the reference stapeln launcher
 /// and preserved by the template.
 pub fn integ(config: &LauncherConfig, script_path: &Path, opts: &IntegOpts) -> Result<IntegReport> {
+    config.validate()?;
     let platform = detect_platform();
     if platform != "linux" {
         return Err(IntegError::UnsupportedPlatform(platform).into());
@@ -122,14 +127,21 @@ pub fn integ(config: &LauncherConfig, script_path: &Path, opts: &IntegOpts) -> R
     }
 
     let paths = InstallPaths::linux(&config.project.name)?;
-    let already = paths.desktop_file_target.exists() || paths.launcher_target.exists();
+    let already = paths.removal_targets().iter().any(|p| path_exists(p));
+    let owned = is_managed_install(&paths);
+    if already && !owned {
+        anyhow::bail!(
+            "refusing to overwrite unmarked integration files for `{}`; inspect or move them first",
+            config.project.name
+        );
+    }
 
     let mut report = IntegReport {
-        already_present: already,
+        already_present: owned,
         ..Default::default()
     };
 
-    if already && !opts.force {
+    if owned && !opts.force {
         report.skipped.push(format!(
             "already integrated: {}",
             paths.desktop_file_target.display()
@@ -181,20 +193,10 @@ pub fn integ(config: &LauncherConfig, script_path: &Path, opts: &IntegOpts) -> R
     }
 
     // -- Copy script to launcher target ------------------------------------
-    fs::copy(script_path, &paths.launcher_target).with_context(|| {
-        format!(
-            "copying {} to {}",
-            script_path.display(),
-            paths.launcher_target.display()
-        )
-    })?;
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        let mut perms = fs::metadata(&paths.launcher_target)?.permissions();
-        perms.set_mode(0o755);
-        fs::set_permissions(&paths.launcher_target, perms)?;
-    }
+    let script_contents = fs::read(script_path)
+        .with_context(|| format!("reading launcher script {}", script_path.display()))?;
+    write_atomic(&paths.launcher_target, &script_contents, 0o755)
+        .with_context(|| format!("installing launcher at {}", paths.launcher_target.display()))?;
     report
         .actions
         .push(format!("+ launcher: {}", paths.launcher_target.display()));
@@ -202,11 +204,19 @@ pub fn integ(config: &LauncherConfig, script_path: &Path, opts: &IntegOpts) -> R
     // -- Copy icon if present ----------------------------------------------
     let icon_name = if let Some(icon_source) = icon_source_abs(config) {
         if icon_source.exists() {
-            fs::copy(&icon_source, &paths.icon_target).with_context(|| {
+            let icon_contents = fs::read(&icon_source)
+                .with_context(|| format!("reading icon {}", icon_source.display()))?;
+            write_atomic(&paths.icon_target, &icon_contents, 0o644)
+                .with_context(|| format!("installing icon at {}", paths.icon_target.display()))?;
+            write_atomic(
+                &paths.icon_marker_target,
+                b"launch-scaffolder managed icon\n",
+                0o644,
+            )
+            .with_context(|| {
                 format!(
-                    "copying icon {} to {}",
-                    icon_source.display(),
-                    paths.icon_target.display()
+                    "marking managed icon at {}",
+                    paths.icon_marker_target.display()
                 )
             })?;
             report
@@ -226,15 +236,8 @@ pub fn integ(config: &LauncherConfig, script_path: &Path, opts: &IntegOpts) -> R
     // -- Write .desktop files ----------------------------------------------
     let desktop_body = render_desktop_file(config, &paths, &icon_name);
     for target in [&paths.desktop_file_target, &paths.desktop_shortcut_target] {
-        fs::write(target, &desktop_body)
+        write_atomic(target, desktop_body.as_bytes(), 0o644)
             .with_context(|| format!("writing {}", target.display()))?;
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            let mut perms = fs::metadata(target)?.permissions();
-            perms.set_mode(0o444);
-            fs::set_permissions(target, perms)?;
-        }
         report
             .actions
             .push(format!("+ desktop: {}", target.display()));
@@ -273,12 +276,20 @@ pub fn integ(config: &LauncherConfig, script_path: &Path, opts: &IntegOpts) -> R
 /// Remove an integration. Idempotent: reports what was actually removed
 /// and exits cleanly if nothing was present.
 pub fn disinteg(config: &LauncherConfig, opts: &DisintegOpts) -> Result<IntegReport> {
+    config.validate()?;
     let platform = detect_platform();
     if platform != "linux" {
         return Err(IntegError::UnsupportedPlatform(platform).into());
     }
     let paths = InstallPaths::linux(&config.project.name)?;
     let mut report = IntegReport::default();
+    if paths.removal_targets().iter().any(|p| path_exists(p)) && !is_managed_install(&paths) {
+        report.skipped.push(format!(
+            "refusing to remove unmarked integration files for `{}`",
+            config.project.name
+        ));
+        return Ok(report);
+    }
 
     for target in paths.removal_targets() {
         if target.exists() || target.is_symlink() {
@@ -337,15 +348,17 @@ fn render_desktop_file(config: &LauncherConfig, paths: &InstallPaths, icon_name:
         RuntimeKind::Process => "--start",
         RuntimeKind::ServerUrl | RuntimeKind::Remote => "--auto",
     };
-    let launcher = paths.launcher_target.display();
+    let launcher = paths.launcher_target.display().to_string();
+    let launcher_exec = desktop_exec_arg(&launcher);
     format!(
         "[Desktop Entry]\n\
+         # X-Launch-Scaffolder=launch-scaffolder\n\
          Type=Application\n\
          Version=1.0\n\
          Name={name}\n\
          GenericName={generic}\n\
          Comment={comment}\n\
-         Exec={launcher} {default_mode}\n\
+         Exec={launcher_exec} {default_mode}\n\
          Icon={icon}\n\
          Terminal=false\n\
          Categories={categories}\n\
@@ -355,20 +368,103 @@ fn render_desktop_file(config: &LauncherConfig, paths: &InstallPaths, icon_name:
          \n\
          [Desktop Action stop]\n\
          Name=Stop\n\
-         Exec={launcher} --stop\n\
+         Exec={launcher_exec} --stop\n\
          \n\
          [Desktop Action status]\n\
          Name=Status\n\
-         Exec={launcher} --status\n",
-        name = config.project.display,
-        generic = generic,
-        comment = comment,
-        launcher = launcher,
+         Exec={launcher_exec} --status\n",
+        name = desktop_string_value(&config.project.display),
+        generic = desktop_string_value(generic),
+        comment = desktop_string_value(comment),
+        launcher_exec = launcher_exec,
         default_mode = default_mode,
-        icon = icon_name,
-        categories = categories,
-        app = config.project.name,
+        icon = desktop_string_value(icon_name),
+        categories = desktop_string_value(&categories),
+        app = desktop_string_value(&config.project.name),
     )
+}
+
+/// Whether a path exists without following a symlinks-to-missing target.
+fn path_exists(path: &Path) -> bool {
+    fs::symlink_metadata(path).is_ok()
+}
+
+/// Require a marker on an installed script or desktop entry before replacing
+/// or removing predictable per-app destinations. This prevents a config from
+/// silently clobbering an unrelated same-named file in the user's home.
+fn is_managed_install(paths: &InstallPaths) -> bool {
+    let mut found_marker = false;
+    for (path, marker) in [
+        (
+            &paths.launcher_target,
+            "# GENERATED by launch-scaffolder from ",
+        ),
+        (
+            &paths.desktop_file_target,
+            "# X-Launch-Scaffolder=launch-scaffolder",
+        ),
+        (
+            &paths.desktop_shortcut_target,
+            "# X-Launch-Scaffolder=launch-scaffolder",
+        ),
+    ] {
+        if !path_exists(path) {
+            continue;
+        }
+        let marked = fs::symlink_metadata(path).is_ok_and(|m| m.file_type().is_file())
+            && fs::read_to_string(path).is_ok_and(|text| {
+                text.lines().any(|line| {
+                    if marker.starts_with("# GENERATED") {
+                        line.starts_with(marker)
+                    } else {
+                        line == marker
+                    }
+                })
+            });
+        if !marked {
+            return false;
+        }
+        found_marker = true;
+    }
+    if path_exists(&paths.icon_target) {
+        let icon_is_marked = fs::read_to_string(&paths.icon_marker_target)
+            .is_ok_and(|text| text == "launch-scaffolder managed icon\n");
+        if !icon_is_marked {
+            return false;
+        }
+        found_marker = true;
+    }
+    if path_exists(&paths.icon_marker_target) {
+        let marker_is_valid = fs::read_to_string(&paths.icon_marker_target)
+            .is_ok_and(|text| text == "launch-scaffolder managed icon\n");
+        if !marker_is_valid {
+            return false;
+        }
+        found_marker = true;
+    }
+    found_marker
+}
+
+/// Escape a Desktop Entry string value (not an Exec argument).
+fn desktop_string_value(value: &str) -> String {
+    value
+        .replace('\\', "\\\\")
+        .replace('\n', "\\n")
+        .replace('\r', "\\r")
+        .replace('\t', "\\t")
+}
+
+/// Quote one argument in the freedesktop Exec grammar. Spaces are contained
+/// by double quotes; the characters interpreted inside such quotes are
+/// backslash-escaped.
+fn desktop_exec_arg(value: &str) -> String {
+    let escaped = value
+        .replace('\\', "\\\\")
+        .replace('"', r#"\""#)
+        .replace('`', r#"\`"#)
+        .replace('$', r#"\$"#)
+        .replace('%', "%%");
+    format!("\"{escaped}\"")
 }
 
 /// Resolve the absolute icon-source path if the config supplied one.
@@ -417,6 +513,9 @@ fn run_best_effort(cmd: &str, args: &[&str], report: &mut IntegReport) {
 mod tests {
     use super::*;
     use crate::config::{LauncherConfig, Project, Repo, Runtime, RuntimeKind};
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    static TEST_TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
 
     fn sample_config() -> LauncherConfig {
         LauncherConfig {
@@ -450,6 +549,74 @@ mod tests {
     }
 
     #[test]
+    fn every_existing_text_target_needs_its_own_management_marker() {
+        let dir = std::env::temp_dir().join(format!(
+            "launch-scaffolder-ownership-test-{}-{}",
+            std::process::id(),
+            TEST_TEMP_COUNTER.fetch_add(1, Ordering::Relaxed)
+        ));
+        fs::create_dir_all(&dir).unwrap();
+        let paths = InstallPaths {
+            apps_dir: dir.clone(),
+            icon_dir: dir.clone(),
+            bin_dir: dir.clone(),
+            desktop_shortcut_dir: dir.clone(),
+            desktop_file_target: dir.join("app.desktop"),
+            desktop_shortcut_target: dir.join("shortcut.desktop"),
+            icon_target: dir.join("app.png"),
+            icon_marker_target: dir.join("app.png.launch-scaffolder-managed"),
+            launcher_target: dir.join("app-launcher"),
+        };
+        fs::write(
+            &paths.launcher_target,
+            "# GENERATED by launch-scaffolder from test\n",
+        )
+        .unwrap();
+        fs::write(
+            &paths.desktop_file_target,
+            concat!(
+                "[Desktop Entry]\nName=unrelated\n",
+                "# X-Launch-Scaffolder=launch-scaffolder (copied text)\n"
+            ),
+        )
+        .unwrap();
+        assert!(!is_managed_install(&paths));
+
+        fs::write(
+            &paths.desktop_file_target,
+            "# X-Launch-Scaffolder=launch-scaffolder\n[Desktop Entry]\n",
+        )
+        .unwrap();
+        assert!(is_managed_install(&paths));
+
+        fs::write(&paths.icon_target, b"not a real png").unwrap();
+        assert!(!is_managed_install(&paths));
+        fs::write(
+            &paths.icon_marker_target,
+            "launch-scaffolder managed icon\n",
+        )
+        .unwrap();
+        assert!(is_managed_install(&paths));
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn desktop_values_are_escaped_and_the_entry_is_marked_managed() {
+        let mut cfg = sample_config();
+        cfg.project.display = "A\\B".into();
+        let paths = InstallPaths::linux("foo").unwrap();
+        let body = render_desktop_file(&cfg, &paths, "foo");
+        assert!(body.contains("# X-Launch-Scaffolder=launch-scaffolder"));
+        assert!(body.contains("Name=A\\\\B"));
+        assert!(desktop_exec_arg("/tmp/a b\"c$").contains("\\\""));
+        assert_eq!(desktop_exec_arg("100%"), "\"100%%\"");
+        assert_eq!(
+            desktop_exec_arg("/tmp/a b\"c$`%"),
+            "\"/tmp/a b\\\"c\\$\\`%%\""
+        );
+    }
+
+    #[test]
     fn desktop_file_contains_required_keys() {
         let cfg = sample_config();
         let paths = InstallPaths::linux("foo").expect("home should resolve");
@@ -467,7 +634,7 @@ mod tests {
     fn removal_targets_are_stable_order() {
         let paths = InstallPaths::linux("foo").expect("home should resolve");
         let targets = paths.removal_targets();
-        assert_eq!(targets.len(), 4);
+        assert_eq!(targets.len(), 5);
     }
 
     #[test]

@@ -1,23 +1,30 @@
 # SPDX-License-Identifier: MPL-2.0
 # Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
 #
-# NEUROSYM.a2ml — Neurosymbolic integration metadata
-# Configuration for Hypatia scanning and symbolic reasoning.
+# NEUROSYM.a2ml — Analysis and policy metadata for launch-scaffolder.
 
 [metadata]
-version = "0.1.0"
-last-updated = "2026-04-11"
+format = "a2ml"
+schema = "neurosym"
+schema-version = "0.1"
+last-updated = "2026-09-26"
 
-[hypatia-config]
-scan-enabled = true
-scan-depth = "standard"  # quick | standard | deep
-report-format = "logtalk"
+[static-analysis]
+security-workflow = ".github/workflows/hypatia-scan.yml"
+codeql-workflow = ".github/workflows/codeql.yml"
+review-mode = "human-reviewed"
 
-[symbolic-rules]
-# Custom symbolic rules for this project
-# - { name = "no-unsafe-ffi", pattern = "believe_me|unsafeCoerce", severity = "critical" }
+[project-rules]
+# High-risk paths to review with every relevant change:
+# - templates/launcher.sh.tera: shell quoting, process IDs, filesystem targets
+# - crates/launcher-common/src/config.rs: descriptor validation
+# - crates/launcher-common/src/integration.rs: desktop files and ownership
+# - crates/launcher-common/src/fs_utils.rs: atomic file replacement
+#
+# No neural model, Logtalk runtime, or generated model configuration is used
+# by this repository. Hypatia/CodeQL behavior is defined by the workflows.
 
-[neural-config]
-# Neural pattern detection settings
-# confidence-threshold = 0.85
-# model = "hypatia-v2"
+[validation-evidence]
+rust-tests = "just test"
+strict-lints = "just lint"
+rendered-shell = ".github/workflows/launcher-artefacts.yml (bash/ShellCheck gates)"

@@ -1,60 +1,40 @@
-== Governance
+// SPDX-License-Identifier: CC-BY-SA-4.0
+// SPDX-FileCopyrightText: 2026 Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
+= Governance
 
-=== Overview
+== Overview
 
-This project is governed by the following principles and structures to
-ensure transparent, inclusive, and effective decision-making.
+`launch-scaffolder` is a sole-maintainer project. The governance model is
+intended to be transparent about review capacity rather than to imply a
+maintainer quorum that does not exist.
 
-=== Roles and Responsibilities
+== Roles and responsibilities
 
-==== Maintainers
+The maintainer reviews and merges contributions, manages releases, triages
+issues, maintains quality and security practices, and enforces the Code of
+Conduct. Contributors are expected to follow the project standards, include
+tests for code changes, and update relevant documentation.
 
-Maintainers are responsible for: - Reviewing and merging pull requests -
-Managing releases and versioning - Ensuring code quality and standards -
-Triaging issues and bug reports - Community engagement and support
+== Decision making
 
-==== Contributors
+* Routine fixes and documentation changes may be decided by the maintainer.
+* Significant changes should be discussed in an issue or pull request before
+  implementation.
+* Breaking changes require public discussion and a migration path.
+* Where independent review is unavailable, the pull request should say so;
+  no two-maintainer approval requirement is claimed.
 
-Contributors are expected to: - Follow the code of conduct - Submit
-well-documented pull requests - Write tests for new functionality -
-Maintain existing tests - Update documentation as needed
+== Code of Conduct
 
-=== Decision Making
+All participants must follow link:CODE_OF_CONDUCT.adoc[`CODE_OF_CONDUCT.adoc`].
+Conduct concerns may be reported privately to j.d.a.jewell@open.ac.uk.
 
-==== Minor Changes
+== Communication and licensing
 
-* Can be made by any maintainer
-* Include bug fixes, documentation updates, dependency updates
-
-==== Major Changes
-
-* Require discussion in issues or pull requests
-* Include new features, architectural changes, API changes
-* Need approval from at least 2 maintainers
-
-==== Breaking Changes
-
-* Require RFC (Request for Comments) process
-* Need approval from majority of maintainers
-* Must include migration guide
-
-=== Code of Conduct
-
-All participants are expected to follow our Code of Conduct. Violations
-can be reported to the maintainers.
-
-=== Communication
-
-* *Issues*: For bug reports and feature requests
-* *Discussions*: For questions and general discussion
-* *Pull Requests*: For code contributions
-
-=== Licensing
-
-All contributions are made under the terms of the repository’s LICENSE
-file. By submitting a pull request, you agree to license your
-contributions accordingly.
+Use GitHub issues for bugs and feature requests and pull requests for proposed
+changes. Contributions are licensed under the terms in the repository's
+`LICENSE` file.
 
 '''''
 
-_Last updated: 2026-07-18_
+_Last reviewed: 2026-09-26_

@@ -108,6 +108,19 @@ impl LauncherStandard {
         Ok(Self { doc, spec_version })
     }
 
+    /// Return the highest-priority on-disk standard source, if any. An
+    /// explicit path wins; otherwise the baked standard's own search ladder
+    /// is consulted. `None` means callers should use [`BAKED_STANDARD`].
+    pub fn source_path(flag: Option<&Path>) -> Option<PathBuf> {
+        if let Some(path) = flag {
+            return Some(path.to_path_buf());
+        }
+        let env = |key: &str| std::env::var(key).ok();
+        Self::search_ladder(&env)
+            .into_iter()
+            .find(|path| path.exists())
+    }
+
     /// Resolve a standard using the documented precedence:
     ///
     /// 1. An explicit file path (typically from `--standard <FILE>` or

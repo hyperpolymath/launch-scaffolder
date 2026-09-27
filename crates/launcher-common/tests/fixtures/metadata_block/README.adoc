@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: CC-BY-SA-4.0
+// SPDX-FileCopyrightText: 2026 Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
 = `+tests/fixtures/metadata_block/+` — committed launcher artefacts
 
 Three kinds of artefact live in this repository, and the difference between
@@ -68,7 +70,7 @@ cargo build
 ./target/debug/launch-scaffolder mint \
   crates/launcher-common/tests/fixtures/config/stapeln.launcher.fixture.a2ml \
   --stdout \
-  | sed -E 's|^CONFIG_FILE=.*|CONFIG_FILE=""|' \
+  | sed -E "s|^CONFIG_FILE=.*|CONFIG_FILE=''|" \
   > crates/launcher-common/tests/fixtures/metadata_block/minted-2026-09-23_stapeln-launcher-deed.sh
 ----
 

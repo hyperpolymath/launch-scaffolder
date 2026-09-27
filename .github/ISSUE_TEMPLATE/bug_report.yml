@@ -1,0 +1,40 @@
+# SPDX-License-Identifier: CC-BY-SA-4.0
+# SPDX-FileCopyrightText: 2026 Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
+name: Bug report
+description: Report a reproducible defect.
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: For security vulnerabilities, use the private reporting path in `.github/SECURITY.md`; do not open a public issue.
+  - type: textarea
+    id: observed
+    attributes:
+      label: Observed behavior
+      description: Include the exact command and output.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: OS and Rust version
+    validations:
+      required: true

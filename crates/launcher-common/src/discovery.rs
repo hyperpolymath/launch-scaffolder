@@ -23,7 +23,7 @@ pub const ESTATE_ROOT: &str = "/var/mnt/eclipse/repos";
 pub const LIVE_EXT: &str = ".launcher.a2ml";
 
 /// Suffix that marks a test fixture / worked example. Must **not** be
-/// picked up by estate walks. See `examples/README.md`.
+/// picked up by estate walks. See `examples/README.adoc`.
 pub const FIXTURE_EXT: &str = ".launcher.fixture.a2ml";
 
 /// Walk `root` and return every live launcher config, sorted.

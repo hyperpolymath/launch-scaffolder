@@ -92,17 +92,18 @@ pub struct Runtime {
     ///
     /// Default (when unset): `+$XDG_RUNTIME_DIR+`, falling back to
     /// `+$XDG_STATE_HOME+` and then to `+~/.local/state+`, as
-    /// `+<app>-server.pid+`. Before 2026-09-25 the default was
+    /// `+launch-scaffolder/<app>/server.pid+`. Before 2026-09-25 the default was
     /// `+/tmp/<app>-server.pid+` — world-writable and predicted entirely by
     /// the app name, so any local user could create or symlink the path
     /// before the launcher's first run and steer what it later killed or
     /// removed (#48). The default is emitted into the script as a SHELL
-    /// expression, not resolved here, because the launcher runs on the
-    /// user's machine rather than the one it was minted on; the script
-    /// creates the directory `+0700+` before it writes.
+    /// expression under a unique per-app directory. Explicit paths are shell-
+    /// quoted and their parent directory must be user-owned and not group/world
+    /// writable; the launcher never changes permissions on an explicit parent.
     ///
-    /// Set it to override, e.g. `+pid-file = "/var/run/myapp.pid"+`. A
-    /// leading `+~+` is expanded (see `+integration::expand_home+`).
+    /// Set it to override, e.g. `+pid-file = "~/run/myapp.pid"+`. A leading
+    /// `+~/+` is expanded at launcher runtime. Shared writable locations such
+    /// as `/tmp` are refused by the generated script.
     #[serde(default)]
     pub pid_file: Option<String>,
     /// Where the generated launcher writes its log.
@@ -121,6 +122,71 @@ pub struct Runtime {
 
 fn default_wait_seconds() -> u32 {
     15
+}
+
+/// Names become filenames, desktop IDs, and shell-visible identifiers. Keep
+/// them a single safe path component and prevent control characters or option
+/// injection into generated launcher paths.
+fn validate_project_name(name: &str) -> Result<()> {
+    let mut bytes = name.bytes();
+    let Some(first) = bytes.next() else {
+        anyhow::bail!("project.name must not be empty");
+    };
+    if name.len() > 80 {
+        anyhow::bail!("project.name must be at most 80 ASCII bytes");
+    }
+    if !first.is_ascii_alphanumeric()
+        || !bytes.all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'_' | b'-'))
+    {
+        anyhow::bail!(
+            "project.name must start with an ASCII letter or digit and contain only ASCII letters, digits, '.', '_' or '-'; got {name:?}"
+        );
+    }
+    Ok(())
+}
+
+fn validate_display_value(field: &str, value: &str) -> Result<()> {
+    if value.trim().is_empty() {
+        anyhow::bail!("{field} must not be empty");
+    }
+    // A horizontal tab is representable in the generated DEED and desktop
+    // metadata (both escape it). Reject every other control character so
+    // config values cannot inject lines or terminal control sequences.
+    if value.chars().any(|ch| ch.is_control() && ch != '\t') {
+        anyhow::bail!("{field} must not contain control characters other than tab");
+    }
+    Ok(())
+}
+
+fn validate_no_controls(field: &str, value: &str) -> Result<()> {
+    if value.chars().any(char::is_control) {
+        anyhow::bail!("{field} must not contain control characters");
+    }
+    Ok(())
+}
+
+fn validate_url(url: &str) -> Result<()> {
+    validate_no_controls("runtime.url", url)?;
+    let authority = url
+        .strip_prefix("http://")
+        .or_else(|| url.strip_prefix("https://"))
+        .map(|rest| rest.split(['/', '?', '#']).next().unwrap_or_default());
+    if url.chars().any(char::is_whitespace)
+        || authority
+            .is_none_or(|host| host.is_empty() || host.starts_with(':') || host.contains('@'))
+    {
+        anyhow::bail!(
+            "runtime.url must be an absolute HTTP(S) URL with a host, no credentials, and no whitespace"
+        );
+    }
+    Ok(())
+}
+
+fn validate_state_path(field: &str, path: &str) -> Result<()> {
+    if path.trim().is_empty() {
+        anyhow::bail!("{field} must not be empty");
+    }
+    validate_no_controls(field, path)
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -154,6 +220,62 @@ impl LauncherConfig {
     /// Shape-check the config. Runs after parsing so errors reference the
     /// *meaning* of the bad field, not the raw serde position.
     pub fn validate(&self) -> Result<()> {
+        validate_project_name(&self.project.name)?;
+        validate_display_value("project.display", &self.project.display)?;
+        if let Some(value) = &self.project.description {
+            validate_display_value("project.description", value)?;
+        }
+        if let Some(value) = &self.project.generic_name {
+            validate_display_value("project.generic-name", value)?;
+        }
+        if let Some(version) = &self.project.version {
+            if version.trim().is_empty() || version.chars().any(char::is_whitespace) {
+                anyhow::bail!("project.version must be non-empty and contain no whitespace");
+            }
+            validate_no_controls("project.version", version)?;
+        }
+        if let Some(license) = &self.project.license {
+            validate_display_value("project.license", license)?;
+        }
+        for category in &self.project.categories {
+            if category.is_empty()
+                || !category
+                    .bytes()
+                    .all(|b| b.is_ascii_alphanumeric() || b == b'-')
+            {
+                anyhow::bail!(
+                    "project.categories must contain ASCII alphanumeric/hyphen tokens; got {category:?}"
+                );
+            }
+        }
+        if self.repo.path.trim().is_empty() {
+            anyhow::bail!("repo.path must not be empty");
+        }
+        validate_no_controls("repo.path", &self.repo.path)?;
+        if let Some(url) = &self.runtime.url {
+            validate_url(url)?;
+        }
+        if let Some(icon) = &self.icon {
+            validate_state_path("icon.source", &icon.source)?;
+        }
+        if let Some(path) = &self.runtime.pid_file {
+            validate_state_path("runtime.pid-file", path)?;
+        }
+        if let Some(path) = &self.runtime.log_file {
+            validate_state_path("runtime.log-file", path)?;
+        }
+        if self.runtime.command.first().is_some_and(String::is_empty) {
+            anyhow::bail!("runtime.command[0] must name an executable");
+        }
+        for (index, item) in self.runtime.command.iter().enumerate() {
+            validate_no_controls(&format!("runtime.command[{index}]"), item)?;
+        }
+        for (index, item) in self.runtime.startup_command_search.iter().enumerate() {
+            if item.is_empty() {
+                anyhow::bail!("runtime.startup-command-search[{index}] must not be empty");
+            }
+            validate_no_controls(&format!("runtime.startup-command-search[{index}]"), item)?;
+        }
         match self.runtime.kind {
             RuntimeKind::ServerUrl => {
                 if self.runtime.url.is_none() && self.runtime.port.is_none() {
@@ -166,7 +288,7 @@ impl LauncherConfig {
                 if self.runtime.command.is_empty() && self.runtime.startup_command_search.is_empty()
                 {
                     anyhow::bail!(
-                        "runtime.kind = process requires runtime.command or runtime.startup-command-search"
+                        "process runtime requires runtime.command or runtime.startup-command-search"
                     );
                 }
             }
@@ -205,6 +327,75 @@ mod tests {
             path = "/tmp/x"
             [runtime]
             kind = "server-url"
+        "#;
+        assert!(LauncherConfig::parse(txt).is_err());
+    }
+
+    #[test]
+    fn rejects_path_traversal_project_names() {
+        let txt = r#"
+            [project]
+            name = "../victim"
+            display = "X"
+            [repo]
+            path = "/tmp/x"
+            [runtime]
+            kind = "process"
+            command = ["x"]
+        "#;
+        let err = LauncherConfig::parse(txt).unwrap_err().to_string();
+        assert!(err.contains("project.name"));
+    }
+
+    #[test]
+    fn rejects_control_characters_in_desktop_metadata() {
+        let txt = r#"
+            [project]
+            name = "x"
+            display = "X\nExec=sh"
+            [repo]
+            path = "/tmp/x"
+            [runtime]
+            kind = "process"
+            command = ["x"]
+        "#;
+        assert!(LauncherConfig::parse(txt).is_err());
+    }
+
+    #[test]
+    fn rejects_http_urls_without_a_host_or_with_credentials() {
+        for url in [
+            "https:///path",
+            "http://?query=1",
+            "https://user@example.test/",
+        ] {
+            let txt = format!(
+                r#"
+                    [project]
+                    name = "x"
+                    display = "X"
+                    [repo]
+                    path = "/tmp/x"
+                    [runtime]
+                    kind = "remote"
+                    url = {url:?}
+                "#
+            );
+            assert!(LauncherConfig::parse(&txt).is_err(), "accepted {url}");
+        }
+    }
+
+    #[test]
+    fn rejects_non_http_runtime_urls() {
+        let txt = r#"
+            [project]
+            name = "x"
+            display = "X"
+            [repo]
+            path = "/tmp/x"
+            [runtime]
+            kind = "remote"
+            url = "javascript:alert(1)"
         "#;
         assert!(LauncherConfig::parse(txt).is_err());
     }
