@@ -114,9 +114,7 @@ pub fn render(
     ctx.insert("app_version", app_version);
     let build_sha_short = std::env::var("LAUNCH_SCAFFOLDER_BUILD_SHA")
         .ok()
-        .filter(|sha| {
-            (7..=40).contains(&sha.len()) && sha.bytes().all(|b| b.is_ascii_hexdigit())
-        })
+        .filter(|sha| (7..=40).contains(&sha.len()) && sha.bytes().all(|b| b.is_ascii_hexdigit()))
         .map(|sha| sha[..7].to_ascii_lowercase())
         .unwrap_or_else(|| "unknown".to_string());
     ctx.insert("build_sha_short", &build_sha_short);
@@ -767,8 +765,7 @@ mod tests {
     ///
     /// They are shell expressions rather than paths: the launcher runs on the
     /// user's machine, which is not necessarily the machine it was minted on.
-    const DEFAULT_PID_LINE: &str =
-        "PID_FILE=\"${XDG_RUNTIME_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}}/launch-scaffolder/stapeln/server.pid\"";
+    const DEFAULT_PID_LINE: &str = "PID_FILE=\"${XDG_RUNTIME_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}}/launch-scaffolder/stapeln/server.pid\"";
     const DEFAULT_LOG_LINE: &str =
         "LOG_FILE=\"${XDG_STATE_HOME:-$HOME/.local/state}/launch-scaffolder/stapeln/server.log\"";
 

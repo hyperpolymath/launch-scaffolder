@@ -156,7 +156,7 @@ jobs:
           import pathlib
           import sys
           payload = base64.b64encode(pathlib.Path(sys.argv[1]).read_bytes()).decode()
-          size = 3000
+          size = 7000
           parts = [payload[i:i + size] for i in range(0, len(payload), size)]
           for index, part in enumerate(parts, 1):
               print(f"::notice title=minted-fixture-{index:02d}-of-{len(parts):02d}::{part}")

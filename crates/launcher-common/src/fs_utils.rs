@@ -70,7 +70,9 @@ fn write_atomic_impl(path: &Path, contents: &[u8], mode: Option<u32>) -> Result<
                     if let Some(mode) = mode {
                         use std::os::unix::fs::PermissionsExt;
                         file.set_permissions(fs::Permissions::from_mode(mode))
-                            .with_context(|| format!("setting permissions on {}", temp.display()))?;
+                            .with_context(|| {
+                                format!("setting permissions on {}", temp.display())
+                            })?;
                     }
                     drop(file);
                     fs::rename(&temp, path).with_context(|| {
@@ -94,7 +96,10 @@ fn write_atomic_impl(path: &Path, contents: &[u8], mode: Option<u32>) -> Result<
         }
     }
 
-    anyhow::bail!("could not allocate a unique temporary directory beside {}", path.display())
+    anyhow::bail!(
+        "could not allocate a unique temporary directory beside {}",
+        path.display()
+    )
 }
 
 /// Read the current mode when possible, otherwise use `fallback`.
@@ -134,9 +139,16 @@ mod tests {
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
-            assert_eq!(fs::metadata(&target).unwrap().permissions().mode() & 0o777, 0o640);
+            assert_eq!(
+                fs::metadata(&target).unwrap().permissions().mode() & 0o777,
+                0o640
+            );
         }
-        assert_eq!(fs::read_dir(&dir).unwrap().count(), 1, "temporary file was left behind");
+        assert_eq!(
+            fs::read_dir(&dir).unwrap().count(),
+            1,
+            "temporary file was left behind"
+        );
         fs::remove_dir_all(dir).unwrap();
     }
 
@@ -153,7 +165,10 @@ mod tests {
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
-            assert_eq!(fs::metadata(&target).unwrap().permissions().mode() & 0o111, 0);
+            assert_eq!(
+                fs::metadata(&target).unwrap().permissions().mode() & 0o111,
+                0
+            );
         }
         fs::remove_dir_all(dir).unwrap();
     }

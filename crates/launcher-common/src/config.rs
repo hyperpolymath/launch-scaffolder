@@ -172,11 +172,12 @@ fn validate_url(url: &str) -> Result<()> {
         .or_else(|| url.strip_prefix("https://"))
         .map(|rest| rest.split(['/', '?', '#']).next().unwrap_or_default());
     if url.chars().any(char::is_whitespace)
-        || authority.is_none_or(|host| {
-            host.is_empty() || host.starts_with(':') || host.contains('@')
-        })
+        || authority
+            .is_none_or(|host| host.is_empty() || host.starts_with(':') || host.contains('@'))
     {
-        anyhow::bail!("runtime.url must be an absolute HTTP(S) URL with a host, no credentials, and no whitespace");
+        anyhow::bail!(
+            "runtime.url must be an absolute HTTP(S) URL with a host, no credentials, and no whitespace"
+        );
     }
     Ok(())
 }
@@ -363,7 +364,11 @@ mod tests {
 
     #[test]
     fn rejects_http_urls_without_a_host_or_with_credentials() {
-        for url in ["https:///path", "http://?query=1", "https://user@example.test/"] {
+        for url in [
+            "https:///path",
+            "http://?query=1",
+            "https://user@example.test/",
+        ] {
             let txt = format!(
                 r#"
                     [project]

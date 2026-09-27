@@ -116,7 +116,9 @@ impl LauncherStandard {
             return Some(path.to_path_buf());
         }
         let env = |key: &str| std::env::var(key).ok();
-        Self::search_ladder(&env).into_iter().find(|path| path.exists())
+        Self::search_ladder(&env)
+            .into_iter()
+            .find(|path| path.exists())
     }
 
     /// Resolve a standard using the documented precedence:
