@@ -73,7 +73,7 @@ impl LauncherStandard {
             if looks_like_the_old_toml_format(text) {
                 "this looks like the retired TOML/A2ML launcher standard. The launcher \
                  standard is now a praxis DEED (`launcher-standard_praxis.deed`, owner \
-                 ruling D73-C); see hyperpolymath/standards#837"
+                 ruling D73-C); see hyperpolymath/standards#960"
             } else {
                 "standard is not a valid deed"
             }

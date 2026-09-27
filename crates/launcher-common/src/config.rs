@@ -149,7 +149,13 @@ fn validate_display_value(field: &str, value: &str) -> Result<()> {
     if value.trim().is_empty() {
         anyhow::bail!("{field} must not be empty");
     }
-    validate_no_controls(field, value)
+    // A horizontal tab is representable in the generated DEED and desktop
+    // metadata (both escape it). Reject every other control character so
+    // config values cannot inject lines or terminal control sequences.
+    if value.chars().any(|ch| ch.is_control() && ch != '\t') {
+        anyhow::bail!("{field} must not contain control characters other than tab");
+    }
+    Ok(())
 }
 
 fn validate_no_controls(field: &str, value: &str) -> Result<()> {

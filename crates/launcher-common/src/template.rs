@@ -748,7 +748,7 @@ mod tests {
             !script.contains("APP_PORT="),
             "a launcher with an explicit [runtime].url must not also state the port"
         );
-        assert!(script.contains("URL=\"http://localhost:4010\""));
+        assert!(script.contains("URL='http://localhost:4010'"));
     }
 
     // ---------------------------------------------------------------

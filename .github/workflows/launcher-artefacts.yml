@@ -111,7 +111,9 @@ jobs:
           if [ -s "$RUNNER_TEMP/fmt.diff" ]; then
             echo "rustfmt wants changes ($(wc -l < "$RUNNER_TEMP/fmt.diff") line(s)):"
             cat "$RUNNER_TEMP/fmt.diff"
-            annotate "cargo fmt --check drift" "$RUNNER_TEMP/fmt.diff" 80
+            # Fit the complete current workspace diff into the GitHub annotation
+            # so format failures remain actionable even when log archives are unavailable.
+            annotate "cargo fmt --check drift" "$RUNNER_TEMP/fmt.diff" 240
           else
             echo "✓ cargo fmt --all -- --check is clean"
           fi
