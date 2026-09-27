@@ -196,7 +196,7 @@ jobs:
           # absolute path of the config that produced the script, which is
           # checkout-location-specific by design and not a template property.
           ./target/debug/launch-scaffolder mint "$FIXTURE_CONFIG" --stdout \
-            | sed -E 's|^CONFIG_FILE=.*|CONFIG_FILE=""|' \
+            | sed -E "s|^CONFIG_FILE=.*|CONFIG_FILE=''|" \
             > "$OUT/stapeln-launcher.sh"
           STATUS="${PIPESTATUS[0]}"
           if [ "$STATUS" -ne 0 ]; then

@@ -54,7 +54,7 @@ ICON_SOURCE=''
 # produced this script. Consumed by the --integ / --disinteg arms when
 # the `launch-scaffolder` binary is on $PATH, so they can delegate to
 # the Rust implementation instead of running the shell fallback.
-CONFIG_FILE=""
+CONFIG_FILE=''
 
 URL='http://localhost:4010'
 WAIT_SECONDS="15"
