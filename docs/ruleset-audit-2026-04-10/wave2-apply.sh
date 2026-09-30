@@ -26,7 +26,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 OWNER="${OWNER:-hyperpolymath}"
-REPOS_FILE="${REPOS_FILE:-/tmp/ruleset-audit/wave2-repos.txt}"
+REPOS_FILE="${REPOS_FILE:-$SCRIPT_DIR/wave2-repos.txt}"
 RESULTS_FILE="${RESULTS_FILE:-$SCRIPT_DIR/wave2-results.tsv}"
 DRY_RUN=false
 

@@ -30,12 +30,17 @@
 #   bypass_actors = [{actor_type: RepositoryRole, actor_id: 5, bypass_mode: always}]
 #                   (actor_id=5 is the built-in Admin role)
 #
-# Writes one JSON-per-line record to /tmp/ruleset-audit/report.jsonl.
+# Writes one JSON-per-line record to report.jsonl beside this script.
+#
+# Inputs and outputs default to this directory, not /tmp: they are a hand-off
+# between audit.sh and the wave scripts, so they must be re-findable, and a
+# fixed name in world-writable /tmp can be pre-created by another user.
 
 set -euo pipefail
 
-REPOS_FILE="${REPOS_FILE:-/tmp/ruleset-audit/repos.tsv}"
-REPORT_FILE="${REPORT_FILE:-/tmp/ruleset-audit/report.jsonl}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPOS_FILE="${REPOS_FILE:-$SCRIPT_DIR/repos.tsv}"
+REPORT_FILE="${REPORT_FILE:-$SCRIPT_DIR/report.jsonl}"
 OWNER="${OWNER:-hyperpolymath}"
 : > "$REPORT_FILE"
 

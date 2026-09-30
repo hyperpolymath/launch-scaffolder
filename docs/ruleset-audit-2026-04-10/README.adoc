@@ -70,10 +70,10 @@ jq -r .state report.jsonl | sort | uniq -c
 [source,bash]
 ----
 # Pick your wave — DRIFT this time:
-jq -r 'select(.state=="DRIFT") | .repo' report.jsonl > /tmp/wave2-repos.txt
+jq -r 'select(.state=="DRIFT") | .repo' report.jsonl > wave2-repos.txt
 
 # Exclude forks:
-comm -23 <(sort /tmp/wave2-repos.txt) forks.txt > /tmp/wave2-apply.txt
+comm -23 <(sort wave2-repos.txt) forks.txt > wave2-apply.txt
 
 # For Wave 2 the existing (broken) ruleset must be deleted first,
 # because POST will fail with "Name must be unique" on every repo.
@@ -83,7 +83,7 @@ comm -23 <(sort /tmp/wave2-repos.txt) forks.txt > /tmp/wave2-apply.txt
 
 # Dry-run with alternate owner:
 OWNER=The-Metadatastician \
-REPOS_FILE=/tmp/wave2-apply.txt \
+REPOS_FILE=wave2-apply.txt \
 bash wave2-apply.sh --dry-run
 ----
 
@@ -92,20 +92,20 @@ bash wave2-apply.sh --dry-run
 [source,bash]
 ----
 # Build Wave 1 repo list from current report:
-jq -r 'select(.state=="MISSING") | .repo' report.jsonl > /tmp/wave1-repos.txt
+jq -r 'select(.state=="MISSING") | .repo' report.jsonl > wave1-repos.txt
 
 # Dry-run / plan generation:
 OWNER=The-Metadatastician \
-REPOS_FILE=/tmp/wave1-repos.txt \
-PLAN_FILE=/tmp/ruleset-audit/wave1-plan-The-Metadatastician.jsonl \
-RESULTS_FILE=/tmp/ruleset-audit/wave1-results-The-Metadatastician.tsv \
+REPOS_FILE=wave1-repos.txt \
+PLAN_FILE=wave1-plan-The-Metadatastician.jsonl \
+RESULTS_FILE=wave1-results-The-Metadatastician.tsv \
 bash wave1-apply.sh --dry-run
 
 # Apply:
 OWNER=The-Metadatastician \
-REPOS_FILE=/tmp/wave1-repos.txt \
-PLAN_FILE=/tmp/ruleset-audit/wave1-plan-The-Metadatastician.jsonl \
-RESULTS_FILE=/tmp/ruleset-audit/wave1-results-The-Metadatastician.tsv \
+REPOS_FILE=wave1-repos.txt \
+PLAN_FILE=wave1-plan-The-Metadatastician.jsonl \
+RESULTS_FILE=wave1-results-The-Metadatastician.tsv \
 bash wave1-apply.sh
 ----
 
