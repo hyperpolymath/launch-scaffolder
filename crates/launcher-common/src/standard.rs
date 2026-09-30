@@ -266,6 +266,50 @@ impl LauncherStandard {
         };
         str_list_of(value, &format!("(lifecycle-phases :{keyword} …)"))
     }
+
+    /// The default pid-file location, from `(runtime :pid-file-pattern …)`,
+    /// as a shell expression containing `{app-name}`.
+    ///
+    /// A missing key is an error, never a fallback: the defect this replaces
+    /// (#48) was a generator that "followed the standard" in a comment while
+    /// hard-coding `/tmp` in code.
+    pub fn pid_file_pattern(&self) -> Result<&str> {
+        self.runtime_pattern("pid-file-pattern")
+    }
+
+    /// The default log-file location, from `(runtime :log-file-pattern …)`.
+    pub fn log_file_pattern(&self) -> Result<&str> {
+        self.runtime_pattern("log-file-pattern")
+    }
+
+    fn runtime_pattern(&self, key: &str) -> Result<&str> {
+        let Some(pattern) = self
+            .doc
+            .clause("runtime")
+            .and_then(|runtime| runtime.str_field(key))
+        else {
+            anyhow::bail!(
+                "the launcher standard's (runtime) clause is missing :{key}. Refusing to \
+                 fall back to a built-in default: the standard is the only source of it"
+            );
+        };
+        if !pattern.contains("{app-name}") {
+            anyhow::bail!(
+                "(runtime :{key}) is `{pattern}`, which has no {{app-name}} placeholder, so \
+                 every launcher on a host would share one file"
+            );
+        }
+        // `mint` resolves the standard from an on-disk ladder, so a stale copy
+        // can reach here; refuse the world-writable fallback rather than mint it.
+        if pattern.contains("/tmp") || pattern.contains("TMPDIR") {
+            anyhow::bail!(
+                "(runtime :{key}) is `{pattern}`, which can resolve into world-writable \
+                 temp space with a name predictable from the app (CWE-377, #48). This \
+                 standard predates the XDG-only ladder; update it or pass --standard"
+            );
+        }
+        Ok(pattern)
+    }
 }
 
 /// Every element of a list value, as owned strings, or an error naming the
@@ -636,7 +680,7 @@ mod tests {
         use sha2::{Digest, Sha256};
         let got = format!("{:x}", Sha256::digest(BAKED_STANDARD.as_bytes()));
         assert_eq!(
-            got, "8f55bcbbd06a7a8dd78ebff532af32009b7fc6cc7f07064fdef7d0402ad5cefe",
+            got, "29c12fbdb34aa1915d4efa185debe4362af4a2034c66c87e434dca39751bd135",
             "standards/launcher-standard_praxis.deed changed; re-vendor deliberately \
              and update this pin in the same commit"
         );
@@ -659,5 +703,56 @@ mod tests {
             assert!(matches!(r.field("value"), Some(Value::Str(_))));
             assert!(r.field("priority").and_then(Value::as_int).is_some());
         }
+    }
+
+    const BAKED_PID_PATTERN: &str = "${XDG_RUNTIME_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}}/launch-scaffolder/{app-name}/server.pid";
+
+    /// The baked standard's runtime patterns, pinned as literals: a pattern
+    /// computed from the same source it is compared against could not fail.
+    #[test]
+    fn runtime_patterns_are_read_from_the_standard() {
+        let s = LauncherStandard::baked().unwrap();
+        assert_eq!(s.pid_file_pattern().unwrap(), BAKED_PID_PATTERN);
+        assert_eq!(
+            s.log_file_pattern().unwrap(),
+            "${XDG_STATE_HOME:-$HOME/.local/state}/launch-scaffolder/{app-name}/server.log"
+        );
+    }
+
+    fn baked_with_pid_pattern(replacement: &str) -> LauncherStandard {
+        let original = format!(":pid-file-pattern \"{BAKED_PID_PATTERN}\"");
+        assert!(
+            BAKED_STANDARD.contains(&original),
+            "control: the edit must land"
+        );
+        LauncherStandard::parse(&BAKED_STANDARD.replace(&original, replacement))
+            .expect("the mutated standard still parses")
+    }
+
+    #[test]
+    fn a_missing_runtime_pattern_is_an_error_not_a_fallback() {
+        let s = baked_with_pid_pattern("");
+        let err = s.pid_file_pattern().unwrap_err().to_string();
+        assert!(err.contains(":pid-file-pattern"), "{err}");
+    }
+
+    #[test]
+    fn a_pattern_without_app_name_is_refused() {
+        let s = baked_with_pid_pattern(
+            ":pid-file-pattern \"${XDG_RUNTIME_DIR:-$HOME/.local/state}/server.pid\"",
+        );
+        let err = s.pid_file_pattern().unwrap_err().to_string();
+        assert!(err.contains("{app-name}"), "{err}");
+    }
+
+    /// The pre-2026-09-30 standard's own ladder: a stale on-disk copy reached
+    /// through the resolution ladder must not mint a `/tmp` fallback.
+    #[test]
+    fn the_retired_tmpdir_ladder_is_refused() {
+        let s = baked_with_pid_pattern(
+            ":pid-file-pattern \"${XDG_RUNTIME_DIR:-${TMPDIR:-/tmp}}/{app-name}-server.pid\"",
+        );
+        let err = s.pid_file_pattern().unwrap_err().to_string();
+        assert!(err.contains("CWE-377"), "{err}");
     }
 }

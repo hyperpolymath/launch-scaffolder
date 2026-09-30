@@ -67,7 +67,7 @@ fn deed_list(values: &[String]) -> Result<String> {
 
 pub fn render(
     config: &LauncherConfig,
-    _standard: &LauncherStandard,
+    standard: &LauncherStandard,
     config_path: Option<&Path>,
 ) -> Result<String> {
     config.validate()?;
@@ -192,23 +192,27 @@ pub fn render(
     // Resolving them at mint time instead would bake one machine's paths into
     // a script that may run on another, so the expansion is left to the shell
     // and the directory is created by the script before first write.
+    //
+    // The patterns themselves come from the standard's `(runtime
+    // :pid-file-pattern / :log-file-pattern)`, not from this file: the
+    // original defect sat under a comment claiming to follow the standard while
+    // the code never read it, and the two drifted. `LauncherStandard` refuses a
+    // pattern that is missing, lacks `{app-name}`, or names `/tmp`/`TMPDIR`.
     let (pid_file, pid_file_is_default) = match &config.runtime.pid_file {
         Some(path) => (path.clone(), false),
         None => (
-            format!(
-                "${{XDG_RUNTIME_DIR:-${{XDG_STATE_HOME:-$HOME/.local/state}}}}/launch-scaffolder/{}/server.pid",
-                config.project.name
-            ),
+            standard
+                .pid_file_pattern()?
+                .replace("{app-name}", &config.project.name),
             true,
         ),
     };
     let (log_file, log_file_is_default) = match &config.runtime.log_file {
         Some(path) => (path.clone(), false),
         None => (
-            format!(
-                "${{XDG_STATE_HOME:-$HOME/.local/state}}/launch-scaffolder/{}/server.log",
-                config.project.name
-            ),
+            standard
+                .log_file_pattern()?
+                .replace("{app-name}", &config.project.name),
             true,
         ),
     };
@@ -247,7 +251,7 @@ pub fn render(
     ctx.insert("icon_source_shell", &shell_path_quote(&icon_source));
 
     // --- metadata -----------------------------------------------------
-    ctx.insert("spec_version", &_standard.spec_version);
+    ctx.insert("spec_version", &standard.spec_version);
 
     // The four declarations the standard's `(metadata-block
     // :required-fields)` has always demanded and `mint` never emitted (#41).
@@ -269,21 +273,21 @@ pub fn render(
     );
     ctx.insert(
         "platforms",
-        &deed_list(&_standard.platforms().context(
+        &deed_list(&standard.platforms().context(
             "the standard carries no (platforms) clause, so the launcher cannot \
              declare the `platforms` field its metadata block requires",
         )?)?,
     );
     ctx.insert(
         "lifecycle_phases_covered",
-        &deed_list(&_standard.lifecycle_phases_covered().context(
+        &deed_list(&standard.lifecycle_phases_covered().context(
             "the standard carries no (lifecycle-phases :covered …), so the launcher \
              cannot declare the `lifecycle-phases-covered` field its block requires",
         )?)?,
     );
     ctx.insert(
         "lifecycle_phases_deferred",
-        &deed_list(&_standard.lifecycle_phases_deferred().context(
+        &deed_list(&standard.lifecycle_phases_deferred().context(
             "the standard carries no (lifecycle-phases :deferred …), so the launcher \
              cannot declare the `lifecycle-phases-deferred` field its block requires",
         )?)?,
