@@ -21,6 +21,14 @@ see its "`Discrepancy 1`" section)
 * `+docs/branch-protection-remediation-2026-04-10.adoc+` — estate-wide
 ruleset remediation that followed the scaffolder work
 
+*Erratum (2026-09-30), added without altering the frozen rows below:*
+the aerie row calls `+/tmp/aerie.pid+` "`standard-compliant`". That was
+true of the 2026-04-10 standard only. Under the current
+`+standards/launcher-standard_praxis.deed+`, a PID file in `+/tmp+` (or
+`+$TMPDIR+`) is *non-compliant* — a predictable name in a world-writable
+directory lets another user choose which PID `+stop+` kills (CWE-377).
+Do not cite this row as precedent.
+
 Of the 11 launchers audited here, 6 have since been migrated to
 scaffolder management (aerie, burble, game-server-admin, nqc, panll,
 project-wharf — plus stapeln, which the audit did not cover because
