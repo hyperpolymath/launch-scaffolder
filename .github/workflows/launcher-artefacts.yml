@@ -122,6 +122,33 @@ jobs:
           fi
           exit 0
 
+      - name: Install just (the provisioning engine's runner)
+        # tests/provisioning_fixtures.rs drives the real engine, which needs
+        # just >= 1.42 and fails loudly without it. A release tarball pinned by
+        # sha256 (casey/just SHA256SUMS) adds no action to pin.
+        shell: bash
+        env:
+          JUST_VERSION: "1.56.0"
+          JUST_SHA256: fa2a8ec1015d9df5330941ade12437488fc40d33f9c9f8cd4eb70a26de11b639
+        run: |
+          set +e
+          . "$RUNNER_TEMP/annotate.sh"
+          tgz="$RUNNER_TEMP/just.tar.gz"
+          curl -fsSL -o "$tgz" \
+            "https://github.com/casey/just/releases/download/${JUST_VERSION}/just-${JUST_VERSION}-x86_64-unknown-linux-musl.tar.gz" \
+            > "$RUNNER_TEMP/just.log" 2>&1 \
+            && echo "${JUST_SHA256}  $tgz" | sha256sum -c - >> "$RUNNER_TEMP/just.log" 2>&1 \
+            && mkdir -p "$RUNNER_TEMP/bin" \
+            && tar -xzf "$tgz" -C "$RUNNER_TEMP/bin" just >> "$RUNNER_TEMP/just.log" 2>&1
+          STATUS=$?
+          if [ "$STATUS" -ne 0 ]; then
+            annotate "installing just ${JUST_VERSION} failed" "$RUNNER_TEMP/just.log" 20
+            exit "$STATUS"
+          fi
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/bin/just" --version
+          exit $?
+
       - name: Build every target
         shell: bash
         run: |
