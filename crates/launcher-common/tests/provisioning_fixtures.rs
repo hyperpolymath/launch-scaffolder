@@ -215,6 +215,133 @@ mod needs_just {
 
     /// Verify offline mint preserves custom recipes as local twins and reports the skipped mise lock.
     #[test]
+    fn offline_mint_retains_mise_configs_with_non_tool_settings() {
+        for (i, (primary, secondary)) in [
+            (
+                Some("[tools]\nzig = '0.14'\n[env]\nMODE = 'dev'\n"),
+                "[tools]\nrust = '1.95'\n",
+            ),
+            (
+                Some("[tools]\nzig = '0.14'\n"),
+                "[tools]\nrust = '1.95'\n[tasks.build]\nrun = 'echo build'\n",
+            ),
+            (None, "[settings]\nexperimental = true\n"),
+            (
+                Some("[tools]\npython = '3'\n[env]\nMODE = 'dev'\n"),
+                "[tools]\nrust = '1.95'\n",
+            ),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let repo = scratch("lang/idr", &format!("mise-settings-{i}"));
+            std::fs::copy(
+                concat!(env!("CARGO_MANIFEST_DIR"), "/../../LICENSES/MPL-2.0.txt"),
+                repo.join("LICENSE"),
+            )
+            .unwrap();
+            if let Some(text) = primary {
+                std::fs::write(repo.join("mise.toml"), text).unwrap();
+            }
+            std::fs::write(repo.join(".mise.toml"), secondary).unwrap();
+            std::fs::write(repo.join(".tool-versions"), "just 1.56.0\n").unwrap();
+            let report = mint::mint(
+                &repo,
+                &Canon::Baked,
+                &Options {
+                    offline: true,
+                    ..Options::default()
+                },
+            )
+            .unwrap();
+            for file in ["mise.toml", ".mise.toml", ".tool-versions"] {
+                assert!(
+                    report.files.iter().any(|(p, a)| p == file
+                        && matches!(a, Act::Skipped(w) if w.contains("outside [tools]"))),
+                    "{file}: {:?}",
+                    report.files
+                );
+            }
+            assert_eq!(
+                std::fs::read_to_string(repo.join("mise.toml"))
+                    .ok()
+                    .as_deref(),
+                primary
+            );
+            assert_eq!(
+                std::fs::read_to_string(repo.join(".mise.toml")).unwrap(),
+                secondary
+            );
+            assert_eq!(
+                std::fs::read_to_string(repo.join(".tool-versions")).unwrap(),
+                "just 1.56.0\n"
+            );
+            std::fs::remove_dir_all(repo).unwrap();
+        }
+    }
+
+    #[test]
+    fn offline_mint_folds_tool_only_configs_and_still_replaces_banned_tools() {
+        for (i, (banned, secondary)) in [(false, true), (true, true), (true, false)]
+            .into_iter()
+            .enumerate()
+        {
+            let repo = scratch("lang/idr", &format!("mise-tools-{i}"));
+            std::fs::copy(
+                concat!(env!("CARGO_MANIFEST_DIR"), "/../../LICENSES/MPL-2.0.txt"),
+                repo.join("LICENSE"),
+            )
+            .unwrap();
+            let primary = if banned {
+                "[tools]\npython = '3'\nzig = '0.14'\n"
+            } else {
+                "[tools]\nzig = '0.14'\n"
+            };
+            std::fs::write(repo.join("mise.toml"), primary).unwrap();
+            if secondary {
+                std::fs::write(repo.join(".mise.toml"), "[tools]\nzig = '0.15'\n").unwrap();
+            }
+            let report = mint::mint(
+                &repo,
+                &Canon::Baked,
+                &Options {
+                    offline: true,
+                    ..Options::default()
+                },
+            )
+            .unwrap();
+            assert!(
+                report
+                    .files
+                    .iter()
+                    .any(|(p, a)| p == "mise.toml" && matches!(a, Act::Replaced(_))),
+                "{:?}",
+                report.files
+            );
+            let text = std::fs::read_to_string(repo.join("mise.toml")).unwrap();
+            let config: toml::Table = toml::from_str(&text).unwrap();
+            let tools = config["tools"].as_table().unwrap();
+            assert!(!tools.contains_key("python"));
+            assert_eq!(
+                tools["zig"].as_str(),
+                Some(if secondary { "0.15" } else { "0.14" })
+            );
+            if secondary {
+                assert!(
+                    report
+                        .files
+                        .iter()
+                        .any(|(p, a)| p == ".mise.toml" && matches!(a, Act::Removed(_))),
+                    "{:?}",
+                    report.files
+                );
+                assert!(!repo.join(".mise.toml").exists());
+            }
+            std::fs::remove_dir_all(repo).unwrap();
+        }
+    }
+
+    #[test]
     fn offline_mint_keeps_custom_recipes_as_local_twins() {
         let canon = Canon::resolve(None).unwrap();
         let licence = concat!(env!("CARGO_MANIFEST_DIR"), "/../../LICENSES/MPL-2.0.txt");

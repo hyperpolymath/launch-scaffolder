@@ -215,16 +215,20 @@ pub fn mint(target: &Path, canon: &Canon, opts: &Options) -> Result<Report> {
     vars.insert("GUIX_SPECS", quoted_atoms(&guix_specs));
     vars.insert("GUIX_PKG_SPECS", quoted_atoms(&guix_specs));
 
-    // mise.toml: minted, but a banned tool or a second mise config is a replace
-    // condition. mise merges every config it finds and the higher-precedence
-    // file wins, so a minted mise.toml beside a .mise.toml pins nothing.
+    // mise.toml: banned tools are replaced, and tool-only configs can be folded.
+    // Other settings need a manual merge: the template only carries tools.
     let banned = lib.predicate(&["mise-banned"])?;
     let secondary: Vec<&str> = SECONDARY_MISE
         .into_iter()
         .filter(|f| target.join(f).is_file())
         .collect();
+    let fold_skip = if secondary.is_empty() {
+        None
+    } else {
+        mise_fold_skip_reason(target)?
+    };
     let (mut carried, mut notes) = (Vec::new(), Vec::new());
-    if banned.is_some() || !secondary.is_empty() {
+    if fold_skip.is_none() && (banned.is_some() || !secondary.is_empty()) {
         (carried, notes) = carry_over_tools(target, banned.as_deref().unwrap_or(""))?;
     }
     let (toml_lines, floor_notes) = mise_tools_toml(&mise_tools, &carried);
@@ -238,15 +242,20 @@ pub fn mint(target: &Path, canon: &Canon, opts: &Options) -> Result<Report> {
         reasons.push(format!("folded in {}", secondary.join(", ")));
     }
     reasons.extend(notes);
-    let replace_why = (banned.is_some() && target.join("mise.toml").exists()
-        || !secondary.is_empty())
+    let replace_why = (fold_skip.is_none()
+        && (banned.is_some() && target.join("mise.toml").exists() || !secondary.is_empty()))
     .then(|| reasons.join("; "));
-    let act = match &replace_why {
-        Some(why) => m.force("mise.toml", "mise.toml.tmpl", &vars, why)?,
+    let act = match (&fold_skip, &replace_why) {
+        (Some(why), _) => Act::Skipped(why.clone()),
+        (_, Some(why)) => m.force("mise.toml", "mise.toml.tmpl", &vars, why)?,
         _ => m.minted("mise.toml", "mise.toml.tmpl", &vars)?,
     };
     files.push(("mise.toml".into(), act));
     for f in &secondary {
+        if let Some(why) = &fold_skip {
+            files.push(((*f).to_string(), Act::Skipped(why.clone())));
+            continue;
+        }
         std::fs::remove_file(target.join(f)).with_context(|| format!("removing {f}"))?;
         files.push((
             (*f).to_string(),
@@ -655,6 +664,26 @@ fn toml_key(k: &str) -> String {
 }
 /// A `(tool, TOML value)` pin carried from an existing mise config.
 type Pin = (String, String);
+
+/// Folding through the tools-only template must not discard other settings.
+fn mise_fold_skip_reason(target: &Path) -> Result<Option<String>> {
+    for f in ["mise.toml", ".mise.toml"] {
+        let path = target.join(f);
+        if !path.is_file() {
+            continue;
+        }
+        let text = std::fs::read_to_string(&path)
+            .with_context(|| format!("reading {}", path.display()))?;
+        if toml::from_str::<toml::Table>(&text)
+            .is_ok_and(|table| table.keys().any(|key| key != "tools"))
+        {
+            return Ok(Some(format!(
+                "{f} has settings outside [tools]: fold the mise configs by hand"
+            )));
+        }
+    }
+    Ok(None)
+}
 
 /// The non-banned tools of every repository mise config, values as TOML, and a
 /// note per file that is not TOML at all: mise cannot read such a file either,

@@ -49,7 +49,8 @@ const MOD_LINE: &str = "mod provision 'build/just/provision.just'";
 /// most recipes is kept (`Justfile` on a tie); each other file's recipes that
 /// it lacks are appended to it, and a recipe both define keeps the kept file's
 /// body unless that body is a template placeholder or boilerplate and the
-/// other's is not. The other file is then removed. The result must
+/// other's is not. Sources with unmatched top-level content are retained for
+/// manual folding; successfully folded files are removed. The result must
 /// parse whenever the kept file parsed before, or it is restored, nothing is
 /// removed, and the fold is reported as skipped. Returns the kept file's name
 /// and one report line per other file.
@@ -69,6 +70,23 @@ pub fn fold(target: &Path, names: &[&str]) -> Result<(String, Vec<(String, Act)>
     let mut notes = Vec::new();
     for (i, n) in names.iter().enumerate().filter(|&(i, _)| i != keep) {
         let lines: Vec<&str> = texts[i].lines().collect();
+        // Recipes alone cannot preserve settings, variables, imports or aliases.
+        // Check the whole source before copying any recipes, even if `just`
+        // could not parse the kept file (or is unavailable).
+        if lines.iter().any(|l| {
+            !l.trim().is_empty()
+                && !l.starts_with([' ', '\t', '#'])
+                && header_name(l).is_none()
+                && !merged.lines().any(|have| have == *l)
+        }) {
+            notes.push((
+                (*n).to_string(),
+                Act::Skipped(format!(
+                    "top-level content is not in {kept}: fold {n} by hand"
+                )),
+            ));
+            continue;
+        }
         let (mut added, mut shadowed) = (Vec::new(), Vec::new());
         for (h, l) in lines.iter().enumerate() {
             let Some(r) = header_name(l) else { continue };
@@ -107,7 +125,7 @@ pub fn fold(target: &Path, names: &[&str]) -> Result<(String, Vec<(String, Act)>
                 shadowed.join(" ")
             ),
         };
-        notes.push(((*n).to_string(), why));
+        notes.push(((*n).to_string(), Act::Removed(why)));
     }
     let path = target.join(&kept);
     std::fs::write(&path, &merged).with_context(|| format!("writing {}", path.display()))?;
@@ -117,15 +135,20 @@ pub fn fold(target: &Path, names: &[&str]) -> Result<(String, Vec<(String, Act)>
             let why = format!("folding them into {kept} breaks it ({e}): fold them by hand");
             let skipped = notes
                 .into_iter()
-                .map(|(n, _)| (n, Act::Skipped(why.clone())))
+                .map(|(n, act)| match act {
+                    Act::Skipped(_) => (n, act),
+                    _ => (n, Act::Skipped(why.clone())),
+                })
                 .collect();
             return Ok((kept, skipped));
         }
     }
     let mut out = Vec::new();
-    for (n, why) in notes {
-        std::fs::remove_file(target.join(&n)).with_context(|| format!("removing {n}"))?;
-        out.push((n, Act::Removed(why)));
+    for (n, act) in notes {
+        if matches!(act, Act::Removed(_)) {
+            std::fs::remove_file(target.join(&n)).with_context(|| format!("removing {n}"))?;
+        }
+        out.push((n, act));
     }
     Ok((kept, out))
 }
@@ -586,6 +609,55 @@ mod tests {
         use super::*;
 
         /// Verify merging repairs boilerplate, preserves custom verbs, and is idempotent.
+        #[test]
+        fn folding_retains_unmatched_top_level_content_even_when_kept_file_is_broken() {
+            for kept in ["build:\n    echo b\ntest:\n    echo t\n", BROKEN] {
+                for directive in [
+                    "x := 'value'",
+                    "set dotenv-load",
+                    "alias check := lint",
+                    "import 'extra.just'",
+                    "mod extra 'extra.just'",
+                ] {
+                    let d = repo(kept);
+                    assert_eq!(summary(&d, "Justfile").is_err(), kept == BROKEN);
+                    // Put the directive after a recipe to catch partial folding.
+                    let source = format!("lint:\n    echo lint\n\n{directive}\n");
+                    std::fs::write(d.join("justfile"), &source).unwrap();
+                    let (_, acts) = fold(&d, &["Justfile", "justfile"]).unwrap();
+                    assert!(
+                        matches!(&acts[0].1, Act::Skipped(w) if w.contains("by hand")),
+                        "{directive}: {acts:?}"
+                    );
+                    assert_eq!(std::fs::read_to_string(d.join("justfile")).unwrap(), source);
+                    assert_eq!(std::fs::read_to_string(d.join("Justfile")).unwrap(), kept);
+                    std::fs::remove_dir_all(&d).unwrap();
+                }
+            }
+        }
+
+        #[test]
+        fn folding_removes_only_safe_sources_and_accepts_shared_directives() {
+            let d = repo("set dotenv-load\nbuild:\n    echo b\ntest:\n    echo t\n");
+            let unsafe_source = "set export\n";
+            std::fs::write(d.join("justfile"), unsafe_source).unwrap();
+            std::fs::write(
+                d.join(".justfile"),
+                "# Shared setting\nset dotenv-load\n\nlint:\n    echo lint\n",
+            )
+            .unwrap();
+            let (_, acts) = fold(&d, &["Justfile", "justfile", ".justfile"]).unwrap();
+            assert!(matches!(acts[0].1, Act::Skipped(_)), "{acts:?}");
+            assert!(matches!(acts[1].1, Act::Removed(_)), "{acts:?}");
+            assert_eq!(
+                std::fs::read_to_string(d.join("justfile")).unwrap(),
+                unsafe_source
+            );
+            assert!(!d.join(".justfile").exists());
+            assert_eq!(summary(&d, "Justfile").unwrap(), ["build", "lint", "test"]);
+            std::fs::remove_dir_all(&d).unwrap();
+        }
+
         #[test]
         fn boilerplate_is_replaced_and_a_broken_file_repaired() {
             let d = repo(BROKEN);
