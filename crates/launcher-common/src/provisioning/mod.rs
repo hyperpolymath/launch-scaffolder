@@ -8,3 +8,4 @@ pub mod check;
 pub mod justfile;
 pub mod licence;
 pub mod mint;
+pub mod readme;

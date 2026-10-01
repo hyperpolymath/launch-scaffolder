@@ -268,6 +268,12 @@ pub fn mint(target: &Path, canon: &Canon, opts: &Options) -> Result<Report> {
     };
     files.push(("launcher.sh".into(), act));
 
+    let readme = render(&canon_text(canon, "README-ai-install.adoc.tmpl")?, &vars);
+    files.push((
+        "README.adoc".into(),
+        super::readme::insert(target, &readme)?,
+    ));
+
     // Justfile: created whole when absent, otherwise merged (justfile.rs), which
     // `just --summary` must accept or the original is restored.
     let justfile = ["Justfile", "justfile", ".justfile"]
