@@ -230,5 +230,5 @@ mod tests {
         assert!(BAKED_CANON_REF.trim().starts_with("standards@"));
     }
 
-    const PINNED_DIGEST: &str = "5f7d2a0044486bf0946e2266b44d9ff7144d1b6991ccf5a326ee1c3220bf0c38";
+    const PINNED_DIGEST: &str = "f4337dd6d042fd028fde2f6c7d970edd223225ad29d033135dc3128065a50e83";
 }

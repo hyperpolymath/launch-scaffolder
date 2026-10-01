@@ -54,6 +54,17 @@ const DEED: &str = ".machine_readable/descriptiles/provisioning_praxis.deed";
 const LIB: &str = "build/just/provision-lib.sh";
 const WRAP: usize = 80;
 
+/// The repository mise configs, lowest precedence first: mise merges them and
+/// a later file's pin wins (measured with `mise ls --current`). These are the
+/// only mise config paths tracked anywhere in the estate's local clones
+/// (2026-10-01); `provision-lib.sh` `mise_toml_tools` reads the same three.
+const MISE_PRECEDENCE: [&str; 3] = [".tool-versions", "mise.toml", ".mise.toml"];
+/// The configs mint folds into `mise.toml` and removes.
+const SECONDARY_MISE: [&str; 2] = [".tool-versions", ".mise.toml"];
+/// Version floors for canon tools: a carried pin below one is raised to
+/// `latest`. Mirrors the deed's `:just-floor`; a test keeps the two equal.
+const TOOL_FLOORS: &[(&str, &str)] = &[("just", "1.42.0")];
+
 #[derive(Debug, Default, Clone)]
 pub struct Options {
     /// `owner/name`; default: the `origin` remote.
@@ -75,6 +86,9 @@ pub enum Act {
     Replaced(String),
     Kept(String),
     Skipped(String),
+    /// A secondary file the canon folds into another (`.mise.toml` and
+    /// `.tool-versions` into `mise.toml`, `justfile` into `Justfile`).
+    Removed(String),
     /// An external step (`mise lock`, `guix import crate`) did not produce a
     /// valid file: a ledger line, and the CLI exits [`EXIT_EXTERNAL`].
     Failed(String),
@@ -90,6 +104,7 @@ impl std::fmt::Display for Act {
             Act::Replaced(why) => write!(f, "replaced ({why})"),
             Act::Kept(why) => write!(f, "kept ({why})"),
             Act::Skipped(why) => write!(f, "skipped ({why})"),
+            Act::Removed(why) => write!(f, "removed ({why})"),
             Act::Failed(why) => write!(f, "FAILED ({why})"),
         }
     }
@@ -199,22 +214,44 @@ pub fn mint(target: &Path, canon: &Canon, opts: &Options) -> Result<Report> {
     vars.insert("GUIX_SPECS", quoted_atoms(&guix_specs));
     vars.insert("GUIX_PKG_SPECS", quoted_atoms(&guix_specs));
 
-    // mise.toml: minted, but a banned tool is a replace condition.
+    // mise.toml: minted, but a banned tool or a second mise config is a replace
+    // condition. mise merges every config it finds and the higher-precedence
+    // file wins, so a minted mise.toml beside a .mise.toml pins nothing.
     let banned = lib.predicate(&["mise-banned"])?;
-    let (mut carried, mut unread) = (Vec::new(), String::new());
-    if let Some(hits) = &banned {
-        (carried, unread) = carry_over_tools(target, hits)?;
+    let secondary: Vec<&str> = SECONDARY_MISE
+        .into_iter()
+        .filter(|f| target.join(f).is_file())
+        .collect();
+    let (mut carried, mut notes) = (Vec::new(), Vec::new());
+    if banned.is_some() || !secondary.is_empty() {
+        (carried, notes) = carry_over_tools(target, banned.as_deref().unwrap_or(""))?;
     }
-    vars.insert("MISE_TOOLS_TOML", mise_tools_toml(&mise_tools, &carried));
-    let replace_why = banned
-        .as_ref()
-        .filter(|_| target.join("mise.toml").exists())
-        .map(|hits| format!("pinned banned tool(s): {hits}{unread}"));
+    let (toml_lines, floor_notes) = mise_tools_toml(&mise_tools, &carried);
+    notes.extend(floor_notes);
+    vars.insert("MISE_TOOLS_TOML", toml_lines);
+    let mut reasons = Vec::new();
+    if let Some(hits) = &banned {
+        reasons.push(format!("pinned banned tool(s): {hits}"));
+    }
+    if !secondary.is_empty() {
+        reasons.push(format!("folded in {}", secondary.join(", ")));
+    }
+    reasons.extend(notes);
+    let replace_why = (banned.is_some() && target.join("mise.toml").exists()
+        || !secondary.is_empty())
+    .then(|| reasons.join("; "));
     let act = match &replace_why {
         Some(why) => m.force("mise.toml", "mise.toml.tmpl", &vars, why)?,
         _ => m.minted("mise.toml", "mise.toml.tmpl", &vars)?,
     };
     files.push(("mise.toml".into(), act));
+    for f in &secondary {
+        std::fs::remove_file(target.join(f)).with_context(|| format!("removing {f}"))?;
+        files.push((
+            (*f).to_string(),
+            Act::Removed("its tools were folded into mise.toml".into()),
+        ));
+    }
 
     // The Guix trio, beside whichever guix.scm the repository already keeps.
     let cargo = langs.iter().any(|l| l == "rust") && target.join("Cargo.toml").is_file();
@@ -290,11 +327,21 @@ pub fn mint(target: &Path, canon: &Canon, opts: &Options) -> Result<Report> {
     ));
 
     // Justfile: created whole when absent, otherwise merged (justfile.rs), which
-    // `just --summary` must accept or the original is restored.
-    let justfile = ["Justfile", "justfile", ".justfile"]
+    // `just --summary` must accept or the original is restored. Several
+    // justfiles are folded into one first: `just` refuses to pick between them.
+    let present: Vec<&str> = ["Justfile", "justfile", ".justfile"]
         .into_iter()
-        .find(|j| target.join(j).is_file());
-    let act = match justfile {
+        .filter(|j| target.join(j).is_file())
+        .collect();
+    let (justfile, folded) = match present.len() {
+        0 => (None, Vec::new()),
+        1 => (Some(present[0].to_string()), Vec::new()),
+        _ => {
+            let (kept, acts) = super::justfile::fold(target, &present)?;
+            (Some(kept), acts)
+        }
+    };
+    let act = match justfile.as_deref() {
         Some(j) => {
             super::justfile::merge(target, j, &canon_text(canon, "build/just/provision.just")?)?
         }
@@ -307,7 +354,8 @@ pub fn mint(target: &Path, canon: &Canon, opts: &Options) -> Result<Report> {
             write_file(target, "Justfile", body.as_bytes(), "")?
         }
     };
-    files.push((justfile.unwrap_or("Justfile").into(), act));
+    files.push((justfile.unwrap_or_else(|| "Justfile".into()), act));
+    files.extend(folded);
 
     // Last, because it reads the mise.toml written above.
     let act = if opts.offline {
@@ -324,7 +372,7 @@ pub fn mint(target: &Path, canon: &Canon, opts: &Options) -> Result<Report> {
                 // know, such as the 07-18 sweep's `gnu-sed`) would fail
                 // provision-check for ever: drop it, once, and say so.
                 carried.retain(|(k, _)| !dropped.contains(k));
-                vars.insert("MISE_TOOLS_TOML", mise_tools_toml(&mise_tools, &carried));
+                vars.insert("MISE_TOOLS_TOML", mise_tools_toml(&mise_tools, &carried).0);
                 let why = format!(
                     "{why}; dropped {} carried tool(s) mise cannot pin: {}",
                     dropped.len(),
@@ -532,14 +580,21 @@ fn or_none(s: String) -> String {
 }
 
 /// `[tools]` lines: the canon's tools, then the other entries carried over from
-/// a replaced `mise.toml`. A carried entry keeps its own value: the
-/// repository's pin of a tool the canon also lists is a decision, not drift.
-fn mise_tools_toml(tools: &[String], carried: &[(String, String)]) -> String {
-    let value = |t: &String| {
-        carried
-            .iter()
-            .find(|(k, _)| k == t)
-            .map_or_else(|| "\"latest\"".to_string(), |(_, v)| v.clone())
+/// a replaced `mise.toml`, plus one note per carried pin that was raised. A
+/// carried entry keeps its own value (the repository's pin of a tool the canon
+/// also lists is a decision, not drift) unless it is below a floor in
+/// [`TOOL_FLOORS`], which is raised to `latest`.
+fn mise_tools_toml(tools: &[String], carried: &[(String, String)]) -> (String, Vec<String>) {
+    let mut notes = Vec::new();
+    let mut value = |t: &String| match carried.iter().find(|(k, _)| k == t) {
+        None => "\"latest\"".to_string(),
+        Some((_, v)) => match below_floor(t, v) {
+            Some(floor) => {
+                notes.push(format!("raised {t} {v} to latest (floor {floor})"));
+                "\"latest\"".to_string()
+            }
+            None => v.clone(),
+        },
     };
     let mut lines: Vec<String> = tools
         .iter()
@@ -550,7 +605,26 @@ fn mise_tools_toml(tools: &[String], carried: &[(String, String)]) -> String {
             lines.push(format!("{} = {v}", toml_key(k)));
         }
     }
-    lines.join("\n")
+    (lines.join("\n"), notes)
+}
+
+/// The floor `tool`'s pin `value` (a TOML value) is below, if any. A prefix pin
+/// such as `"1"` is below only when no version it selects can meet the floor.
+fn below_floor(tool: &str, value: &str) -> Option<&'static str> {
+    let (_, floor) = TOOL_FLOORS.iter().find(|(t, _)| *t == tool)?;
+    let pin: Vec<u64> = value
+        .trim_matches('"')
+        .split('.')
+        .map(str::parse)
+        .collect::<Result<_, _>>()
+        .ok()?;
+    let want: Vec<u64> = floor.split('.').map(|p| p.parse().unwrap_or(0)).collect();
+    for (p, w) in pin.iter().zip(&want) {
+        if p != w {
+            return (p < w).then_some(*floor);
+        }
+    }
+    None
 }
 
 fn toml_key(k: &str) -> String {
@@ -562,32 +636,59 @@ fn toml_key(k: &str) -> String {
         format!("\"{}\"", k.replace('\\', "\\\\").replace('"', "\\\""))
     }
 }
+/// A `(tool, TOML value)` pin carried from an existing mise config.
+type Pin = (String, String);
 
-/// The non-banned `[tools]` entries of an existing `mise.toml`, values as TOML,
-/// and a note for the replace reason when the file is not TOML at all: mise
-/// cannot read such a file either, so nothing in it was in effect to carry.
-fn carry_over_tools(target: &Path, banned: &str) -> Result<(Vec<(String, String)>, String)> {
-    let text = std::fs::read_to_string(target.join("mise.toml"))?;
-    let table: toml::Table = match toml::from_str(&text) {
-        Ok(t) => t,
-        Err(e) => {
-            let why = e.message().trim().to_string();
-            return Ok((
-                Vec::new(),
-                format!("; it was not valid TOML ({why}), so no tool was carried over"),
-            ));
+/// The non-banned tools of every repository mise config, values as TOML, and a
+/// note per file that is not TOML at all: mise cannot read such a file either,
+/// so nothing in it was in effect to carry. Files are read lowest precedence
+/// first, so a later file's pin of the same tool replaces an earlier one, which
+/// is the pin `mise ls --current` reports as in effect.
+fn carry_over_tools(target: &Path, banned: &str) -> Result<(Vec<Pin>, Vec<String>)> {
+    let banned: Vec<&str> = banned.split_whitespace().collect();
+    let (mut out, mut notes): (Vec<(String, String)>, Vec<String>) = (Vec::new(), Vec::new());
+    let mut carry = |k: &str, v: String| {
+        if banned.contains(&k) {
+            return;
+        }
+        match out.iter_mut().find(|(o, _)| o == k) {
+            Some(slot) => slot.1 = v,
+            None => out.push((k.to_string(), v)),
         }
     };
-    let banned: Vec<&str> = banned.split_whitespace().collect();
-    let mut out = Vec::new();
-    if let Some(tools) = table.get("tools").and_then(|t| t.as_table()) {
-        for (k, v) in tools {
-            if !banned.contains(&k.as_str()) {
-                out.push((k.clone(), v.to_string()));
+    for f in MISE_PRECEDENCE {
+        let Ok(text) = std::fs::read_to_string(target.join(f)) else {
+            continue;
+        };
+        if f == ".tool-versions" {
+            // `tool version [fallback…]`: the first version is the one in effect.
+            for line in text.lines().map(str::trim) {
+                let mut w = line.split_whitespace();
+                if let (Some(k), Some(v)) = (w.next(), w.next()) {
+                    if !k.starts_with('#') {
+                        carry(k, toml::Value::String(v.to_string()).to_string());
+                    }
+                }
+            }
+            continue;
+        }
+        let table: toml::Table = match toml::from_str(&text) {
+            Ok(t) => t,
+            Err(e) => {
+                let why = e.message().trim().to_string();
+                notes.push(format!(
+                    "{f} was not valid TOML ({why}), so no tool was carried from it"
+                ));
+                continue;
+            }
+        };
+        if let Some(tools) = table.get("tools").and_then(|t| t.as_table()) {
+            for (k, v) in tools {
+                carry(k, v.to_string());
             }
         }
     }
-    Ok((out, String::new()))
+    Ok((out, notes))
 }
 
 /// One root delegation per contract verb the root Justfile does not define,
@@ -1080,7 +1181,7 @@ mod tests {
             ("cargo:cargo-nextest".to_string(), "\"latest\"".to_string()),
         ];
         assert_eq!(
-            mise_tools_toml(&tools, &carried),
+            mise_tools_toml(&tools, &carried).0,
             "just = \"latest\"\nrust = \"1.85\"\n\"cargo:cargo-nextest\" = \"latest\""
         );
     }
@@ -1097,8 +1198,119 @@ mod tests {
         std::fs::write(&mise, "[tools]\nbun = \"1\"\nbun = \"1\"\n").unwrap();
         let (carried, note) = carry_over_tools(&d, "python").unwrap();
         assert!(carried.is_empty());
-        assert!(note.contains("not valid TOML") && note.contains("duplicate key"));
+        assert!(
+            note.iter()
+                .any(|n| n.contains("not valid TOML") && n.contains("duplicate key"))
+        );
         std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    #[test]
+    fn carry_over_reads_every_config_and_the_winning_pin_wins() {
+        let d = std::env::temp_dir().join(format!("carry-prec-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        std::fs::write(
+            d.join(".tool-versions"),
+            "# pins\njust 1.30.0 1.29.0\nzig 0.13\npython 3.12\n",
+        )
+        .unwrap();
+        std::fs::write(d.join("mise.toml"), "[tools]\njust = \"1.40.0\"\n").unwrap();
+        std::fs::write(
+            d.join(".mise.toml"),
+            "[tools]\nrust = \"1.95.0\"\njust = \"1.43.0\"\n",
+        )
+        .unwrap();
+        let (carried, notes) = carry_over_tools(&d, "python").unwrap();
+        assert!(notes.is_empty(), "{notes:?}");
+        // .mise.toml beats mise.toml beats .tool-versions, as `mise ls --current` reports.
+        assert_eq!(
+            carried,
+            vec![
+                ("just".to_string(), "\"1.43.0\"".to_string()),
+                ("zig".to_string(), "\"0.13\"".to_string()),
+                ("rust".to_string(), "\"1.95.0\"".to_string()),
+            ]
+        );
+        std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    #[test]
+    fn a_carried_pin_below_a_floor_is_raised_and_said() {
+        let tools = vec!["just".to_string()];
+        for (pin, raised) in [
+            ("\"1.36.0\"", true),
+            ("\"1.41\"", true),
+            ("\"0.9\"", true),
+            ("\"1.42.0\"", false),
+            ("\"1.58.0\"", false),
+            ("\"2\"", false),
+            ("\"1\"", false), // a prefix that can select 1.42+
+            ("\"latest\"", false),
+        ] {
+            let carried = vec![("just".to_string(), pin.to_string())];
+            let (toml, notes) = mise_tools_toml(&tools, &carried);
+            let want = if raised {
+                "just = \"latest\"".to_string()
+            } else {
+                format!("just = {pin}")
+            };
+            assert_eq!(toml, want, "{pin}");
+            assert_eq!(notes.len(), usize::from(raised), "{pin}: {notes:?}");
+        }
+    }
+
+    #[test]
+    fn the_deeds_banned_lists_are_the_engines() {
+        let deed = include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../standards/provisioning/provisioning-standard_praxis.deed"
+        ));
+        let lib = include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../standards/provisioning/templates/build/just/provision-lib.sh"
+        ));
+        // The quoted words of a deed list, which may wrap over several lines.
+        let deed_list = |key: &str| -> Vec<String> {
+            let at = deed
+                .find(key)
+                .unwrap_or_else(|| panic!("deed has no {key}"));
+            let body = &deed[at..][..deed[at..].find(')').unwrap()];
+            let mut v: Vec<String> = body
+                .split('"')
+                .skip(1)
+                .step_by(2)
+                .map(String::from)
+                .collect();
+            v.sort();
+            v
+        };
+        let lib_list = |var: &str| -> Vec<String> {
+            let line = lib
+                .lines()
+                .find(|l| l.starts_with(&format!("{var}='")))
+                .unwrap();
+            let mut v: Vec<String> = line[var.len() + 2..line.len() - 1]
+                .split('|')
+                .map(String::from)
+                .collect();
+            v.sort();
+            v
+        };
+        assert_eq!(deed_list(":banned-tools "), lib_list("BANNED_TOOLS"));
+        assert_eq!(deed_list(":banned-backends "), lib_list("BANNED_BACKENDS"));
+    }
+
+    #[test]
+    fn the_just_floor_matches_the_canon_deed() {
+        let deed = include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../standards/provisioning/provisioning-standard_praxis.deed"
+        ));
+        let floor = TOOL_FLOORS.iter().find(|(t, _)| *t == "just").unwrap().1;
+        assert!(
+            deed.contains(&format!(":just-floor     \"{floor}\"")),
+            "deed and TOOL_FLOORS disagree"
+        );
     }
 
     #[test]

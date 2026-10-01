@@ -44,6 +44,92 @@ const LOCAL: &[&str] = &["setup", "doctor", "heal"];
 
 const MOD_LINE: &str = "mod provision 'build/just/provision.just'";
 
+/// Fold several justfiles in `target` into one, which `just` needs before it
+/// will run at all ("Multiple candidate justfiles found"). The file with the
+/// most recipes is kept (`Justfile` on a tie); each other file's recipes that
+/// it lacks are appended to it, and a recipe both define keeps the kept file's
+/// body unless that body is a template placeholder or boilerplate and the
+/// other's is not. The other file is then removed. The result must
+/// parse whenever the kept file parsed before, or it is restored, nothing is
+/// removed, and the fold is reported as skipped. Returns the kept file's name
+/// and one report line per other file.
+pub fn fold(target: &Path, names: &[&str]) -> Result<(String, Vec<(String, Act)>)> {
+    let mut texts = Vec::new();
+    for n in names {
+        let p = target.join(n);
+        texts
+            .push(std::fs::read_to_string(&p).with_context(|| format!("reading {}", p.display()))?);
+    }
+    let keep = (0..names.len())
+        .max_by_key(|&i| (recipe_names(&texts[i]).len(), names[i] == "Justfile"))
+        .unwrap_or(0);
+    let kept = names[keep].to_string();
+    let parsed_before = summary(target, &kept).is_ok();
+    let mut merged = texts[keep].clone();
+    let mut notes = Vec::new();
+    for (i, n) in names.iter().enumerate().filter(|&(i, _)| i != keep) {
+        let lines: Vec<&str> = texts[i].lines().collect();
+        let (mut added, mut shadowed) = (Vec::new(), Vec::new());
+        for (h, l) in lines.iter().enumerate() {
+            let Some(r) = header_name(l) else { continue };
+            let have: Vec<&str> = merged.lines().collect();
+            let (s, _, e) = span_at(&lines, h);
+            if let Some((hs, _, he)) = span(&have, r) {
+                // A template placeholder never beats the repository's own body.
+                let stub = |b: &str| PLACEHOLDER.iter().chain(BOILERPLATE).any(|m| b.contains(m));
+                let theirs = lines[s..e].join("\n");
+                if stub(&have[hs..he].join("\n")) && !stub(&theirs) {
+                    let mut out: Vec<&str> = have[..hs].to_vec();
+                    out.extend(theirs.lines());
+                    out.extend(&have[he..]);
+                    merged = out.join("\n") + "\n";
+                    added.push(r.to_string());
+                } else {
+                    shadowed.push(r.to_string());
+                }
+                continue;
+            }
+            if !merged.ends_with('\n') {
+                merged.push('\n');
+            }
+            merged.push('\n');
+            merged.push_str(&lines[s..e].join("\n"));
+            merged.push('\n');
+            added.push(r.to_string());
+        }
+        let why = match (added.is_empty(), shadowed.is_empty()) {
+            (true, true) => format!("no recipes; {kept} is the one `just` runs"),
+            (true, false) => format!("every recipe is already in {kept}: {}", shadowed.join(" ")),
+            (false, true) => format!("folded into {kept}: {}", added.join(" ")),
+            (false, false) => format!(
+                "folded into {kept}: {}; {kept}'s own kept for: {}",
+                added.join(" "),
+                shadowed.join(" ")
+            ),
+        };
+        notes.push(((*n).to_string(), why));
+    }
+    let path = target.join(&kept);
+    std::fs::write(&path, &merged).with_context(|| format!("writing {}", path.display()))?;
+    if parsed_before {
+        if let Err(e) = summary(target, &kept) {
+            std::fs::write(&path, &texts[keep])?;
+            let why = format!("folding them into {kept} breaks it ({e}): fold them by hand");
+            let skipped = notes
+                .into_iter()
+                .map(|(n, _)| (n, Act::Skipped(why.clone())))
+                .collect();
+            return Ok((kept, skipped));
+        }
+    }
+    let mut out = Vec::new();
+    for (n, why) in notes {
+        std::fs::remove_file(target.join(&n)).with_context(|| format!("removing {n}"))?;
+        out.push((n, Act::Removed(why)));
+    }
+    Ok((kept, out))
+}
+
 /// Merge into `target/name`. `provision_just` is the canon module's text.
 pub fn merge(target: &Path, name: &str, provision_just: &str) -> Result<Act> {
     let path = target.join(name);
@@ -569,5 +655,89 @@ mod tests {
             ));
             assert_eq!(std::fs::read_to_string(d.join("Justfile")).unwrap(), src);
         }
+    }
+
+    #[test]
+    fn identical_justfiles_fold_to_one_and_the_copy_is_removed() {
+        let src = "# Build\nbuild:\n    echo b\n";
+        let d = repo(src);
+        std::fs::write(d.join("justfile"), src).unwrap();
+        let (kept, acts) = fold(&d, &["Justfile", "justfile"]).unwrap();
+        assert_eq!(kept, "Justfile");
+        assert_eq!(acts.len(), 1);
+        assert!(
+            matches!(&acts[0].1, Act::Removed(w) if w.contains("already in Justfile")),
+            "{acts:?}"
+        );
+        assert!(!d.join("justfile").exists());
+        assert_eq!(std::fs::read_to_string(d.join("Justfile")).unwrap(), src);
+        std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    #[test]
+    fn a_real_body_replaces_a_template_placeholder_of_the_same_name() {
+        // The kept file is the bigger, unedited RSR template; the other file holds
+        // the recipe the author actually wrote.
+        let d = repo(
+            "# Build\nbuild:\n    # TODO: Replace with your build command\n    @echo built\n\nci:\n    echo ci\n\ndocs:\n    echo d\n",
+        );
+        std::fs::write(d.join("justfile"), "build:\n    cargo build --release\n").unwrap();
+        let (kept, acts) = fold(&d, &["Justfile", "justfile"]).unwrap();
+        assert_eq!(kept, "Justfile");
+        let text = std::fs::read_to_string(d.join("Justfile")).unwrap();
+        assert!(
+            text.contains("cargo build --release") && !text.contains("TODO"),
+            "{text}"
+        );
+        assert!(
+            matches!(&acts[0].1, Act::Removed(w) if w.starts_with("folded into Justfile: build")),
+            "{acts:?}"
+        );
+        assert_eq!(summary(&d, "Justfile").unwrap(), ["build", "ci", "docs"]);
+        std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    #[test]
+    fn the_richer_justfile_is_kept_and_the_others_recipes_join_it() {
+        // action-trust-layers' shape: the real recipes are in the lowercase file.
+        let d = repo("# Help\nhelp:\n    echo h\n");
+        std::fs::write(
+            d.join("justfile"),
+            "# Build\nbuild:\n    cargo build\n\n# Test\ntest:\n    cargo test\n\nhelp:\n    echo other\n",
+        )
+        .unwrap();
+        let (kept, acts) = fold(&d, &["Justfile", "justfile"]).unwrap();
+        assert_eq!(kept, "justfile");
+        let text = std::fs::read_to_string(d.join("justfile")).unwrap();
+        assert_eq!(text.matches("help:").count(), 1, "{text}");
+        assert!(
+            text.contains("cargo build") && text.contains("echo other"),
+            "{text}"
+        );
+        assert!(!d.join("Justfile").exists());
+        assert!(
+            matches!(&acts[0].1, Act::Removed(w) if w.contains("help")),
+            "{acts:?}"
+        );
+        assert_eq!(summary(&d, "justfile").unwrap(), ["build", "help", "test"]);
+        std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    #[test]
+    fn a_fold_that_would_break_the_kept_file_is_undone() {
+        // `x` is a variable in the kept file; appending a recipe that reassigns it
+        // is a parse error, so nothing may be removed.
+        let kept = "x := \"1\"\n\nbuild:\n    echo {{x}}\n\ntest:\n    echo t\n";
+        let d = repo(kept);
+        std::fs::write(d.join(".justfile"), "lint:\n    echo {{y}}\n").unwrap();
+        let (k, acts) = fold(&d, &["Justfile", ".justfile"]).unwrap();
+        assert_eq!(k, "Justfile");
+        assert!(
+            matches!(&acts[0].1, Act::Skipped(w) if w.contains("by hand")),
+            "{acts:?}"
+        );
+        assert!(d.join(".justfile").exists());
+        assert_eq!(std::fs::read_to_string(d.join("Justfile")).unwrap(), kept);
+        std::fs::remove_dir_all(&d).unwrap();
     }
 }

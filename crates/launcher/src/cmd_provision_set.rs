@@ -115,6 +115,7 @@ pub fn run(args: Args) -> Result<()> {
                             Act::Replaced(_) => "replace",
                             Act::Kept(_) => "keep",
                             Act::Skipped(_) => "SKIP",
+                            Act::Removed(_) => "remove",
                             Act::Failed(_) => "FAIL",
                         };
                         println!("  {tag:<8} {path}: {act}");
