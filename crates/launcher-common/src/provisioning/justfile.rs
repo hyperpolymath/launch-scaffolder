@@ -10,6 +10,9 @@
 //!   "Running diagnostics for" family) is removed: the canon verb does that job
 //!   properly. A custom one is renamed `doctor-local` / `setup-local` /
 //!   `heal-local`, which the canon verb runs.
+//! * Any other contract verb whose body is the unedited RSR template's
+//!   placeholder (`# TODO: Replace with your ...`) is removed, so the canon
+//!   verb runs instead of a fake pass.
 //!
 //! `just` itself is the judge of the result: the merge is kept only when
 //! `just --summary` afterwards lists every contract verb and every recipe the
@@ -29,6 +32,12 @@ pub const BOILERPLATE: &[&str] = &[
     "Attempting auto-repair for",
     "Heal — Automatic Tool Installation",
 ];
+
+/// Text found only in the unedited RSR template's recipe bodies: a contract
+/// verb carrying it (`test:` ... `# TODO: Replace with your test command` ...
+/// `@echo "Tests passed!"`) is a placeholder that would shadow the canon verb
+/// with a fake pass, not the repository's own override.
+pub const PLACEHOLDER: &[&str] = &["# TODO: Replace with your"];
 
 /// The verbs a repository may already implement in its own way.
 const LOCAL: &[&str] = &["setup", "doctor", "heal"];
@@ -74,6 +83,17 @@ pub fn merge(target: &Path, name: &str, provision_just: &str) -> Result<Act> {
             }
             renames.push((header, verb));
             renamed.push(*verb);
+        }
+    }
+
+    for verb in VERBS.iter().filter(|v| !LOCAL.contains(v)) {
+        let Some((start, header, end)) = span(&lines, verb) else {
+            continue;
+        };
+        let body = lines[header..end].join("\n");
+        if PLACEHOLDER.iter().any(|m| body.contains(m)) {
+            drop[start..end].iter_mut().for_each(|d| *d = true);
+            replaced.push(*verb);
         }
     }
 
@@ -451,76 +471,103 @@ mod tests {
 
     const BROKEN: &str = "# Build\nbuild:\n    cargo build\n\n# Self-diagnostic\ndoctor:\n    #!/usr/bin/env bash\n    echo \"Running diagnostics for x\"\nif command -v y >/dev/null; then\n    echo ok\nfi\n\n# Help\nhelp-me:\n    #!/usr/bin/env bash\n    echo \"\"\necho \"FIRST TIME SETUP:\"\n";
 
-    #[test]
-    #[ignore = "needs just >= 1.42 on PATH"]
-    fn boilerplate_is_replaced_and_a_broken_file_repaired() {
-        let d = repo(BROKEN);
-        assert!(
-            summary(&d, "Justfile").is_err(),
-            "the control must not parse"
-        );
-        let act = merge(&d, "Justfile", &provision_just()).unwrap();
-        assert!(matches!(act, Act::Replaced(_)), "{act}");
-        let after = summary(&d, "Justfile").unwrap();
-        for v in VERBS {
-            assert!(after.iter().any(|r| r == v), "{v} missing");
+    /// The merge tests run `just --summary`, so need `just` >= 1.42 on PATH.
+    /// rust-ci skips this module by name; launcher-artefacts runs and counts it.
+    mod needs_just {
+        use super::*;
+
+        #[test]
+        fn boilerplate_is_replaced_and_a_broken_file_repaired() {
+            let d = repo(BROKEN);
+            assert!(
+                summary(&d, "Justfile").is_err(),
+                "the control must not parse"
+            );
+            let act = merge(&d, "Justfile", &provision_just()).unwrap();
+            assert!(matches!(act, Act::Replaced(_)), "{act}");
+            let after = summary(&d, "Justfile").unwrap();
+            for v in VERBS {
+                assert!(after.iter().any(|r| r == v), "{v} missing");
+            }
+            assert!(after.iter().any(|r| r == "help-me") && after.iter().any(|r| r == "build"));
+            let text = std::fs::read_to_string(d.join("Justfile")).unwrap();
+            assert!(!text.contains("Running diagnostics for"));
+            assert!(text.contains("    echo \"FIRST TIME SETUP:\""));
+            assert_eq!(
+                merge(&d, "Justfile", &provision_just()).unwrap(),
+                Act::Kept("already merged".into())
+            );
         }
-        assert!(after.iter().any(|r| r == "help-me") && after.iter().any(|r| r == "build"));
-        let text = std::fs::read_to_string(d.join("Justfile")).unwrap();
-        assert!(!text.contains("Running diagnostics for"));
-        assert!(text.contains("    echo \"FIRST TIME SETUP:\""));
-        assert_eq!(
-            merge(&d, "Justfile", &provision_just()).unwrap(),
-            Act::Kept("already merged".into())
-        );
-    }
 
-    #[test]
-    #[ignore = "needs just >= 1.42 on PATH"]
-    fn a_custom_doctor_becomes_doctor_local() {
-        let d = repo("doctor:\n    @echo mine\n");
-        merge(&d, "Justfile", &provision_just()).unwrap();
-        let after = summary(&d, "Justfile").unwrap();
-        assert!(after.iter().any(|r| r == "doctor-local") && after.iter().any(|r| r == "doctor"));
-        let clash = repo("doctor:\n    @echo a\ndoctor-local:\n    @echo b\n");
-        assert!(matches!(
-            merge(&clash, "Justfile", &provision_just()).unwrap(),
-            Act::Skipped(_)
-        ));
-    }
+        #[test]
+        fn a_custom_doctor_becomes_doctor_local() {
+            let d = repo("doctor:\n    @echo mine\n");
+            merge(&d, "Justfile", &provision_just()).unwrap();
+            let after = summary(&d, "Justfile").unwrap();
+            assert!(
+                after.iter().any(|r| r == "doctor-local") && after.iter().any(|r| r == "doctor")
+            );
+            let clash = repo("doctor:\n    @echo a\ndoctor-local:\n    @echo b\n");
+            assert!(matches!(
+                merge(&clash, "Justfile", &provision_just()).unwrap(),
+                Act::Skipped(_)
+            ));
+        }
 
-    #[test]
-    #[ignore = "needs just >= 1.42 on PATH"]
-    fn sweep_damage_is_repaired_and_a_provision_recipe_refused() {
-        let src = "// SPDX-License-Identifier: MPL-2.0\n\nguix-shell:\n    guix shell -D -f guix.scm\n\n# fallback\nguix-shell:\n    @if [ -f \"flake.guix\" ]; then guix develop; fi\n";
-        let d = repo(src);
-        assert!(
-            summary(&d, "Justfile").is_err(),
-            "the control must not parse"
-        );
-        assert!(matches!(
-            merge(&d, "Justfile", &provision_just()).unwrap(),
-            Act::Replaced(_)
-        ));
-        let text = std::fs::read_to_string(d.join("Justfile")).unwrap();
-        assert!(text.starts_with("# SPDX") && !text.contains("flake.guix"));
-        assert!(text.contains("guix shell -D -f guix.scm"));
-        let clash = repo("provision:\n    @echo mine\n");
-        assert!(matches!(
-            merge(&clash, "Justfile", &provision_just()).unwrap(),
-            Act::Skipped(_)
-        ));
-    }
+        #[test]
+        fn a_template_placeholder_verb_is_replaced_and_a_real_one_kept() {
+            let d = repo(
+                "test *args:\n    @echo \"Running tests...\"\n    # TODO: Replace with your test command\n    @echo \"Tests passed!\"\n\nbench:\n    cargo bench\n",
+            );
+            let act = merge(&d, "Justfile", &provision_just()).unwrap();
+            assert!(
+                matches!(act, Act::Replaced(ref w) if w.contains("test")),
+                "{act}"
+            );
+            let text = std::fs::read_to_string(d.join("Justfile")).unwrap();
+            assert!(!text.contains("Tests passed!"), "the placeholder must go");
+            assert!(
+                text.contains("test: provision::test"),
+                "the canon verb must take over"
+            );
+            assert!(
+                text.contains("    cargo bench"),
+                "a real override must stay"
+            );
+            assert!(!text.contains("bench: provision::bench"));
+        }
 
-    #[test]
-    #[ignore = "needs just >= 1.42 on PATH"]
-    fn an_unrepairable_file_is_left_byte_identical() {
-        let src = "build:\n    cargo build\nthis is not just syntax\n";
-        let d = repo(src);
-        assert!(matches!(
-            merge(&d, "Justfile", &provision_just()).unwrap(),
-            Act::Skipped(_)
-        ));
-        assert_eq!(std::fs::read_to_string(d.join("Justfile")).unwrap(), src);
+        #[test]
+        fn sweep_damage_is_repaired_and_a_provision_recipe_refused() {
+            let src = "// SPDX-License-Identifier: MPL-2.0\n\nguix-shell:\n    guix shell -D -f guix.scm\n\n# fallback\nguix-shell:\n    @if [ -f \"flake.guix\" ]; then guix develop; fi\n";
+            let d = repo(src);
+            assert!(
+                summary(&d, "Justfile").is_err(),
+                "the control must not parse"
+            );
+            assert!(matches!(
+                merge(&d, "Justfile", &provision_just()).unwrap(),
+                Act::Replaced(_)
+            ));
+            let text = std::fs::read_to_string(d.join("Justfile")).unwrap();
+            assert!(text.starts_with("# SPDX") && !text.contains("flake.guix"));
+            assert!(text.contains("guix shell -D -f guix.scm"));
+            let clash = repo("provision:\n    @echo mine\n");
+            assert!(matches!(
+                merge(&clash, "Justfile", &provision_just()).unwrap(),
+                Act::Skipped(_)
+            ));
+        }
+
+        #[test]
+        fn an_unrepairable_file_is_left_byte_identical() {
+            let src = "build:\n    cargo build\nthis is not just syntax\n";
+            let d = repo(src);
+            assert!(matches!(
+                merge(&d, "Justfile", &provision_just()).unwrap(),
+                Act::Skipped(_)
+            ));
+            assert_eq!(std::fs::read_to_string(d.join("Justfile")).unwrap(), src);
+        }
     }
 }
