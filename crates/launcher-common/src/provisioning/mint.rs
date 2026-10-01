@@ -1027,7 +1027,11 @@ fn mise_lock(lib: &Lib) -> Result<Act> {
         .output()
     {
         Ok(o) => o,
-        Err(e) => return Ok(Act::Failed(format!("cannot run `timeout 600 mise lock`: {e}"))),
+        Err(e) => {
+            return Ok(Act::Failed(format!(
+                "cannot run `timeout 600 mise lock`: {e}"
+            )));
+        }
     };
     Ok(match lib.predicate(&["mise-lock-gaps"])? {
         None if existed => Act::Replaced("re-locked: the old lock had gaps".into()),
