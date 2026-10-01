@@ -20,7 +20,9 @@ use std::path::{Path, PathBuf};
 /// Environment override for the canon directory.
 pub const CANON_ENV: &str = "LAUNCH_SCAFFOLDER_PROVISIONING_CANON";
 
-/// `standards@<sha>` the baked table was vendored from.
+/// Upstream `standards@<sha>` provenance of the baked table.
+/// The `+local-docstrings` suffix records local shell function documentation;
+/// the content digest below pins the complete snapshot, including those comments.
 pub const BAKED_CANON_REF: &str = include_str!("../../../../standards/provisioning/CANON");
 
 /// Engine files: copied byte-for-byte, owned by realign, and byte-compared by
@@ -239,5 +241,5 @@ mod tests {
         assert!(BAKED_CANON_REF.trim().starts_with("standards@"));
     }
 
-    const PINNED_DIGEST: &str = "f4337dd6d042fd028fde2f6c7d970edd223225ad29d033135dc3128065a50e83";
+    const PINNED_DIGEST: &str = "4df3133905d404d16aeec943fd8be37b601c6037988eb69dc0184ac3167d3dcf";
 }

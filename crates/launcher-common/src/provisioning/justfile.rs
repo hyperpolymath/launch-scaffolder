@@ -620,7 +620,7 @@ mod tests {
     mod needs_just {
         use super::*;
 
-        /// Verify merging repairs boilerplate, preserves custom verbs, and is idempotent.
+        /// Verify folding retains unmatched top-level content even when the kept file cannot parse.
         #[test]
         fn folding_retains_unmatched_top_level_content_even_when_kept_file_is_broken() {
             for kept in ["build:\n    echo b\ntest:\n    echo t\n", BROKEN] {
@@ -648,6 +648,7 @@ mod tests {
             }
         }
 
+        /// Verify folding removes sources with shared directives but retains unmatched settings.
         #[test]
         fn folding_removes_only_safe_sources_and_accepts_shared_directives() {
             let d = repo("set dotenv-load\nbuild:\n    echo b\ntest:\n    echo t\n");
@@ -670,6 +671,7 @@ mod tests {
             std::fs::remove_dir_all(&d).unwrap();
         }
 
+        /// Verify merging repairs boilerplate, preserves custom verbs, and is idempotent.
         #[test]
         fn boilerplate_is_replaced_and_a_broken_file_repaired() {
             let d = repo(BROKEN);

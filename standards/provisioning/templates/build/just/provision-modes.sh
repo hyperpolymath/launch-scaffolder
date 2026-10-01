@@ -21,12 +21,14 @@
 
 HP_PROVISION_MODES_VERSION="0.6.0"
 
+# Print deed field $1, or default $2 when the field or deed is absent.
 hp__deed() { # $1 key, $2 default — flat (key "value") read from provisioning_praxis.deed
   local f="$REPO_DIR/.machine_readable/descriptiles/provisioning_praxis.deed" v=""
   [ -f "$f" ] && v=$(grep -oE "[(:]$1[[:space:]]+\"[^\"]*\"" "$f" | head -1 | sed -E 's/^[^"]*"//; s/"$//')
   printf '%s' "${v:-$2}"
 }
 
+# Print the declared archetype, defaulting to library.
 hp_archetype() { hp__deed archetype "library"; }
 # Without a deed, the origin remote names the repo (a worktree or renamed clone
 # has another directory name); the directory is the last resort.
@@ -36,6 +38,7 @@ hp_app_name()  {
   hp__deed name "${u:-$(basename "$REPO_DIR")}"
 }
 
+# Map the host kernel name to linux, macos, windows or unknown.
 hp_platform() {
   case "$(uname -s)" in
     Linux*)                          echo linux ;;
@@ -68,6 +71,7 @@ EOF
   return 1
 }
 
+# Ensure just is available and run its arguments from REPO_DIR, forwarding the status.
 hp_just() { hp_ensure_just || return 1; (cd "$REPO_DIR" && just "$@"); }
 # The provisioning modes call the engine directly, not a `just` recipe: a repo may
 # define its own root `doctor`/`setup`/`heal`, and the launcher must still run the
@@ -84,6 +88,7 @@ hp_provision_or_return() {
   exit "$rc"
 }
 
+# Run a recognised provisioning mode; return 99 when $1 belongs to another mode family.
 hp_provision_dispatch() {
   case "${1:-}" in
     --setup)    hp_lib setup ;;
@@ -94,6 +99,7 @@ hp_provision_dispatch() {
   esac
 }
 
+# Print the launcher name, version, commit and platform, using fallbacks for missing metadata.
 hp_version_line() {
   local sha ver
   sha=$(git -C "$REPO_DIR" rev-parse --short HEAD 2>/dev/null || echo unknown)
@@ -102,6 +108,7 @@ hp_version_line() {
   printf '%s-launcher %s (%s) [%s-%s]\n' "$(hp_app_name)" "${ver#v}" "$sha" "$(hp_platform)" "$(uname -m)"
 }
 
+# Print launcher usage and the runtime modes appropriate to the declared archetype.
 hp_help() {
   local name arch; name=$(hp_app_name); arch=$(hp_archetype)
   cat <<EOF

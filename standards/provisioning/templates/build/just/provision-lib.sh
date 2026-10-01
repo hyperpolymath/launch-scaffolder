@@ -35,11 +35,17 @@ T="timeout 15"      # some --version probes hang (observed 2026-09-30); never pr
 
 if [ -t 1 ]; then R=$'\033[31m'; G=$'\033[32m'; Y=$'\033[33m'; B=$'\033[34m'; Z=$'\033[0m'; else R=; G=; Y=; B=; Z=; fi
 PASS=0; WARN=0; FAIL=0
+# Increment the PASS tally and print the supplied diagnostic.
 pass() { PASS=$((PASS+1)); printf '  %sPASS%s  %s\n' "$G" "$Z" "$*"; }
+# Increment the WARN tally and print the supplied diagnostic.
 warn() { WARN=$((WARN+1)); printf '  %sWARN%s  %s\n' "$Y" "$Z" "$*"; }
+# Increment the FAIL tally and print the supplied diagnostic.
 fail() { FAIL=$((FAIL+1)); printf '  %sFAIL%s  %s\n' "$R" "$Z" "$*"; }
+# Print an informational diagnostic without changing the tallies.
 info() { printf '  %sinfo%s  %s\n' "$B" "$Z" "$*"; }
+# Print the supplied text as a diagnostic section heading.
 hdr()  { printf '\n%s== %s ==%s\n' "$B" "$*" "$Z"; }
+# Return success when the command named by $1 is available.
 have() { command -v "$1" >/dev/null 2>&1; }
 
 # Where this repository keeps each part of the set. A file sits at the root only
@@ -49,6 +55,7 @@ have() { command -v "$1" >/dev/null 2>&1; }
 # This is the ONE answer: provision-check.sh asks it through `guix-dir` and
 # `set-files` rather than keeping its own copy.
 guix_dir()   { if [ -f build/guix.scm ]; then echo build; else echo .; fi; }
+# Print the first existing warm-up directory, falling back to the repository root.
 warmup_dir() {
   local d
   for d in . docs/onboarding docs; do
@@ -56,8 +63,11 @@ warmup_dir() {
   done
   echo .
 }
+# Print the path to Guix file $1 in the repository-selected Guix directory.
 gpath() { local d; d=$(guix_dir); [ "$d" = . ] && echo "$1" || echo "$d/$1"; }
+# Print the warm-up path for audience $1 in the selected warm-up directory.
 wpath() { local d; d=$(warmup_dir); [ "$d" = . ] && echo "llm-warmup-$1.adoc" || echo "$d/llm-warmup-$1.adoc"; }
+# List the provisioning-owned paths inspected for unfilled template slots.
 set_files() {
   printf '%s\n' launcher.sh Justfile justfile mise.toml \
     "$(gpath guix.scm)" "$(gpath manifest.scm)" "$(gpath channels.scm)" \
@@ -73,6 +83,7 @@ deed() { # $1 key, $2 default
   [ -z "$v" ] && v=$(grep -oE ":$1[[:space:]]+\"[^\"]*\"" "$DEED" 2>/dev/null | head -1 | sed -E 's/^[^"]*"//; s/"$//')
   printf '%s' "${v:-$2}"
 }
+# Derive the repository slug from origin, falling back to hyperpolymath/<directory>.
 repo_slug() {
   local u; u=$(git config --get remote.origin.url 2>/dev/null || true)
   u=${u%.git}; u=${u#*github.com[:/]}
@@ -89,6 +100,7 @@ ARCHETYPE="$(deed archetype "")"
 # 74 repos have their only build.zig at that depth, measured 2026-09-30).
 # Order matters only for display. `docs` is reported when nothing else is.
 first() { find . -maxdepth "${2:-2}" -not -path './.git/*' -not -path '*/node_modules/*' -not -path './target/*' -name "$1" -print -quit 2>/dev/null; }
+# Print languages found through project markers, or docs when none are detected.
 detect_langs() {
   local out=()
   [ -n "$(first Cargo.toml)" ]          && out+=(rust)
@@ -128,6 +140,7 @@ lang_tools() {
 # docker.io/metacall/guix). Guix has NO idris2, gleam, bun or lychee, and its
 # julia is 1.8.5: those come from mise, which Guix itself ships ("mise").
 GUIX_BASE="git bash coreutils nss-certs just mise shellcheck"
+# Print the Guix package specifications needed for language $1.
 lang_guix() {
   case "$1" in
     rust)    echo "rust rust:cargo gcc-toolchain pkg-config" ;;
@@ -147,6 +160,7 @@ lang_guix_gap() {
     idris2) echo "idris2 (via pack)" ;; julia) echo julia ;; gleam) echo gleam ;; bun) echo bun ;; docs) echo lychee ;;
   esac
 }
+# Print deduplicated base and language-specific Guix package specifications.
 guix_specs() {
   local l s=" $GUIX_BASE "
   for l in "${LANGS[@]}"; do for p in $(lang_guix "$l"); do case "$s" in *" $p "*) ;; *) s="$s$p ";; esac; done; done
@@ -159,10 +173,12 @@ guix_specs() {
 MISE_BASE="just shellcheck"
 # Tools a repo's own recipes call (e.g. `deps-audit` runs trivy): pinned only where used.
 RECIPE_TOOLS="trivy"
+# Print the mise tools available for language $1; unsupported languages emit nothing.
 lang_mise() { case "$1" in
     rust) echo "rust" ;; zig) echo "zig" ;; julia) echo "julia" ;;
     elixir) echo "erlang elixir" ;; gleam) echo "erlang gleam" ;; ocaml) echo "opam" ;;
     bun) echo "bun" ;; docs) echo "lychee" ;; esac; }
+# Print known optional tools referenced by uncommented Justfile recipe text.
 recipe_tools() {
   local t f body=""
   for f in Justfile justfile build/just/*.just; do
@@ -173,6 +189,7 @@ recipe_tools() {
   done
 }
 
+# Print deduplicated mise tools required by the base, languages and recipes.
 mise_tools() {
   local l t seen=" " out=()
   for t in $MISE_BASE $(for l in "${LANGS[@]}"; do lang_mise "$l"; done) $(recipe_tools); do
@@ -181,6 +198,7 @@ mise_tools() {
   printf "%s\n" "${out[*]}"
 }
 
+# Print installation guidance for the toolchain of language $1.
 lang_remedy() {
   case "$1" in
     rust)    echo "mise use rust@latest  (or rustup: https://rustup.rs)" ;;
@@ -312,6 +330,7 @@ lang_run() { # $1 verb
 # CI all see the same result.
 has_recipe() { have just && just --summary 2>/dev/null | tr " " "\n" | grep -qx "$1"; }
 
+# Return success when version $1 sorts at or above version $2 with sort -V.
 version_ge() { [ "$(printf '%s\n%s\n' "$2" "$1" | sort -V | head -1)" = "$2" ]; }
 
 # Tools that must never appear in a repo's toolchain (estate language policy).
@@ -433,11 +452,13 @@ lang_sysdeps() { case "$1" in
   ocaml)   echo "gcc make patch unzip bubblewrap|build-essential patch unzip bubblewrap|xcode-select --install|opam compiles OCaml and sandboxes its builds with bubblewrap" ;;
   haskell) echo "gcc gcc-c++ gmp-devel make ncurses-devel xz perl|build-essential curl libffi-dev libgmp-dev libncurses-dev|xcode-select --install|ghcup installs GHC, which links through the C toolchain and GMP" ;;
 esac; }
+# Print tools needed outside Guix for detected languages, or none.
 guix_gaps() {
   local l g gaps=""
   for l in "${LANGS[@]}"; do g=$(lang_guix_gap "$l"); [ -n "$g" ] && gaps="$gaps${gaps:+, }$g"; done
   printf '%s\n' "${gaps:-none}"
 }
+# Print AsciiDoc table rows describing language and recipe tools and installation routes.
 tool_table() {
   local l t base
   for l in "${LANGS[@]}"; do
@@ -586,6 +607,7 @@ cmd_doctor() {
   return 0
 }
 
+# Install tools and dependencies, run local setup hooks, and fail if setup or doctor fails.
 cmd_setup() {
   printf '%s setup — installing everything this repository needs\n' "$REPO_NAME"
   local rc=0
@@ -618,6 +640,7 @@ cmd_setup() {
   return $rc
 }
 
+# Attempt tool and permission repairs plus local hooks, then return the doctor result.
 cmd_heal() {
   printf '%s heal — applying safe, reversible fixes, then re-checking\n' "$REPO_NAME"
   hdr "Fixes"
@@ -639,6 +662,7 @@ cmd_heal() {
   cmd_doctor
 }
 
+# Replace this process with a Guix or mise shell; fail if neither route is available.
 cmd_dev_shell() {
   local gm; gm=$(gpath manifest.scm)
   if have guix && [ -f "$gm" ] && ! grep -q '{{' "$gm"; then
@@ -765,6 +789,7 @@ just_say_it() {
   [ -z "$line" ] && line="Set up $REPO_NAME from https://github.com/$REPO_SLUG — follow docs/AI_INSTALLATION_GUIDE.adoc in that repo."
   printf '%s' "$line"
 }
+# Copy stdin through an available clipboard tool within three seconds; fail silently otherwise.
 clip() { # best-effort; silent when no clipboard exists (CI, SSH)
   # wl-copy and xclip fork a daemon that inherits stdout; left attached, it
   # holds any pipeline open forever (observed 2026-09-30). Detach and bound it.
@@ -776,6 +801,7 @@ clip() { # best-effort; silent when no clipboard exists (CI, SSH)
   else cat >/dev/null; return 1; fi
   timeout 3 "${c[@]}" >/dev/null 2>&1
 }
+# Print AI setup guidance and attempt to copy its setup line to the clipboard.
 cmd_ai_setup() {
   cat <<EOF
 AI-assisted setup for $REPO_NAME
@@ -793,6 +819,7 @@ Working on the code with an AI?  just ai-warmup dev   (or: user, maintainer)
 EOF
   just_say_it | clip && echo "(copied the line to your clipboard)" || true
 }
+# Print and optionally copy the audience warm-up; return 2 for bad input or 1 if missing.
 cmd_ai_warmup() {
   local who=${1:-user} f
   case "$who" in user|dev|maintainer) ;; *) echo "usage: just ai-warmup <user|dev|maintainer>" >&2; return 2 ;; esac
@@ -805,6 +832,7 @@ cmd_ai_warmup() {
   fail "llm-warmup-$who.adoc not found"; return 1
 }
 
+# Run and time the test and bench recipes, save their output, and fail if either fails.
 cmd_eval() {
   local logf rc=0 s e v r o st
   logf=".eval/$(date -u +%Y%m%dT%H%M%SZ).txt"
@@ -825,6 +853,7 @@ cmd_eval() {
   return $rc
 }
 
+# Print repository identity, declared configuration and detected toolchain file locations.
 cmd_config_show() {
   echo "repo:        $REPO_SLUG"
   echo "archetype:   $ARCHETYPE"
@@ -838,6 +867,7 @@ cmd_config_show() {
   echo "lib:         provision-lib $PROVISION_LIB_VERSION"
 }
 
+# Print repository-specific OPSM installation instructions and any deed note.
 cmd_opsm() {
   cat <<EOF
 Get $REPO_NAME with OPSM (the odds-and-sods package manager):
@@ -861,6 +891,7 @@ and §Install Packages at 9aff310.)
 EOF
 }
 
+# Search tracked files for $1 with approximate agrep matching or case-insensitive git grep.
 cmd_search() {
   local p=${1:?usage: just search <pattern>}
   if have agrep; then git ls-files -z | xargs -0 agrep -n -1 -- "$p" 2>/dev/null

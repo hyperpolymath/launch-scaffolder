@@ -28,16 +28,22 @@ VERBS="setup doctor heal dev-shell toolchain-refresh ai-setup ai-warmup eval con
 # Their locations come from provision-lib.sh (guix-dir, set-files): the engine and
 # this check must never disagree about where the Guix files or warm-ups live.
 [ -f "$LIB" ] || { echo "provision-check: engine missing: $LIB" >&2; exit 1; }
+# Run an engine verb with this checkout as PROVISION_ROOT, forwarding its exit status.
 lib() { PROVISION_ROOT="$PWD" bash "$LIB" "$@"; }
 GDIR=$(lib guix-dir)
 SET_FILES=$(lib set-files)
+# Print the path to Guix file $1 using the directory reported by the engine.
 gp() { [ "$GDIR" = . ] && echo "$1" || echo "$GDIR/$1"; }
 
 fails=0 warns=0
+# Print a successful conformance diagnostic without changing the failure tally.
 ok()   { printf '  ok    %s\n' "$*"; }
+# Print a failed conformance diagnostic and increment the failure tally.
 bad()  { printf '  FAIL  %s\n' "$*"; fails=$((fails + 1)); }
+# Print a conformance warning and increment the warning tally.
 warn() { printf '  warn  %s\n' "$*"; warns=$((warns + 1)); }
 
+# Return success when version $1 sorts at or above version $2 with sort -V.
 version_ge() { [ "$(printf '%s\n%s\n' "$2" "$1" | sort -V | head -1)" = "$2" ]; }
 
 echo "[1] launcher"
@@ -84,6 +90,7 @@ done
 
 echo "[5] template residue"
 f0=$fails
+# Inspect stdin for template slots labelled by $1; --dev downgrades only repository slots.
 residue() { # $1 label; stdin = the text to judge
   local text mech spec
   text=$(cat)

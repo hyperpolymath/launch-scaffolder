@@ -213,7 +213,7 @@ mod needs_just {
         assert_eq!(code, 0);
     }
 
-    /// Verify offline mint preserves custom recipes as local twins and reports the skipped mise lock.
+    /// Verify offline mint preserves all mise configs when either contains non-tool settings.
     #[test]
     fn offline_mint_retains_mise_configs_with_non_tool_settings() {
         for (i, (primary, secondary)) in [
@@ -280,6 +280,7 @@ mod needs_just {
         }
     }
 
+    /// Verify offline mint folds tool-only configs, preserves winning pins, and removes banned tools.
     #[test]
     fn offline_mint_folds_tool_only_configs_and_still_replaces_banned_tools() {
         for (i, (banned, secondary)) in [(false, true), (true, true), (true, false)]
@@ -341,6 +342,7 @@ mod needs_just {
         }
     }
 
+    /// Verify offline mint preserves custom recipes as local twins and reports the skipped mise lock.
     #[test]
     fn offline_mint_keeps_custom_recipes_as_local_twins() {
         let canon = Canon::resolve(None).unwrap();
