@@ -268,15 +268,15 @@ pub fn mint(target: &Path, canon: &Canon, opts: &Options) -> Result<Report> {
     };
     files.push(("launcher.sh".into(), act));
 
-    // Justfile: created whole when absent; merging into an existing one is a
-    // separate step that must prove `just --summary` keeps every recipe.
+    // Justfile: created whole when absent, otherwise merged (justfile.rs), which
+    // `just --summary` must accept or the original is restored.
     let justfile = ["Justfile", "justfile", ".justfile"]
         .into_iter()
         .find(|j| target.join(j).is_file());
     let act = match justfile {
-        Some(j) => Act::Kept(format!(
-            "{j} exists: merge delegations with `provision-set merge-justfile`"
-        )),
+        Some(j) => {
+            super::justfile::merge(target, j, &canon_text(canon, "build/just/provision.just")?)?
+        }
         None => {
             vars.insert(
                 "DELEGATIONS",

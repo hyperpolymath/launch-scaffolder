@@ -5,5 +5,6 @@
 
 pub mod canon;
 pub mod check;
+pub mod justfile;
 pub mod licence;
 pub mod mint;
