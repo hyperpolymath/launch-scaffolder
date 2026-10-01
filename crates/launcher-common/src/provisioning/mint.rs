@@ -536,8 +536,11 @@ fn mechanical_residue(text: &str) -> Option<&'static str> {
 
 /// Replace every `__KEY__` whose KEY is in `vars`, in one left-to-right pass, so
 /// a value can never be re-substituted (a description that mentions `__init__`
-/// stays as written). A value marked as a list of atoms is wrapped at
-/// [`WRAP`] columns with its continuation lines aligned under the first atom.
+/// stays as written). Keys must start with an ASCII uppercase letter and contain
+/// only ASCII uppercase letters, digits or underscores; other slots stay unchanged.
+/// A value marked as a list of atoms is wrapped towards [`WRAP`] UTF-8 bytes per
+/// line, reserving three bytes for closing parentheses and aligning continuation
+/// lines under the first atom. Individual atoms are never split.
 pub fn render(tmpl: &str, vars: &BTreeMap<&str, String>) -> String {
     let mut out = String::with_capacity(tmpl.len());
     let mut rest = tmpl;
@@ -813,6 +816,7 @@ fn deed_field(deed: &str, key: &str) -> Option<String> {
 }
 
 /// `owner/name` from the `origin` remote of a GitHub checkout.
+/// Returns `None` if Git fails, its output is not UTF-8, or no slug can be extracted.
 fn origin_slug(target: &Path) -> Option<String> {
     let out = Command::new("git")
         .arg("-C")
@@ -949,8 +953,11 @@ fn canon_text(canon: &Canon, rel: &str) -> Result<String> {
     String::from_utf8(canon.file(rel)?.into_owned()).with_context(|| format!("{rel} is not UTF-8"))
 }
 
-/// Write `bytes` to `target/rel` unless it already holds them. Shell scripts and
-/// the launcher are made executable.
+/// Write `bytes` to `target/rel`, creating parent directories as needed. Returns
+/// `Kept` for identical content, `Replaced(why)` for changed readable content,
+/// or `Created` when the previous content could not be read.
+/// On Unix, `.sh` files get mode 0755 even when their content is unchanged.
+/// Directory creation, write and permission errors propagate without rollback.
 fn write_file(target: &Path, rel: &str, bytes: &[u8], why: &str) -> Result<Act> {
     let path = target.join(rel);
     let old = std::fs::read(&path).ok();
@@ -1014,7 +1021,8 @@ fn crates_scm(lib: &Lib, guix_scm: &str) -> Result<Act> {
 /// for this one process through the environment, not mise's trust database.
 /// Runs with a 600-second timeout. The post-run gap check determines success
 /// regardless of the command's exit status; remaining gaps yield `Act::Failed`.
-/// Process I/O errors and unexpected predicate exits are propagated.
+/// Failure to run or capture the lock command also yields `Act::Failed`;
+/// process I/O errors and unexpected exits from the gap predicate are propagated.
 fn mise_lock(lib: &Lib) -> Result<Act> {
     if lib.predicate(&["mise-lock-gaps"])?.is_none() {
         return Ok(Act::Kept("pinned and checksummed".into()));
@@ -1106,6 +1114,7 @@ impl Lib {
     }
 
     /// Run an engine verb and return UTF-8 stdout without trailing newlines, failing on nonzero status.
+    /// Process I/O and UTF-8 decoding errors are propagated.
     fn out(&self, args: &[&str]) -> Result<String> {
         let o = self.run(args)?;
         if !o.status.success() {
