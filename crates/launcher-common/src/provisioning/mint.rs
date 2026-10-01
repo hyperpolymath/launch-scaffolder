@@ -190,9 +190,9 @@ pub fn mint(target: &Path, canon: &Canon, opts: &Options) -> Result<Report> {
 
     // mise.toml: minted, but a banned tool is a replace condition.
     let banned = lib.predicate(&["mise-banned"])?;
-    let mut carried = Vec::new();
+    let (mut carried, mut unread) = (Vec::new(), String::new());
     if let Some(hits) = &banned {
-        carried = carry_over_tools(target, hits)?;
+        (carried, unread) = carry_over_tools(target, hits)?;
     }
     vars.insert("MISE_TOOLS_TOML", mise_tools_toml(&mise_tools, &carried));
     let act = match banned {
@@ -200,7 +200,7 @@ pub fn mint(target: &Path, canon: &Canon, opts: &Options) -> Result<Report> {
             "mise.toml",
             "mise.toml.tmpl",
             &vars,
-            &format!("pinned banned tool(s): {hits}"),
+            &format!("pinned banned tool(s): {hits}{unread}"),
         )?,
         _ => m.minted("mise.toml", "mise.toml.tmpl", &vars)?,
     };
@@ -513,10 +513,21 @@ fn toml_key(k: &str) -> String {
     }
 }
 
-/// The non-banned `[tools]` entries of an existing `mise.toml`, values as TOML.
-fn carry_over_tools(target: &Path, banned: &str) -> Result<Vec<(String, String)>> {
+/// The non-banned `[tools]` entries of an existing `mise.toml`, values as TOML,
+/// and a note for the replace reason when the file is not TOML at all: mise
+/// cannot read such a file either, so nothing in it was in effect to carry.
+fn carry_over_tools(target: &Path, banned: &str) -> Result<(Vec<(String, String)>, String)> {
     let text = std::fs::read_to_string(target.join("mise.toml"))?;
-    let table: toml::Table = toml::from_str(&text).context("parsing mise.toml")?;
+    let table: toml::Table = match toml::from_str(&text) {
+        Ok(t) => t,
+        Err(e) => {
+            let why = e.message().trim().to_string();
+            return Ok((
+                Vec::new(),
+                format!("; it was not valid TOML ({why}), so no tool was carried over"),
+            ));
+        }
+    };
     let banned: Vec<&str> = banned.split_whitespace().collect();
     let mut out = Vec::new();
     if let Some(tools) = table.get("tools").and_then(|t| t.as_table()) {
@@ -526,7 +537,7 @@ fn carry_over_tools(target: &Path, banned: &str) -> Result<Vec<(String, String)>
             }
         }
     }
-    Ok(out)
+    Ok((out, String::new()))
 }
 
 /// One root delegation per contract verb the root Justfile does not define,
@@ -919,6 +930,22 @@ mod tests {
             mise_tools_toml(&tools, &carried),
             "just = \"latest\"\nrust = \"1.85\"\n\"cargo:cargo-nextest\" = \"latest\""
         );
+    }
+
+    #[test]
+    fn carry_over_drops_banned_and_survives_a_file_that_is_not_toml() {
+        let d = std::env::temp_dir().join(format!("carry-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        let mise = d.join("mise.toml");
+        std::fs::write(&mise, "[tools]\npython = \"3\"\nzig = \"0.14\"\n").unwrap();
+        let (carried, note) = carry_over_tools(&d, "python").unwrap();
+        assert_eq!(carried, vec![("zig".to_string(), "\"0.14\"".to_string())]);
+        assert!(note.is_empty());
+        std::fs::write(&mise, "[tools]\nbun = \"1\"\nbun = \"1\"\n").unwrap();
+        let (carried, note) = carry_over_tools(&d, "python").unwrap();
+        assert!(carried.is_empty());
+        assert!(note.contains("not valid TOML") && note.contains("duplicate key"));
+        std::fs::remove_dir_all(&d).unwrap();
     }
 
     #[test]
