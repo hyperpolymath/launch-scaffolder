@@ -54,6 +54,9 @@ struct MintArgs {
     /// Copyright year (default: SOURCE_DATE_EPOCH, else this year).
     #[arg(long)]
     year: Option<i64>,
+    /// Skip `mise lock` and `guix import crate` (both need the network).
+    #[arg(long)]
+    offline: bool,
     /// Repository to provision.
     #[arg(default_value = ".")]
     target: PathBuf,
@@ -62,6 +65,9 @@ struct MintArgs {
 /// Exit code for a licence refusal (standard §6): a ledger line, not a crash.
 pub const EXIT_REFUSED: i32 = 3;
 
+/// Run `provision-set`: check a repository, or mint/realign its provisioning
+/// set. Exits 1 on drift or a FAIL, 3 on a licence refusal, 4 when an
+/// external step (`mise lock`, `guix import crate`) failed.
 pub fn run(args: Args) -> Result<()> {
     let canon = Canon::resolve(args.canon.as_deref())?;
     match args.action {
@@ -85,6 +91,7 @@ pub fn run(args: Args) -> Result<()> {
                 repo: m.repo,
                 archetype: m.archetype,
                 year: m.year,
+                offline: m.offline,
             };
             match mint::mint(&m.target, &canon, &opts) {
                 Ok(r) => {
@@ -108,8 +115,12 @@ pub fn run(args: Args) -> Result<()> {
                             Act::Replaced(_) => "replace",
                             Act::Kept(_) => "keep",
                             Act::Skipped(_) => "SKIP",
+                            Act::Failed(_) => "FAIL",
                         };
                         println!("  {tag:<8} {path}: {act}");
+                    }
+                    if r.files.iter().any(|(_, a)| matches!(a, Act::Failed(_))) {
+                        std::process::exit(mint::EXIT_EXTERNAL);
                     }
                     Ok(())
                 }

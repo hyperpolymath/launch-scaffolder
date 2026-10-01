@@ -62,6 +62,10 @@ pub struct Options {
     pub archetype: Option<String>,
     /// `__YEAR__`; default: `SOURCE_DATE_EPOCH`, else the current year.
     pub year: Option<i64>,
+    /// Skip the steps that need the network or Guix (`mise lock`,
+    /// `build/guix/crates.scm`); the files they write are then left for
+    /// `just toolchain-refresh`.
+    pub offline: bool,
 }
 
 /// What happened to one file.
@@ -71,7 +75,13 @@ pub enum Act {
     Replaced(String),
     Kept(String),
     Skipped(String),
+    /// An external step (`mise lock`, `guix import crate`) did not produce a
+    /// valid file: a ledger line, and the CLI exits [`EXIT_EXTERNAL`].
+    Failed(String),
 }
+
+/// Exit code when the set was written but an external step failed.
+pub const EXIT_EXTERNAL: i32 = 4;
 
 impl std::fmt::Display for Act {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -80,6 +90,7 @@ impl std::fmt::Display for Act {
             Act::Replaced(why) => write!(f, "replaced ({why})"),
             Act::Kept(why) => write!(f, "kept ({why})"),
             Act::Skipped(why) => write!(f, "skipped ({why})"),
+            Act::Failed(why) => write!(f, "FAILED ({why})"),
         }
     }
 }
@@ -220,10 +231,15 @@ pub fn mint(target: &Path, canon: &Canon, opts: &Options) -> Result<Report> {
     let gc = format!("{gpre}channels.scm");
     files.push((gc.clone(), m.minted_bytes(&gc, "guix/channels.scm")?));
     if cargo && !target.join("build/guix/crates.scm").is_file() {
-        files.push((
-            "build/guix/crates.scm".into(),
-            Act::Skipped("generate with `guix import crate --lockfile=Cargo.lock`; doctor reports PV-W24 until then".into()),
-        ));
+        let act = if opts.offline {
+            Act::Skipped(
+                "offline: generate with `just toolchain-refresh`; doctor reports PV-W24 until then"
+                    .into(),
+            )
+        } else {
+            crates_scm(&lib, &gs)?
+        };
+        files.push(("build/guix/crates.scm".into(), act));
     }
 
     // Docs and warm-ups go where set-files puts them (root, docs/ or docs/onboarding/).
@@ -293,6 +309,14 @@ pub fn mint(target: &Path, canon: &Canon, opts: &Options) -> Result<Report> {
         }
     };
     files.push((justfile.unwrap_or("Justfile").into(), act));
+
+    // Last, because it reads the mise.toml written above.
+    let act = if opts.offline {
+        Act::Skipped("offline: run `mise lock`; provision-check fails until then".into())
+    } else {
+        mise_lock(&lib)?
+    };
+    files.push(("mise.lock".into(), act));
 
     Ok(Report {
         slug,
@@ -762,14 +786,90 @@ fn set_exec(path: &Path, rel: &str) -> Result<()> {
 
 /// The engine's `provision-lib.sh`, run against the target. A verb that fails
 /// is an error: a fact the generator cannot establish is never guessed.
+/// The Guix command for `crates-scm`, e.g. a wrapper that runs guix in a
+/// container with the target mounted; the engine reads it as `GUIX`.
+pub const GUIX_ENV: &str = "LAUNCH_SCAFFOLDER_GUIX";
+
+/// Write `build/guix/crates.scm` through the engine's `crates-scm` verb. The
+/// result is accepted only when `guix-stub` then passes on `guix_scm`: a
+/// containerised guix loses its exit status, so the file is the evidence.
+fn crates_scm(lib: &Lib, guix_scm: &str) -> Result<Act> {
+    let guix = std::env::var(GUIX_ENV).unwrap_or_else(|_| "guix".into());
+    let o = lib.run_env(&["crates-scm"], &[("GUIX", &guix)])?;
+    match lib.predicate(&["guix-stub", guix_scm])? {
+        None if o.status.success() => Ok(Act::Created),
+        why => Ok(Act::Failed(format!(
+            "{}crates-scm: {}",
+            why.map(|w| format!("{guix_scm}: {w}; "))
+                .unwrap_or_default(),
+            last_line(&[&o.stdout, &o.stderr], &o.status)
+        ))),
+    }
+}
+
+/// Pin `mise.toml` in `mise.lock` with `mise lock`, unless the engine's
+/// `mise-lock-gaps` already finds every tool pinned and checksummed: bumping
+/// versions is `toolchain-refresh`'s job, not mint's. The target is trusted
+/// for this one process through the environment, not mise's trust database.
+fn mise_lock(lib: &Lib) -> Result<Act> {
+    if lib.predicate(&["mise-lock-gaps"])?.is_none() {
+        return Ok(Act::Kept("pinned and checksummed".into()));
+    }
+    let existed = lib.0.join("mise.lock").is_file();
+    let o = Command::new("timeout")
+        .args(["600", "mise", "lock"])
+        .env("MISE_TRUSTED_CONFIG_PATHS", &lib.0)
+        .current_dir(&lib.0)
+        .output()
+        .context("running timeout 600 mise lock")?;
+    Ok(match lib.predicate(&["mise-lock-gaps"])? {
+        None if existed => Act::Replaced("re-locked: the old lock had gaps".into()),
+        None => Act::Created,
+        Some(gap) => Act::Failed(format!(
+            "{gap}; mise lock: {}",
+            last_line(&[&o.stderr, &o.stdout], &o.status)
+        )),
+    })
+}
+
+/// The first error a failed command reported (mise ends with a version and a
+/// "Run with --verbose" trailer, which name nothing), else its last line, else
+/// its exit status when it said nothing.
+fn last_line(streams: &[&[u8]], status: &std::process::ExitStatus) -> String {
+    streams
+        .iter()
+        .find_map(|s| {
+            let text = String::from_utf8_lossy(s);
+            let lines: Vec<&str> = text
+                .lines()
+                .map(str::trim)
+                .filter(|l| !l.is_empty())
+                .collect();
+            lines
+                .iter()
+                .find(|l| l.contains("ERROR") || l.starts_with("error:"))
+                .or(lines.last())
+                .map(|l| l.to_string())
+        })
+        .unwrap_or_else(|| format!("no output, {status}"))
+}
+
+/// The target repository's engine library, `build/just/provision-lib.sh`.
 struct Lib(PathBuf);
 
 impl Lib {
+    /// Run a verb of the target's `provision-lib.sh`.
     fn run(&self, args: &[&str]) -> Result<std::process::Output> {
+        self.run_env(args, &[])
+    }
+
+    /// Run a verb of the target's `provision-lib.sh` with extra environment.
+    fn run_env(&self, args: &[&str], env: &[(&str, &str)]) -> Result<std::process::Output> {
         Command::new("bash")
             .arg(self.0.join(LIB))
             .args(args)
             .env("PROVISION_ROOT", &self.0)
+            .envs(env.iter().copied())
             .current_dir(&self.0)
             .output()
             .with_context(|| format!("running {LIB} {}", args.join(" ")))

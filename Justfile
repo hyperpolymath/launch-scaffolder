@@ -73,29 +73,42 @@ smoke-mint:
     @echo "Smoke test: mint produced /tmp/stapeln-launcher.sh"
 
 # Mint a launcher in-place. Pass the path to an <app>.launcher.a2ml file.
-# Example:  just mint /var/mnt/eclipse/repos/aerie/aerie.launcher.a2ml
+# Example:  just mint ../aerie/aerie.launcher.a2ml
 mint config:
     cargo run --locked --release -p launch-scaffolder -- mint {{config}}
 
-# Re-mint every scaffolder-managed launcher in the estate. Edit the list
-# when adding/removing managed repos. Exceptions live in
+# Re-mint every scaffolder-managed launcher found under ROOT (the directory
+# holding your clones; nothing machine-specific is assumed). Each managed
+# config must resolve to exactly one file: a missing or duplicated clone is
+# an error naming the candidates, never a guess. Edit the list when
+# adding/removing managed repos. Exceptions live in
 # docs/launcher-exceptions-2026-04-10.adoc.
-mint-all:
+mint-all root:
     #!/usr/bin/env bash
     set -euo pipefail
     BIN="./target/release/launch-scaffolder"
+    [ -d "{{root}}" ] || { echo "✗ {{root}} is not a directory" >&2; exit 2; }
     [ -x "$BIN" ] || cargo build --locked --release
-    for cfg in \
-        /var/mnt/eclipse/repos/aerie/aerie.launcher.a2ml \
-        /var/mnt/eclipse/repos/developer-ecosystem/burble/burble.launcher.a2ml \
-        /var/mnt/eclipse/repos/fleet-ecosystem/game-server-admin/game-server-admin.launcher.a2ml \
-        /var/mnt/eclipse/repos/developer-ecosystem/nextgen-databases/nqc/nqc.launcher.a2ml \
-        /var/mnt/eclipse/repos/verification-ecosystem/panll/panll.launcher.a2ml \
-        /var/mnt/eclipse/repos/project-wharf/project-wharf.launcher.a2ml \
-        /var/mnt/eclipse/repos/fleet-ecosystem/stapeln/stapeln.launcher.a2ml ; do
-        "$BIN" mint "$cfg"
+    status=0 n=0
+    for rel in \
+        aerie/aerie.launcher.a2ml \
+        burble/burble.launcher.a2ml \
+        game-server-admin/game-server-admin.launcher.a2ml \
+        nqc/nqc.launcher.a2ml \
+        panll/panll.launcher.a2ml \
+        project-wharf/project-wharf.launcher.a2ml \
+        stapeln/stapeln.launcher.a2ml ; do
+        mapfile -d '' hits < <(find "{{root}}" -path '*/worktrees' -prune -o -path '*/archive' -prune \
+            -o -path "*/$rel" -type f -print0)
+        if [ "${#hits[@]}" -ne 1 ]; then
+            echo "✗ $rel: ${#hits[@]} matches under {{root}} (need exactly one)" >&2
+            for h in "${hits[@]}"; do echo "    $h" >&2; done
+            status=1; continue
+        fi
+        "$BIN" mint "${hits[0]}"; n=$((n + 1))
     done
-    echo "✓ Estate re-mint complete (7 launchers)"
+    echo "Estate re-mint: $n of 7 launchers"
+    exit "$status"
 
 # Generate cargo docs
 doc:
