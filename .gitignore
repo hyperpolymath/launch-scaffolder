@@ -47,4 +47,8 @@ deps/
 .elixir_ls/
 .cache/
 build/
+# The provisioning canon vendors build/just/ engine files, and its fixtures
+# mirror a repo root; both are source here, not build output.
+!standards/provisioning/templates/build/
+!crates/launcher-common/tests/fixtures/provisioning/**/build/
 dist/
