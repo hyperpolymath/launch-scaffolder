@@ -205,6 +205,13 @@ jobs:
             echo "::error::$FAILED test(s) failed"
             exit 1
           fi
+          # rust-ci.yml skips `needs_just::` (its runner has no just); this job
+          # is the only place they run, so their absence here is a failure.
+          NEEDS_JUST=$(grep -c '^test needs_just::.* \.\.\. ok$' "$LOG")
+          if [ "$NEEDS_JUST" -lt 4 ]; then
+            echo "::error title=needs_just tests::only $NEEDS_JUST of 4 needs_just:: tests passed here, and rust-ci skips them, so nothing else runs them"
+            exit 1
+          fi
           if [ "$PASSED" -lt "$TEST_COUNT_FLOOR" ]; then
             echo "::error title=test-count floor::only $PASSED tests ran; the floor is $TEST_COUNT_FLOOR. A suite that collects nothing exits 0, so this gate is what makes green mean ran (#45 AC6)."
             exit 1

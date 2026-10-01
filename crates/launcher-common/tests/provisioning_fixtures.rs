@@ -131,36 +131,6 @@ fn repair(repo: &Path, i: usize) {
 }
 
 #[test]
-fn check_fixture_fails_on_exactly_its_three_faults() {
-    let repo = scratch("check", "check");
-    let (code, fails) = provision_check(&repo);
-    assert_eq!(code, 1);
-    assert_eq!(fails, expected_without(&[]));
-}
-
-#[test]
-fn each_repair_removes_only_its_own_fail() {
-    for i in 0..CHECK_FAILS.len() {
-        let repo = scratch("check", &format!("check-repair-{i}"));
-        repair(&repo, i);
-        let (code, fails) = provision_check(&repo);
-        assert_eq!(code, 1, "repair {i}: two faults remain");
-        assert_eq!(fails, expected_without(&[i]), "repair {i}");
-    }
-}
-
-#[test]
-fn all_repairs_together_pass() {
-    let repo = scratch("check", "check-repaired");
-    for i in 0..CHECK_FAILS.len() {
-        repair(&repo, i);
-    }
-    let (code, fails) = provision_check(&repo);
-    assert!(fails.is_empty(), "{fails:?}");
-    assert_eq!(code, 0);
-}
-
-#[test]
 fn langs_names_each_fixture_language() {
     for (fixture, lang) in [
         ("docsr", "docs"),
@@ -190,39 +160,77 @@ fn doctor_warns_on_deno_leftovers_and_only_then() {
     }
 }
 
-#[test]
-fn offline_mint_keeps_custom_recipes_as_local_twins() {
-    let canon = Canon::resolve(None).unwrap();
-    let licence = concat!(env!("CARGO_MANIFEST_DIR"), "/../../LICENSES/MPL-2.0.txt");
-    for (fixture, verb) in [("idr", "doctor"), ("rustd", "setup"), ("rustr", "doctor")] {
-        let repo = scratch(&format!("lang/{fixture}"), &format!("mint-{fixture}"));
-        std::fs::copy(licence, repo.join("LICENSE")).unwrap();
-        let opts = Options {
-            repo: Some(format!("hyperpolymath/{fixture}")),
-            year: Some(2026),
-            offline: true,
-            ..Options::default()
-        };
-        let report = mint::mint(&repo, &canon, &opts).unwrap();
-        let act = |path: &str| {
-            report
-                .files
-                .iter()
-                .find(|(p, _)| p == path)
-                .map(|(_, a)| a.clone())
-                .unwrap_or_else(|| panic!("{fixture}: no report line for {path}"))
-        };
-        assert!(
-            matches!(act("Justfile"), Act::Replaced(ref w) if w.contains(&format!("{verb}-local"))),
-            "{fixture}: {}",
-            act("Justfile")
-        );
-        assert!(matches!(act("mise.lock"), Act::Skipped(_)), "{fixture}");
-        let jf = std::fs::read_to_string(repo.join("Justfile")).unwrap();
-        assert!(jf.contains(&format!("{verb}-local")), "{fixture}");
-        assert!(
-            jf.contains(&format!("{verb}: provision::{verb}")),
-            "{fixture}"
-        );
+/// The tests that run `provision-check.sh` or `just --summary`, so need
+/// `just` >= 1.42 on PATH. The estate `rust-ci` reusable has no `just` and
+/// skips this module by name (`rust-ci.yml`); `launcher-artefacts.yml`
+/// installs `just` and runs it.
+mod needs_just {
+    use super::*;
+
+    #[test]
+    fn check_fixture_fails_on_exactly_its_three_faults() {
+        let repo = scratch("check", "check");
+        let (code, fails) = provision_check(&repo);
+        assert_eq!(code, 1);
+        assert_eq!(fails, expected_without(&[]));
+    }
+
+    #[test]
+    fn each_repair_removes_only_its_own_fail() {
+        for i in 0..CHECK_FAILS.len() {
+            let repo = scratch("check", &format!("check-repair-{i}"));
+            repair(&repo, i);
+            let (code, fails) = provision_check(&repo);
+            assert_eq!(code, 1, "repair {i}: two faults remain");
+            assert_eq!(fails, expected_without(&[i]), "repair {i}");
+        }
+    }
+
+    #[test]
+    fn all_repairs_together_pass() {
+        let repo = scratch("check", "check-repaired");
+        for i in 0..CHECK_FAILS.len() {
+            repair(&repo, i);
+        }
+        let (code, fails) = provision_check(&repo);
+        assert!(fails.is_empty(), "{fails:?}");
+        assert_eq!(code, 0);
+    }
+
+    #[test]
+    fn offline_mint_keeps_custom_recipes_as_local_twins() {
+        let canon = Canon::resolve(None).unwrap();
+        let licence = concat!(env!("CARGO_MANIFEST_DIR"), "/../../LICENSES/MPL-2.0.txt");
+        for (fixture, verb) in [("idr", "doctor"), ("rustd", "setup"), ("rustr", "doctor")] {
+            let repo = scratch(&format!("lang/{fixture}"), &format!("mint-{fixture}"));
+            std::fs::copy(licence, repo.join("LICENSE")).unwrap();
+            let opts = Options {
+                repo: Some(format!("hyperpolymath/{fixture}")),
+                year: Some(2026),
+                offline: true,
+                ..Options::default()
+            };
+            let report = mint::mint(&repo, &canon, &opts).unwrap();
+            let act = |path: &str| {
+                report
+                    .files
+                    .iter()
+                    .find(|(p, _)| p == path)
+                    .map(|(_, a)| a.clone())
+                    .unwrap_or_else(|| panic!("{fixture}: no report line for {path}"))
+            };
+            assert!(
+                matches!(act("Justfile"), Act::Replaced(ref w) if w.contains(&format!("{verb}-local"))),
+                "{fixture}: {}",
+                act("Justfile")
+            );
+            assert!(matches!(act("mise.lock"), Act::Skipped(_)), "{fixture}");
+            let jf = std::fs::read_to_string(repo.join("Justfile")).unwrap();
+            assert!(jf.contains(&format!("{verb}-local")), "{fixture}");
+            assert!(
+                jf.contains(&format!("{verb}: provision::{verb}")),
+                "{fixture}"
+            );
+        }
     }
 }

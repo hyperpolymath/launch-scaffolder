@@ -19,7 +19,8 @@
 #   check  → cargo check --locked --all-targets
 #            cargo fmt --all -- --check
 #            cargo clippy --locked --all-targets -- -D warnings
-#   test   → cargo test --locked --all-targets
+#   test   → cargo test --locked --all-targets, skipping `needs_just::`
+#            (run with just installed by launcher-artefacts.yml)
 #
 # The job names below are static and unmatrixed on purpose (#45 AC3): the
 # rendered check names ("rust-ci / Cargo test" and friends) have to be stable
@@ -42,3 +43,7 @@ permissions:
 jobs:
   rust-ci:
     uses: hyperpolymath/standards/.github/workflows/rust-ci-reusable.yml@81dbf2dd854b1444fd6236fa2352474383b2c2b9
+    with:
+      # The provisioning engine tests (module `needs_just`) need `just`, which
+      # this runner lacks; launcher-artefacts.yml installs it and runs them.
+      test_args: "--all-targets -- --skip needs_just::"
