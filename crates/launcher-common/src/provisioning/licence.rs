@@ -116,15 +116,17 @@ impl Signal {
 }
 
 /// What one licence text declares. PMPL is derived from MPL and names it, so a
-/// Palimpsest text is PMPL however often it mentions Mozilla.
+/// Palimpsest text is PMPL however often it mentions Mozilla. MPL-2.0 in turn
+/// names the GNU Affero GPL among its Secondary Licenses (§1.12), so MPL is
+/// tested before AGPL; the AGPL text never names Mozilla.
 fn signal(text: &str) -> Option<Signal> {
     let t = text.to_ascii_lowercase();
     if t.contains("palimpsest") || t.contains("pmpl-1.0") {
         Some(Signal::Pmpl)
-    } else if t.contains("gnu affero general public license") || t.contains("agpl-3.0") {
-        Some(Signal::Agpl)
     } else if (t.contains("mozilla public license") && t.contains("2.0")) || t.contains("mpl-2.0") {
         Some(Signal::Mpl)
+    } else if t.contains("gnu affero general public license") || t.contains("agpl-3.0") {
+        Some(Signal::Agpl)
     } else {
         None
     }
@@ -225,6 +227,22 @@ mod tests {
     #[test]
     fn mpl_repo_gets_cc_by_sa_docs() {
         let d = repo(&[("LICENSE", MPL_TEXT)]);
+        assert_eq!(classify(&d, "aerie"), Ok(MPL));
+    }
+
+    #[test]
+    fn full_mpl_text_naming_the_affero_gpl_is_still_mpl() {
+        // Re-wrapped onto single spaces, as a reflowed copy would be, so the
+        // AGPL name is no longer split across a line break.
+        let full = include_str!("../../../../LICENSES/MPL-2.0.txt")
+            .split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ");
+        assert!(
+            full.contains("GNU Affero General Public License"),
+            "the control must name AGPL"
+        );
+        let d = repo(&[("LICENSE", full.as_str())]);
         assert_eq!(classify(&d, "aerie"), Ok(MPL));
     }
 

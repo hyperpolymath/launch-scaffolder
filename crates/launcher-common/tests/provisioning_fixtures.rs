@@ -16,7 +16,7 @@
 //! tests loudly, because a skipped conformance test is not a pass.
 
 use launch_scaffolder_common::provisioning::{
-    canon::Canon,
+    canon::{Canon, ENGINE_FILES},
     mint::{self, Act, Options},
 };
 use std::collections::BTreeSet;
@@ -41,6 +41,10 @@ const CHECK_FAILS: [&str; 3] = [
 /// Copy fixture `rel` to a fresh directory named `tag` under cargo's test
 /// tmpdir, and make it a git repository (the engine takes the repo name from
 /// git, so an un-initialised copy would report the enclosing checkout).
+///
+/// The `check` fixture carries no engine of its own: the baked canon engine is
+/// written in here, so the test always exercises the engine the binary ships
+/// rather than a committed copy that could drift from it.
 fn scratch(rel: &str, tag: &str) -> PathBuf {
     let dst = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("provisioning-{tag}"));
     let _ = std::fs::remove_dir_all(&dst);
@@ -52,6 +56,13 @@ fn scratch(rel: &str, tag: &str) -> PathBuf {
         .expect("cp")
         .success();
     assert!(ok, "copying fixture {rel}");
+    if rel == "check" {
+        for e in ENGINE_FILES {
+            let f = dst.join(e);
+            std::fs::create_dir_all(f.parent().unwrap()).unwrap();
+            std::fs::write(&f, Canon::Baked.file(e).unwrap()).unwrap();
+        }
+    }
     let ok = Command::new("git")
         .args(["init", "-q"])
         .current_dir(&dst)

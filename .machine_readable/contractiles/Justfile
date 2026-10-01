@@ -105,7 +105,12 @@ mint-all root:
             for h in "${hits[@]}"; do echo "    $h" >&2; done
             status=1; continue
         fi
-        "$BIN" mint "${hits[0]}"; n=$((n + 1))
+        if "$BIN" mint "${hits[0]}"; then
+            n=$((n + 1))
+        else
+            echo "✗ $rel: mint failed" >&2
+            status=1
+        fi
     done
     echo "Estate re-mint: $n of 7 launchers"
     exit "$status"
