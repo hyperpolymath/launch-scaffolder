@@ -1,0 +1,20 @@
+mod provision 'build/just/provision.just'
+default:
+    @just --list
+setup: provision::setup
+doctor: provision::doctor
+heal: provision::heal
+dev-shell: provision::dev-shell
+toolchain-refresh: provision::toolchain-refresh
+ai-setup: provision::ai-setup
+eval: provision::eval
+config-show: provision::config-show
+opsm: provision::opsm
+build: provision::build
+test: provision::test
+bench: provision::bench
+lint: provision::lint
+fmt: provision::fmt
+run: provision::run
+deps: provision::deps
+ai-warmup who="user": (provision::ai-warmup who)

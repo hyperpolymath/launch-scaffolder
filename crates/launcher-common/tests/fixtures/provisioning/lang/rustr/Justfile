@@ -1,0 +1,6 @@
+# Build the binary
+build:
+    cargo build
+
+doctor:
+    @echo own-doctor

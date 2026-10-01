@@ -20,6 +20,7 @@ use clap::{Parser, Subcommand};
 mod cmd_config;
 mod cmd_mint;
 mod cmd_provision;
+mod cmd_provision_set;
 mod cmd_realign;
 mod cmd_standard;
 
@@ -60,6 +61,11 @@ enum Command {
     /// Install (--integ) or uninstall (--disinteg) a launcher on the current system.
     Provision(cmd_provision::Args),
 
+    /// Mint, realign or check the repository provisioning set
+    /// (guix, mise, Justfile, launcher, setup and AI-install docs).
+    #[command(name = "provision-set")]
+    ProvisionSet(cmd_provision_set::Args),
+
     /// Get, set, or validate the config section of an existing launcher.
     Config(cmd_config::Args),
 
@@ -71,6 +77,7 @@ enum Command {
     Standard(cmd_standard::Args),
 }
 
+/// Parse CLI arguments, initialise tracing, and dispatch the selected launcher command.
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
@@ -91,6 +98,7 @@ fn main() -> Result<()> {
     match cli.command {
         Command::Mint(args) => cmd_mint::run(args, cli.standard.as_deref()),
         Command::Provision(args) => cmd_provision::run(args, cli.standard.as_deref()),
+        Command::ProvisionSet(args) => cmd_provision_set::run(args),
         Command::Config(args) => cmd_config::run(args, cli.standard.as_deref()),
         Command::Realign(args) => cmd_realign::run(args, cli.standard.as_deref()),
         Command::Standard(args) => cmd_standard::run(args, cli.standard.as_deref()),
