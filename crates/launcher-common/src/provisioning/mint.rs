@@ -233,7 +233,7 @@ pub fn mint(target: &Path, canon: &Canon, opts: &Options) -> Result<Report> {
         .into_iter()
         .filter(|f| target.join(f).is_file())
         .collect();
-    let fold_skip = if secondary.is_empty() {
+    let fold_skip = if secondary.is_empty() && banned.is_none() {
         None
     } else {
         mise_fold_skip_reason(target)?
