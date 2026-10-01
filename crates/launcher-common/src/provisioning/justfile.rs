@@ -557,7 +557,24 @@ mod tests {
 
     const BROKEN: &str = "# Build\nbuild:\n    cargo build\n\n# Self-diagnostic\ndoctor:\n    #!/usr/bin/env bash\n    echo \"Running diagnostics for x\"\nif command -v y >/dev/null; then\n    echo ok\nfi\n\n# Help\nhelp-me:\n    #!/usr/bin/env bash\n    echo \"\"\necho \"FIRST TIME SETUP:\"\n";
 
-    /// The merge tests run `just --summary`, so need `just` >= 1.42 on PATH.
+    #[test]
+    fn identical_justfiles_fold_to_one_and_the_copy_is_removed() {
+        let src = "# Build\nbuild:\n    echo b\n";
+        let d = repo(src);
+        std::fs::write(d.join("justfile"), src).unwrap();
+        let (kept, acts) = fold(&d, &["Justfile", "justfile"]).unwrap();
+        assert_eq!(kept, "Justfile");
+        assert_eq!(acts.len(), 1);
+        assert!(
+            matches!(&acts[0].1, Act::Removed(w) if w.contains("already in Justfile")),
+            "{acts:?}"
+        );
+        assert!(!d.join("justfile").exists());
+        assert_eq!(std::fs::read_to_string(d.join("Justfile")).unwrap(), src);
+        std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    /// The merge and fold tests run `just --summary`, so need `just` >= 1.42 on PATH.
     /// rust-ci skips this module by name; launcher-artefacts runs and counts it.
     mod needs_just {
         use super::*;
@@ -655,89 +672,72 @@ mod tests {
             ));
             assert_eq!(std::fs::read_to_string(d.join("Justfile")).unwrap(), src);
         }
-    }
 
-    #[test]
-    fn identical_justfiles_fold_to_one_and_the_copy_is_removed() {
-        let src = "# Build\nbuild:\n    echo b\n";
-        let d = repo(src);
-        std::fs::write(d.join("justfile"), src).unwrap();
-        let (kept, acts) = fold(&d, &["Justfile", "justfile"]).unwrap();
-        assert_eq!(kept, "Justfile");
-        assert_eq!(acts.len(), 1);
-        assert!(
-            matches!(&acts[0].1, Act::Removed(w) if w.contains("already in Justfile")),
-            "{acts:?}"
-        );
-        assert!(!d.join("justfile").exists());
-        assert_eq!(std::fs::read_to_string(d.join("Justfile")).unwrap(), src);
-        std::fs::remove_dir_all(&d).unwrap();
-    }
+        #[test]
+        fn a_real_body_replaces_a_template_placeholder_of_the_same_name() {
+            // The kept file is the bigger, unedited RSR template; the other file holds
+            // the recipe the author actually wrote.
+            let d = repo(
+                "# Build\nbuild:\n    # TODO: Replace with your build command\n    @echo built\n\nci:\n    echo ci\n\ndocs:\n    echo d\n",
+            );
+            std::fs::write(d.join("justfile"), "build:\n    cargo build --release\n").unwrap();
+            let (kept, acts) = fold(&d, &["Justfile", "justfile"]).unwrap();
+            assert_eq!(kept, "Justfile");
+            let text = std::fs::read_to_string(d.join("Justfile")).unwrap();
+            assert!(
+                text.contains("cargo build --release") && !text.contains("TODO"),
+                "{text}"
+            );
+            assert!(
+                matches!(&acts[0].1, Act::Removed(w) if w.starts_with("folded into Justfile: build")),
+                "{acts:?}"
+            );
+            assert_eq!(summary(&d, "Justfile").unwrap(), ["build", "ci", "docs"]);
+            std::fs::remove_dir_all(&d).unwrap();
+        }
 
-    #[test]
-    fn a_real_body_replaces_a_template_placeholder_of_the_same_name() {
-        // The kept file is the bigger, unedited RSR template; the other file holds
-        // the recipe the author actually wrote.
-        let d = repo(
-            "# Build\nbuild:\n    # TODO: Replace with your build command\n    @echo built\n\nci:\n    echo ci\n\ndocs:\n    echo d\n",
-        );
-        std::fs::write(d.join("justfile"), "build:\n    cargo build --release\n").unwrap();
-        let (kept, acts) = fold(&d, &["Justfile", "justfile"]).unwrap();
-        assert_eq!(kept, "Justfile");
-        let text = std::fs::read_to_string(d.join("Justfile")).unwrap();
-        assert!(
-            text.contains("cargo build --release") && !text.contains("TODO"),
-            "{text}"
-        );
-        assert!(
-            matches!(&acts[0].1, Act::Removed(w) if w.starts_with("folded into Justfile: build")),
-            "{acts:?}"
-        );
-        assert_eq!(summary(&d, "Justfile").unwrap(), ["build", "ci", "docs"]);
-        std::fs::remove_dir_all(&d).unwrap();
-    }
-
-    #[test]
-    fn the_richer_justfile_is_kept_and_the_others_recipes_join_it() {
-        // action-trust-layers' shape: the real recipes are in the lowercase file.
-        let d = repo("# Help\nhelp:\n    echo h\n");
-        std::fs::write(
+        #[test]
+        fn the_richer_justfile_is_kept_and_the_others_recipes_join_it() {
+            // action-trust-layers' shape: the real recipes are in the lowercase file.
+            let d = repo("# Help\nhelp:\n    echo h\n");
+            std::fs::write(
             d.join("justfile"),
             "# Build\nbuild:\n    cargo build\n\n# Test\ntest:\n    cargo test\n\nhelp:\n    echo other\n",
         )
         .unwrap();
-        let (kept, acts) = fold(&d, &["Justfile", "justfile"]).unwrap();
-        assert_eq!(kept, "justfile");
-        let text = std::fs::read_to_string(d.join("justfile")).unwrap();
-        assert_eq!(text.matches("help:").count(), 1, "{text}");
-        assert!(
-            text.contains("cargo build") && text.contains("echo other"),
-            "{text}"
-        );
-        assert!(!d.join("Justfile").exists());
-        assert!(
-            matches!(&acts[0].1, Act::Removed(w) if w.contains("help")),
-            "{acts:?}"
-        );
-        assert_eq!(summary(&d, "justfile").unwrap(), ["build", "help", "test"]);
-        std::fs::remove_dir_all(&d).unwrap();
-    }
+            let (kept, acts) = fold(&d, &["Justfile", "justfile"]).unwrap();
+            assert_eq!(kept, "justfile");
+            let text = std::fs::read_to_string(d.join("justfile")).unwrap();
+            assert_eq!(text.matches("help:").count(), 1, "{text}");
+            assert!(
+                text.contains("cargo build") && text.contains("echo other"),
+                "{text}"
+            );
+            assert!(!d.join("Justfile").exists());
+            assert!(
+                matches!(&acts[0].1, Act::Removed(w) if w.contains("help")),
+                "{acts:?}"
+            );
+            assert_eq!(summary(&d, "justfile").unwrap(), ["build", "help", "test"]);
+            std::fs::remove_dir_all(&d).unwrap();
+        }
 
-    #[test]
-    fn a_fold_that_would_break_the_kept_file_is_undone() {
-        // `x` is a variable in the kept file; appending a recipe that reassigns it
-        // is a parse error, so nothing may be removed.
-        let kept = "x := \"1\"\n\nbuild:\n    echo {{x}}\n\ntest:\n    echo t\n";
-        let d = repo(kept);
-        std::fs::write(d.join(".justfile"), "lint:\n    echo {{y}}\n").unwrap();
-        let (k, acts) = fold(&d, &["Justfile", ".justfile"]).unwrap();
-        assert_eq!(k, "Justfile");
-        assert!(
-            matches!(&acts[0].1, Act::Skipped(w) if w.contains("by hand")),
-            "{acts:?}"
-        );
-        assert!(d.join(".justfile").exists());
-        assert_eq!(std::fs::read_to_string(d.join("Justfile")).unwrap(), kept);
-        std::fs::remove_dir_all(&d).unwrap();
+        #[test]
+        fn a_fold_that_would_break_the_kept_file_is_undone() {
+            // `x` is a variable in the kept file; appending a recipe that reassigns it
+            // is a parse error, so nothing may be removed.
+            let kept = "x := \"1\"\n\nbuild:\n    echo {{x}}\n\ntest:\n    echo t\n";
+            let d = repo(kept);
+            std::fs::write(d.join(".justfile"), "lint:\n    echo {{y}}\n").unwrap();
+            let (k, acts) = fold(&d, &["Justfile", ".justfile"]).unwrap();
+            assert_eq!(k, "Justfile");
+            assert!(
+                matches!(&acts[0].1, Act::Skipped(w) if w.contains("by hand")),
+                "{acts:?}"
+            );
+            assert!(d.join(".justfile").exists());
+            assert_eq!(std::fs::read_to_string(d.join("Justfile")).unwrap(), kept);
+            std::fs::remove_dir_all(&d).unwrap();
+        }
     }
 }
