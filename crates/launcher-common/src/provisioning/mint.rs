@@ -329,9 +329,17 @@ pub fn mint(target: &Path, canon: &Canon, opts: &Options) -> Result<Report> {
     // Justfile: created whole when absent, otherwise merged (justfile.rs), which
     // `just --summary` must accept or the original is restored. Several
     // justfiles are folded into one first: `just` refuses to pick between them.
+    // Exact directory entries: on a case-insensitive filesystem `justfile`
+    // resolves to `Justfile`, and folding a file into itself deletes it.
+    let entries: Vec<String> = std::fs::read_dir(target)
+        .with_context(|| format!("listing {}", target.display()))?
+        .filter_map(|e| e.ok())
+        .filter(|e| e.file_type().is_ok_and(|t| t.is_file()))
+        .filter_map(|e| e.file_name().into_string().ok())
+        .collect();
     let present: Vec<&str> = ["Justfile", "justfile", ".justfile"]
         .into_iter()
-        .filter(|j| target.join(j).is_file())
+        .filter(|j| entries.iter().any(|e| e == j))
         .collect();
     let (justfile, folded) = match present.len() {
         0 => (None, Vec::new()),
