@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# SPDX-License-Identifier: MPL-2.0
 {# NOTE: the shebang MUST be the literal first line of this template.
   It previously sat below this comment block, and every launcher the
   generator emitted began with a blank line -- shellcheck SC2148, and a
@@ -23,12 +22,18 @@
 
   All three shapes emit the same --integ / --disinteg / --help cross-platform
   surface so desktop integration stays uniform across the estate.
+
+  The emitted script's licence is the APP's (`[project].license`, default
+  MPL-2.0), not this template's. It used to be a literal MPL-2.0 -- emitted
+  twice -- so realigning a launcher in an AGPL repo silently relicensed it
+  (game-server-admin, 2026-09-30). The tag name is a Tera string so that a
+  licence scanner reading THIS file sees only the template's own header above.
 -#}
-# SPDX-License-Identifier: MPL-2.0
+# {{ "SPDX-License-Identifier" }}: {{ app_license }}
 # Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
 #
 # @launcher-deed begin
-# ;; SPDX-License-Identifier: MPL-2.0
+# ;; {{ "SPDX-License-Identifier" }}: {{ app_license }}
 # (praxis-deed
 #   :schema-version  "1.0.0"
 #   :canonical-name  "{{ app_name | deedstr }}-launcher"

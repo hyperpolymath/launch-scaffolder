@@ -717,6 +717,51 @@ mod tests {
         );
     }
 
+    /// The emitted licence is the app's `[project].license`, once per header.
+    ///
+    /// The template used to carry a literal MPL-2.0 header — twice — and never
+    /// read `app_license`, so realigning an AGPL repo's launcher silently
+    /// relicensed it (game-server-admin, 2026-09-30). A non-default licence is
+    /// the only input that tells "reads the config" from "happens to match".
+    #[test]
+    fn rendered_licence_is_the_projects_and_appears_once_per_header() {
+        let mut cfg = sample_config();
+        cfg.project.license = Some("AGPL-3.0-or-later".into());
+        let std_ = LauncherStandard::baked().expect("baked standard should parse");
+        let out = render(&cfg, &std_, None).expect("template should render");
+
+        let spdx: Vec<&str> = out
+            .lines()
+            .filter(|l| l.contains("SPDX-License-Identifier"))
+            .collect();
+        assert_eq!(
+            spdx,
+            [
+                "# SPDX-License-Identifier: AGPL-3.0-or-later",
+                "# ;; SPDX-License-Identifier: AGPL-3.0-or-later",
+            ],
+            "exactly one script header and one deed header, both the project's licence"
+        );
+        assert_eq!(
+            out.lines().nth(1),
+            Some("# SPDX-License-Identifier: AGPL-3.0-or-later"),
+            "the licence header must sit directly under the shebang"
+        );
+    }
+
+    /// With no `[project].license` the launcher keeps its historical MPL-2.0.
+    #[test]
+    fn rendered_licence_defaults_to_mpl_when_the_project_sets_none() {
+        let cfg = sample_config();
+        assert_eq!(cfg.project.license, None);
+        let std_ = LauncherStandard::baked().expect("baked standard should parse");
+        let out = render(&cfg, &std_, None).expect("template should render");
+        assert_eq!(
+            out.lines().nth(1),
+            Some("# SPDX-License-Identifier: MPL-2.0")
+        );
+    }
+
     /// The port has exactly one spelling in the generated script (#49 AC3).
     ///
     /// `APP_PORT` used to be emitted into every `server-url` launcher and read
