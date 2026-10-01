@@ -496,6 +496,7 @@ fn span_at(lines: &[&str], header: usize) -> (usize, usize, usize) {
     (start, header, end)
 }
 
+/// Collect recipe names in source order, ignoring lines without recipe headers.
 fn recipe_names(text: &str) -> Vec<String> {
     text.lines()
         .filter_map(header_name)
@@ -507,6 +508,7 @@ fn recipe_names(text: &str) -> Vec<String> {
 mod tests {
     use super::*;
 
+    /// Verify recipe header parsing, including parameters, while rejecting directives and bodies.
     #[test]
     fn headers_are_recognised_and_directives_are_not() {
         assert_eq!(header_name("build:"), Some("build"));
@@ -521,6 +523,7 @@ mod tests {
         assert_eq!(header_name("# doctor:"), None);
     }
 
+    /// Verify recipe spans include damaged body lines but preserve the next recipe documentation.
     #[test]
     fn a_span_takes_stray_unindented_lines_and_leaves_the_next_doc() {
         let src = "# Diagnose\ndoctor:\n    #!/usr/bin/env bash\n    a\n# Optional tools\nif x; then\n    b\nfi\n    c\n\n# Repair\nheal:\n    d\n";
@@ -529,6 +532,7 @@ mod tests {
         assert_eq!(span(&lines, "heal"), Some((10, 11, 13)));
     }
 
+    /// Create a temporary repository containing the baked engine and the supplied Justfile.
     fn repo(justfile: &str) -> std::path::PathBuf {
         let n = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -545,6 +549,7 @@ mod tests {
         d
     }
 
+    /// Decode the baked provisioning Just module for merge and fold tests.
     fn provision_just() -> String {
         String::from_utf8(
             crate::provisioning::canon::Canon::Baked
@@ -557,6 +562,7 @@ mod tests {
 
     const BROKEN: &str = "# Build\nbuild:\n    cargo build\n\n# Self-diagnostic\ndoctor:\n    #!/usr/bin/env bash\n    echo \"Running diagnostics for x\"\nif command -v y >/dev/null; then\n    echo ok\nfi\n\n# Help\nhelp-me:\n    #!/usr/bin/env bash\n    echo \"\"\necho \"FIRST TIME SETUP:\"\n";
 
+    /// Verify identical Justfiles collapse to one without changing the retained contents.
     #[test]
     fn identical_justfiles_fold_to_one_and_the_copy_is_removed() {
         let src = "# Build\nbuild:\n    echo b\n";
@@ -579,6 +585,7 @@ mod tests {
     mod needs_just {
         use super::*;
 
+        /// Verify merging repairs boilerplate, preserves custom verbs, and is idempotent.
         #[test]
         fn boilerplate_is_replaced_and_a_broken_file_repaired() {
             let d = repo(BROKEN);
@@ -602,6 +609,7 @@ mod tests {
             );
         }
 
+        /// Verify a custom doctor is preserved as doctor-local and an existing twin prevents merging.
         #[test]
         fn a_custom_doctor_becomes_doctor_local() {
             let d = repo("doctor:\n    @echo mine\n");
@@ -617,6 +625,7 @@ mod tests {
             ));
         }
 
+        /// Verify canon delegation replaces a placeholder test recipe while preserving a real benchmark.
         #[test]
         fn a_template_placeholder_verb_is_replaced_and_a_real_one_kept() {
             let d = repo(
@@ -640,6 +649,7 @@ mod tests {
             assert!(!text.contains("bench: provision::bench"));
         }
 
+        /// Verify known syntax damage is repaired and a conflicting provision recipe blocks merging.
         #[test]
         fn sweep_damage_is_repaired_and_a_provision_recipe_refused() {
             let src = "// SPDX-License-Identifier: MPL-2.0\n\nguix-shell:\n    guix shell -D -f guix.scm\n\n# fallback\nguix-shell:\n    @if [ -f \"flake.guix\" ]; then guix develop; fi\n";
@@ -662,6 +672,7 @@ mod tests {
             ));
         }
 
+        /// Verify an unsuccessful repair preserves the original Justfile bytes.
         #[test]
         fn an_unrepairable_file_is_left_byte_identical() {
             let src = "build:\n    cargo build\nthis is not just syntax\n";
@@ -673,6 +684,7 @@ mod tests {
             assert_eq!(std::fs::read_to_string(d.join("Justfile")).unwrap(), src);
         }
 
+        /// Verify folding prefers a real recipe over a placeholder with the same name.
         #[test]
         fn a_real_body_replaces_a_template_placeholder_of_the_same_name() {
             // The kept file is the bigger, unedited RSR template; the other file holds
@@ -696,6 +708,7 @@ mod tests {
             std::fs::remove_dir_all(&d).unwrap();
         }
 
+        /// Verify folding retains the file with more recipes and resolves duplicate recipe names.
         #[test]
         fn the_richer_justfile_is_kept_and_the_others_recipes_join_it() {
             // action-trust-layers' shape: the real recipes are in the lowercase file.
@@ -722,6 +735,7 @@ mod tests {
             std::fs::remove_dir_all(&d).unwrap();
         }
 
+        /// Verify a fold that introduces invalid syntax restores the retained file and keeps the source.
         #[test]
         fn a_fold_that_would_break_the_kept_file_is_undone() {
             // `x` is a variable in the kept file; appending a recipe that reassigns it

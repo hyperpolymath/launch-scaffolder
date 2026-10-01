@@ -175,10 +175,12 @@ impl Canon {
 mod tests {
     use super::*;
 
+    /// Locate the vendored template tree relative to this crate.
     fn vendor_dir() -> PathBuf {
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../../standards/provisioning/templates")
     }
 
+    /// Ensure the baked table lists every vendored template in sorted order.
     #[test]
     fn the_table_lists_exactly_the_vendored_files() {
         let mut on_disk: Vec<String> = walkdir::WalkDir::new(vendor_dir())
@@ -201,6 +203,7 @@ mod tests {
         );
     }
 
+    /// Ensure every engine file is baked and refreshable channel pins are excluded.
     #[test]
     fn every_engine_file_is_in_the_table() {
         for e in ENGINE_FILES {

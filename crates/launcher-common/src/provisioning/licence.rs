@@ -74,6 +74,7 @@ pub enum Refusal {
 }
 
 impl std::fmt::Display for Refusal {
+    /// Format the licence refusal with its repository, evidence, or policy reason.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Refusal::OutOfScope(r) => {
@@ -106,6 +107,7 @@ enum Signal {
 }
 
 impl Signal {
+    /// Return the licence label used when reporting conflicting classification signals.
     fn name(self) -> &'static str {
         match self {
             Signal::Mpl => "MPL-2.0",
@@ -132,6 +134,7 @@ fn signal(text: &str) -> Option<Signal> {
     }
 }
 
+/// Recognise root licence filenames by case-insensitive LICENSE, LICENCE, or COPYING prefixes.
 fn is_licence_name(name: &str) -> bool {
     let n = name.to_ascii_uppercase();
     n.starts_with("LICENSE") || n.starts_with("LICENCE") || n.starts_with("COPYING")
@@ -191,6 +194,7 @@ pub fn classify(target: &Path, repo: &str) -> Result<Licence, Refusal> {
     }
 }
 
+/// Return sorted directory entries, omitting unreadable entries and treating read failures as empty.
 fn read_dir_sorted(dir: &Path) -> Vec<std::path::PathBuf> {
     let mut v: Vec<_> = std::fs::read_dir(dir)
         .map(|rd| rd.filter_map(|e| e.ok().map(|e| e.path())).collect())
@@ -203,6 +207,7 @@ fn read_dir_sorted(dir: &Path) -> Vec<std::path::PathBuf> {
 mod tests {
     use super::*;
 
+    /// Create a temporary licence fixture with the supplied relative paths and file contents.
     fn repo(files: &[(&str, &str)]) -> std::path::PathBuf {
         let n = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -224,12 +229,14 @@ mod tests {
     const PMPL_TEXT: &str =
         "Palimpsest-MPL License 1.0\nderived from the Mozilla Public License Version 2.0\n";
 
+    /// Verify MPL code is paired with the required CC-BY-SA documentation licence.
     #[test]
     fn mpl_repo_gets_cc_by_sa_docs() {
         let d = repo(&[("LICENSE", MPL_TEXT)]);
         assert_eq!(classify(&d, "aerie"), Ok(MPL));
     }
 
+    /// Verify the MPL secondary-licence reference to AGPL does not change classification.
     #[test]
     fn full_mpl_text_naming_the_affero_gpl_is_still_mpl() {
         // Re-wrapped onto single spaces, as a reflowed copy would be, so the
@@ -246,6 +253,7 @@ mod tests {
         assert_eq!(classify(&d, "aerie"), Ok(MPL));
     }
 
+    /// Verify AGPL classification includes the Guix identifier and an unratified prose-licence note.
     #[test]
     fn agpl_control_is_classified_agpl_and_flagged() {
         let d = repo(&[("LICENSE.txt", AGPL_TEXT)]);
@@ -255,6 +263,7 @@ mod tests {
         assert!(l.unratified.is_some());
     }
 
+    /// Verify PMPL is accepted for registered repositories and refused elsewhere.
     #[test]
     fn pmpl_only_inside_the_register() {
         let d = repo(&[("LICENSE", PMPL_TEXT)]);
@@ -268,6 +277,7 @@ mod tests {
         );
     }
 
+    /// Verify missing, unrecognised, conflicting, and excluded licences yield distinct refusals.
     #[test]
     fn refusals_name_their_reason() {
         assert_eq!(classify(&repo(&[]), "x"), Err(Refusal::NoLicenceFile));
@@ -285,6 +295,7 @@ mod tests {
         );
     }
 
+    /// Verify the REUSE layout supplies the code licence without treating prose licensing as a conflict.
     #[test]
     fn reuse_layout_is_read_when_the_root_has_no_licence() {
         let d = repo(&[

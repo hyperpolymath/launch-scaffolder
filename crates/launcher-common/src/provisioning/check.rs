@@ -17,6 +17,7 @@ pub enum Drift {
 }
 
 impl std::fmt::Display for Drift {
+    /// Describe the affected path and whether its engine file is missing or changed.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Drift::Missing(p) => write!(f, "{p}: missing"),
@@ -65,6 +66,7 @@ mod tests {
     use super::*;
     use crate::provisioning::canon::BAKED;
 
+    /// Write the baked engine files into a test directory, creating parent directories.
     fn mint_engine(dir: &Path) {
         for rel in ENGINE_FILES {
             let (_, b) = BAKED.iter().find(|(p, _)| p == rel).unwrap();
@@ -74,6 +76,7 @@ mod tests {
         }
     }
 
+    /// Recreate a temporary test directory identified by process ID and case name.
     fn scratch(name: &str) -> std::path::PathBuf {
         let d = std::env::temp_dir().join(format!("ls-provcheck-{}-{name}", std::process::id()));
         let _ = std::fs::remove_dir_all(&d);
@@ -81,6 +84,7 @@ mod tests {
         d
     }
 
+    /// Verify that freshly copied canon engine files produce no drift findings.
     #[test]
     fn identical_engine_has_no_drift() {
         let d = scratch("clean");

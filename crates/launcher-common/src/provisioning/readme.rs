@@ -97,6 +97,7 @@ fn merged(text: &str, rendered: &str) -> Option<(String, &'static str)> {
     Some((s, "AI-install section inserted"))
 }
 
+/// Join lines with newlines and append a final newline.
 fn join(lines: &[&str]) -> String {
     let mut s = lines.join("\n");
     s.push('\n');
@@ -155,6 +156,7 @@ mod tests {
 
     const R: &str = "[TIP]\n====\nsay it\n====\n\n[[ai-install]]\n== AI-Assisted Installation (Recommended)\n\nbody\n";
 
+    /// Verify installation content surrounds the introduction correctly and reinsertion is a no-op.
     #[test]
     fn tip_after_header_section_before_first_heading() {
         let src = "// SPDX\n= Title\n:toc:\n\nIntro.\n\n[#usage]\n== Usage\n\n----\n== not a heading\n----\n";
@@ -170,6 +172,7 @@ mod tests {
         assert!(merged(&out, R).is_none(), "second run must be a no-op");
     }
 
+    /// Verify an existing installation section gains only its missing anchor.
     #[test]
     fn an_existing_section_only_gains_the_anchor() {
         let src = "= T\n\n== AI-Assisted Installation\n\nSay X.\n";
@@ -181,6 +184,7 @@ mod tests {
         assert!(what.contains("anchor"));
     }
 
+    /// Verify headings inside literal blocks do not prevent appending the installation section.
     #[test]
     fn headings_inside_blocks_are_ignored_and_no_heading_appends() {
         let src = "= T\n\n....\n== x\n....\n";

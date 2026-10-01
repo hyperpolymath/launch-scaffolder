@@ -77,6 +77,7 @@ enum Command {
     Standard(cmd_standard::Args),
 }
 
+/// Parse CLI arguments, initialise tracing, and dispatch the selected launcher command.
 fn main() -> Result<()> {
     let cli = Cli::parse();
 

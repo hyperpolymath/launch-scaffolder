@@ -98,6 +98,7 @@ pub enum Act {
 pub const EXIT_EXTERNAL: i32 = 4;
 
 impl std::fmt::Display for Act {
+    /// Format a file action, including the reason for replacement, retention, removal, or failure.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Act::Created => write!(f, "created"),
@@ -427,6 +428,7 @@ impl Minter<'_> {
         }
     }
 
+    /// Copy canon bytes into a missing, stub, or inherited file while preserving repository-owned content.
     fn minted_bytes(&self, dest: &str, src: &str) -> Result<Act> {
         match self.stub_reason(dest)? {
             Some(why) => write_file(self.target, dest, &self.canon.file(src)?, &why),
@@ -434,6 +436,7 @@ impl Minter<'_> {
         }
     }
 
+    /// Render and write a template regardless of stub ownership, recording the supplied reason.
     fn force(
         &self,
         dest: &str,
@@ -501,6 +504,7 @@ const MECHANICAL: &[&str] = &[
     "DELEGATIONS",
 ];
 
+/// Return the first known mechanical slot still present in text, ignoring repository-specific slots.
 fn mechanical_residue(text: &str) -> Option<&'static str> {
     MECHANICAL
         .iter()
@@ -546,6 +550,7 @@ pub fn render(tmpl: &str, vars: &BTreeMap<&str, String>) -> String {
 /// Marks a value as space-separated Scheme atoms for [`render`] to wrap.
 const ATOMS: &str = "\u{0}atoms\u{0}";
 
+/// Escape and quote Scheme strings, marking the result for atom wrapping during rendering.
 fn quoted_atoms(specs: &[String]) -> String {
     let atoms: Vec<String> = specs
         .iter()
@@ -554,6 +559,7 @@ fn quoted_atoms(specs: &[String]) -> String {
     format!("{ATOMS}{}", atoms.join(" "))
 }
 
+/// Wrap space-separated atoms at the template column, reserving room for closing parentheses.
 fn wrap_atoms(atoms: &str, col: usize) -> String {
     let mut out = String::new();
     let mut width = col;
@@ -575,10 +581,12 @@ fn wrap_atoms(atoms: &str, col: usize) -> String {
     out
 }
 
+/// Escape backslashes and double quotes for a Scheme string literal.
 fn scheme_escape(s: &str) -> String {
     s.replace('\\', "\\\\").replace('"', "\\\"")
 }
 
+/// Replace whitespace-only text with "none" and otherwise preserve the original string.
 fn or_none(s: String) -> String {
     if s.trim().is_empty() {
         "none".into()
@@ -635,6 +643,7 @@ fn below_floor(tool: &str, value: &str) -> Option<&'static str> {
     None
 }
 
+/// Emit a bare TOML key when possible, otherwise quote and escape it.
 fn toml_key(k: &str) -> String {
     if k.chars()
         .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
@@ -806,6 +815,7 @@ fn describe(target: &Path, name: &str) -> (String, String, String) {
     (version, synopsis_of(&description), description)
 }
 
+/// Extract the first prose paragraph from the first readable README, skipping markup and blocks.
 fn readme_paragraph(target: &Path) -> Option<String> {
     let text = ["README.adoc", "README.md", "README"]
         .iter()
@@ -858,6 +868,7 @@ fn synopsis_of(description: &str) -> String {
     s
 }
 
+/// Derive the year from SOURCE_DATE_EPOCH, falling back to the system clock.
 fn current_year() -> i64 {
     let secs = std::env::var("SOURCE_DATE_EPOCH")
         .ok()
@@ -883,6 +894,7 @@ fn year_of_days(z: i64) -> i64 {
     yoe + era * 400 + i64::from(m <= 2)
 }
 
+/// Read a canon file as UTF-8, reporting its path if decoding fails.
 fn canon_text(canon: &Canon, rel: &str) -> Result<String> {
     String::from_utf8(canon.file(rel)?.into_owned()).with_context(|| format!("{rel} is not UTF-8"))
 }
@@ -908,6 +920,7 @@ fn write_file(target: &Path, rel: &str, bytes: &[u8], why: &str) -> Result<Act> 
     })
 }
 
+/// On Unix, set shell-script permissions to 0755; leave other paths and platforms unchanged.
 fn set_exec(path: &Path, rel: &str) -> Result<()> {
     #[cfg(unix)]
     if rel.ends_with(".sh") {
@@ -1025,6 +1038,7 @@ impl Lib {
             .with_context(|| format!("running {LIB} {}", args.join(" ")))
     }
 
+    /// Run an engine verb and return UTF-8 stdout without trailing newlines, failing on nonzero status.
     fn out(&self, args: &[&str]) -> Result<String> {
         let o = self.run(args)?;
         if !o.status.success() {
@@ -1040,6 +1054,7 @@ impl Lib {
             .to_string())
     }
 
+    /// Return the nonempty output lines of a successful engine verb.
     fn lines(&self, args: &[&str]) -> Result<Vec<String>> {
         Ok(self
             .out(args)?
@@ -1049,6 +1064,7 @@ impl Lib {
             .collect())
     }
 
+    /// Split the output of a successful engine verb into whitespace-delimited words.
     fn words(&self, args: &[&str]) -> Result<Vec<String>> {
         Ok(self
             .out(args)?
@@ -1077,10 +1093,12 @@ impl Lib {
 mod tests {
     use super::*;
 
+    /// Build owned template substitution values from borrowed test data.
     fn vars(kv: &[(&'static str, &str)]) -> BTreeMap<&'static str, String> {
         kv.iter().map(|(k, v)| (*k, v.to_string())).collect()
     }
 
+    /// Verify substitutions are not expanded recursively and unknown slots remain intact.
     #[test]
     fn render_is_single_pass_and_leaves_unknown_slots() {
         let v = vars(&[("A", "__B__ and __init__"), ("B", "x")]);
@@ -1091,6 +1109,7 @@ mod tests {
         assert_eq!(render("___A__", &vars(&[("A", "v")])), "_v");
     }
 
+    /// Verify rendered Scheme atoms wrap within the width limit and align with the first atom.
     #[test]
     fn atoms_wrap_under_the_first_atom() {
         let specs: Vec<String> = [
@@ -1122,6 +1141,7 @@ mod tests {
         assert_eq!(tokens.last(), Some(&"\"zig\"))"));
     }
 
+    /// Verify canon delegations retain contract verbs, parameters, and docs while omitting overrides.
     #[test]
     fn delegations_cover_every_verb_with_its_doc() {
         let canon = Canon::Baked;
@@ -1142,6 +1162,7 @@ mod tests {
         assert!(!some.contains("doctor:") && !some.contains("build:") && some.contains("heal:"));
     }
 
+    /// Verify quoted deed fields are extracted and absent fields return no value.
     #[test]
     fn deed_fields_and_slugs() {
         let d = "(praxis-deed\n  :repo         \"hyperpolymath/rsr-template-repo\"\n  :archetype    \"library\"        ; app | …\n";
@@ -1153,6 +1174,7 @@ mod tests {
         assert_eq!(deed_field(d, "ports"), None);
     }
 
+    /// Verify synopsis truncation and Scheme string escaping for generated package metadata.
     #[test]
     fn synopsis_is_one_short_sentence() {
         assert_eq!(synopsis_of("Does a thing. Then more."), "Does a thing");
@@ -1161,6 +1183,7 @@ mod tests {
         assert_eq!(scheme_escape(r#"a "q" \ b"#), r#"a \"q\" \\ b"#);
     }
 
+    /// Verify Gregorian year conversion at the epoch, a year boundary, and a leap day.
     #[test]
     fn years_from_day_counts() {
         assert_eq!(year_of_days(0), 1970);
@@ -1169,6 +1192,7 @@ mod tests {
         assert_eq!(year_of_days(11_016), 2000); // 2000-02-29
     }
 
+    /// Verify lock failures identify only explicitly unpinned tools carried from existing config.
     #[test]
     fn unpinnable_names_only_carried_tools() {
         let carried = vec![
@@ -1181,6 +1205,7 @@ mod tests {
         assert!(unpinnable("mise.lock has no sha256 for: zig/linux-x64", &carried).is_empty());
     }
 
+    /// Verify existing pins override canon defaults and additional tools follow the canon entries.
     #[test]
     fn carried_pins_survive_and_extras_follow() {
         let tools = vec!["just".to_string(), "rust".to_string()];
@@ -1194,6 +1219,7 @@ mod tests {
         );
     }
 
+    /// Verify banned tools are removed and invalid TOML produces a note instead of carried pins.
     #[test]
     fn carry_over_drops_banned_and_survives_a_file_that_is_not_toml() {
         let d = std::env::temp_dir().join(format!("carry-{}", std::process::id()));
@@ -1213,6 +1239,7 @@ mod tests {
         std::fs::remove_dir_all(&d).unwrap();
     }
 
+    /// Verify all supported mise configs contribute tools in the required precedence order.
     #[test]
     fn carry_over_reads_every_config_and_the_winning_pin_wins() {
         let d = std::env::temp_dir().join(format!("carry-prec-{}", std::process::id()));
@@ -1242,6 +1269,7 @@ mod tests {
         std::fs::remove_dir_all(&d).unwrap();
     }
 
+    /// Verify pins below the Just floor are raised with a note while compatible selectors are preserved.
     #[test]
     fn a_carried_pin_below_a_floor_is_raised_and_said() {
         let tools = vec!["just".to_string()];
@@ -1267,6 +1295,7 @@ mod tests {
         }
     }
 
+    /// Verify the deed and shell engine agree on banned tool names and backends.
     #[test]
     fn the_deeds_banned_lists_are_the_engines() {
         let deed = include_str!(concat!(
@@ -1308,6 +1337,7 @@ mod tests {
         assert_eq!(deed_list(":banned-backends "), lib_list("BANNED_BACKENDS"));
     }
 
+    /// Verify the Rust Just version floor matches the value declared by the canon deed.
     #[test]
     fn the_just_floor_matches_the_canon_deed() {
         let deed = include_str!(concat!(
@@ -1321,6 +1351,7 @@ mod tests {
         );
     }
 
+    /// Verify repository-specific slots are allowed while unfilled mechanical slots are detected.
     #[test]
     fn mechanical_residue_ignores_spec_slots() {
         assert_eq!(mechanical_residue("x __SPEC_USAGE__ y"), None);

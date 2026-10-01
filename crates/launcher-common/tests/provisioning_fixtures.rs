@@ -141,6 +141,7 @@ fn repair(repo: &Path, i: usize) {
     }
 }
 
+/// Verify engine language detection for documentation, Idris, and Rust fixtures.
 #[test]
 fn langs_names_each_fixture_language() {
     for (fixture, lang) in [
@@ -155,6 +156,7 @@ fn langs_names_each_fixture_language() {
     }
 }
 
+/// Verify the Deno-leftover warning disappears when deno.json is removed from Rust fixtures.
 #[test]
 fn doctor_warns_on_deno_leftovers_and_only_then() {
     for fixture in ["rustd", "rustr"] {
@@ -178,6 +180,7 @@ fn doctor_warns_on_deno_leftovers_and_only_then() {
 mod needs_just {
     use super::*;
 
+    /// Verify the broken fixture fails with exactly the three planted conformance faults.
     #[test]
     fn check_fixture_fails_on_exactly_its_three_faults() {
         let repo = scratch("check", "check");
@@ -186,6 +189,7 @@ mod needs_just {
         assert_eq!(fails, expected_without(&[]));
     }
 
+    /// Verify each targeted repair removes its own finding while the other faults still fail.
     #[test]
     fn each_repair_removes_only_its_own_fail() {
         for i in 0..CHECK_FAILS.len() {
@@ -197,6 +201,7 @@ mod needs_just {
         }
     }
 
+    /// Verify repairing every planted fault yields a successful check with no failures.
     #[test]
     fn all_repairs_together_pass() {
         let repo = scratch("check", "check-repaired");
@@ -208,6 +213,7 @@ mod needs_just {
         assert_eq!(code, 0);
     }
 
+    /// Verify offline mint preserves custom recipes as local twins and reports the skipped mise lock.
     #[test]
     fn offline_mint_keeps_custom_recipes_as_local_twins() {
         let canon = Canon::resolve(None).unwrap();
