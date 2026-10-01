@@ -208,8 +208,8 @@ jobs:
           # rust-ci.yml skips `needs_just::` (its runner has no just); this job
           # is the only place they run, so their absence here is a failure.
           NEEDS_JUST=$(grep -cE '^test (.*::)?needs_just::.* \.\.\. ok$' "$LOG")
-          if [ "$NEEDS_JUST" -lt 9 ]; then
-            echo "::error title=needs_just tests::only $NEEDS_JUST of 9 needs_just:: tests passed here, and rust-ci skips them, so nothing else runs them"
+          if [ "$NEEDS_JUST" -lt 16 ]; then
+            echo "::error title=needs_just tests::only $NEEDS_JUST of 16 needs_just:: tests passed here, and rust-ci skips them, so nothing else runs them"
             exit 1
           fi
           if [ "$PASSED" -lt "$TEST_COUNT_FLOOR" ]; then
