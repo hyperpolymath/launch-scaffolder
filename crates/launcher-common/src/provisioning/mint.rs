@@ -1019,12 +1019,15 @@ fn mise_lock(lib: &Lib) -> Result<Act> {
         return Ok(Act::Kept("pinned and checksummed".into()));
     }
     let existed = lib.0.join("mise.lock").is_file();
-    let o = Command::new("timeout")
+    let o = match Command::new("timeout")
         .args(["600", "mise", "lock"])
         .env("MISE_TRUSTED_CONFIG_PATHS", &lib.0)
         .current_dir(&lib.0)
         .output()
-        .context("running timeout 600 mise lock")?;
+    {
+        Ok(o) => o,
+        Err(e) => return Ok(Act::Failed(format!("cannot run `timeout 600 mise lock`: {e}"))),
+    };
     Ok(match lib.predicate(&["mise-lock-gaps"])? {
         None if existed => Act::Replaced("re-locked: the old lock had gaps".into()),
         None => Act::Created,
