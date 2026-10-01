@@ -136,15 +136,14 @@ pub fn mint(target: &Path, canon: &Canon, opts: &Options) -> Result<Report> {
     let target = &target
         .canonicalize()
         .with_context(|| format!("resolving {}", target.display()))?;
-    let slug = match &opts.repo {
-        Some(s) => s.clone(),
-        None => origin_slug(target).unwrap_or_else(|| {
-            format!(
-                "hyperpolymath/{}",
-                target.file_name().unwrap_or_default().to_string_lossy()
-            )
-        }),
-    };
+    let known = opts.repo.clone().or_else(|| origin_slug(target));
+    let slug_is_guess = known.is_none();
+    let slug = known.unwrap_or_else(|| {
+        format!(
+            "hyperpolymath/{}",
+            target.file_name().unwrap_or_default().to_string_lossy()
+        )
+    });
     let name = slug.rsplit('/').next().unwrap_or(&slug).to_string();
     // Refuse before writing anything (standard §6).
     let licence = licence::classify(target, &name)?;
@@ -159,7 +158,9 @@ pub fn mint(target: &Path, canon: &Canon, opts: &Options) -> Result<Report> {
     let langs = lib.lines(&["langs"])?;
     let old_deed = std::fs::read_to_string(target.join(DEED)).ok();
     let deed_repo = old_deed.as_deref().and_then(|d| deed_field(d, "repo"));
-    let inherited_from = deed_repo.filter(|r| r != &slug && !r.contains("__"));
+    let inherited_from = deed_repo
+        .filter(|_| !slug_is_guess)
+        .filter(|r| r != &slug && !r.contains("__"));
     let archetype = match &opts.archetype {
         Some(a) => a.clone(),
         None => old_deed
