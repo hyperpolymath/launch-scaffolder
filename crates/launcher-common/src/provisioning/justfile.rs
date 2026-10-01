@@ -77,20 +77,43 @@ pub fn merge(target: &Path, name: &str, provision_just: &str) -> Result<Act> {
         }
     }
 
+    if lines.iter().any(|l| header_name(l) == Some("provision")) {
+        return Ok(Act::Skipped(format!(
+            "{name} has its own `provision` recipe, which clashes with `mod provision`: rename it by hand"
+        )));
+    }
+
     // A file `just` cannot parse is merged only when a mechanical repair is
-    // available: removing boilerplate, or re-indenting lines an earlier sweep
-    // left at column 0 inside a shebang body (the body is one script, so the
-    // indent changes nothing it runs). `just` judges the result below.
+    // available, each undoing damage an earlier estate sweep did:
+    // * boilerplate removal (above);
+    // * lines left at column 0 inside a shebang body are re-indented (the body
+    //   is one script, so the indent changes nothing it runs);
+    // * column-0 `//` comments become `#`;
+    // * a duplicate recipe whose body is the Nix sweep's dead `flake.guix`
+    //   fallback is dropped (`guix develop` and `flake.guix` do not exist).
+    // `just` judges the result below.
     let mut indent = vec![false; lines.len()];
+    let mut slashes = vec![false; lines.len()];
+    let mut repaired = !replaced.is_empty();
     if before.is_err() {
         for (i, l) in lines.iter().enumerate() {
-            if header_name(l).is_none() || drop[i] {
-                continue;
-            }
-            let name = header_name(l).unwrap_or_default();
-            let Some((_, h, end)) = span(&lines, name).filter(|(_, h, _)| *h == i) else {
+            let Some(name) = header_name(l) else {
                 continue;
             };
+            if drop[i] {
+                continue;
+            }
+            let (start, h, end) = span_at(&lines, i);
+            let dup = lines
+                .iter()
+                .filter(|o| header_name(o) == Some(name))
+                .count()
+                > 1;
+            if dup && lines[h..end].iter().any(|b| b.contains("flake.guix")) {
+                drop[start..end].iter_mut().for_each(|d| *d = true);
+                repaired = true;
+                continue;
+            }
             if !lines
                 .get(h + 1)
                 .is_some_and(|b| b.trim_start().starts_with("#!"))
@@ -100,13 +123,19 @@ pub fn merge(target: &Path, name: &str, provision_just: &str) -> Result<Act> {
             for j in h + 1..end {
                 if !lines[j].is_empty() && !lines[j].starts_with([' ', '\t']) {
                     indent[j] = true;
+                    repaired = true;
                 }
+            }
+        }
+        for (i, l) in lines.iter().enumerate() {
+            if l.starts_with("//") && !indent[i] {
+                slashes[i] = true;
+                repaired = true;
             }
         }
     }
     if let Err(e) = &before
-        && replaced.is_empty()
-        && !indent.contains(&true)
+        && !repaired
     {
         return Ok(Act::Skipped(format!(
             "{name} does not parse, and no mechanical repair applies: {e}"
@@ -129,7 +158,13 @@ pub fn merge(target: &Path, name: &str, provision_just: &str) -> Result<Act> {
                 if indent[i] {
                     out.push_str("    ");
                 }
-                out.push_str(line);
+                match line.strip_prefix("//").filter(|_| slashes[i]) {
+                    Some(rest) => {
+                        out.push('#');
+                        out.push_str(rest);
+                    }
+                    None => out.push_str(line),
+                }
             }
         }
         out.push('\n');
@@ -330,6 +365,11 @@ fn starts_item(line: &str) -> bool {
 /// `just` rejects, is still taken whole.
 fn span(lines: &[&str], name: &str) -> Option<(usize, usize, usize)> {
     let header = lines.iter().position(|l| header_name(l) == Some(name))?;
+    Some(span_at(lines, header))
+}
+
+/// [`span`] of the recipe whose header is line `header`.
+fn span_at(lines: &[&str], header: usize) -> (usize, usize, usize) {
     let mut start = header;
     while start > 0 && (lines[start - 1].starts_with('#') || lines[start - 1].starts_with('[')) {
         start -= 1;
@@ -347,7 +387,7 @@ fn span(lines: &[&str], name: &str) -> Option<(usize, usize, usize)> {
             break;
         }
     }
-    Some((start, header, end))
+    (start, header, end)
 }
 
 fn recipe_names(text: &str) -> Vec<String> {
@@ -443,6 +483,29 @@ mod tests {
         let after = summary(&d, "Justfile").unwrap();
         assert!(after.iter().any(|r| r == "doctor-local") && after.iter().any(|r| r == "doctor"));
         let clash = repo("doctor:\n    @echo a\ndoctor-local:\n    @echo b\n");
+        assert!(matches!(
+            merge(&clash, "Justfile", &provision_just()).unwrap(),
+            Act::Skipped(_)
+        ));
+    }
+
+    #[test]
+    #[ignore = "needs just >= 1.42 on PATH"]
+    fn sweep_damage_is_repaired_and_a_provision_recipe_refused() {
+        let src = "// SPDX-License-Identifier: MPL-2.0\n\nguix-shell:\n    guix shell -D -f guix.scm\n\n# fallback\nguix-shell:\n    @if [ -f \"flake.guix\" ]; then guix develop; fi\n";
+        let d = repo(src);
+        assert!(
+            summary(&d, "Justfile").is_err(),
+            "the control must not parse"
+        );
+        assert!(matches!(
+            merge(&d, "Justfile", &provision_just()).unwrap(),
+            Act::Replaced(_)
+        ));
+        let text = std::fs::read_to_string(d.join("Justfile")).unwrap();
+        assert!(text.starts_with("# SPDX") && !text.contains("flake.guix"));
+        assert!(text.contains("guix shell -D -f guix.scm"));
+        let clash = repo("provision:\n    @echo mine\n");
         assert!(matches!(
             merge(&clash, "Justfile", &provision_just()).unwrap(),
             Act::Skipped(_)
