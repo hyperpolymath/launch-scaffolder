@@ -1,0 +1,8 @@
+= X
+
+[[ai-install]]
+== AI-Assisted Installation
+Say it.
+
+== Other
+__NOT_OURS__

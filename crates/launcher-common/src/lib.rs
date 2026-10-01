@@ -29,6 +29,7 @@ pub mod integration;
 pub mod integrity;
 pub mod metadata_block;
 pub mod platform;
+pub mod provisioning;
 pub mod standard;
 pub mod template;
 

@@ -1,0 +1,3 @@
+package idr
+sourcedir = "src"
+modules = Idr

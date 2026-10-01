@@ -1,0 +1,7 @@
+# Run with extra args, e.g. just run --verbose
+#   cargo run -- {{args}}
+run *args:
+    cargo run -- {{args}}
+
+setup:
+    @echo own-setup
