@@ -8,6 +8,8 @@ use clap::{Args as ClapArgs, Subcommand};
 use launch_scaffolder_common::provisioning::{
     canon::{CANON_ENV, Canon},
     check,
+    licence::Refusal,
+    mint::{self, Act, Options},
 };
 use std::path::PathBuf;
 
@@ -34,7 +36,31 @@ enum Action {
         #[arg(default_value = ".")]
         target: PathBuf,
     },
+    /// Write the provisioning set: engine files realigned, minted files
+    /// created when missing and replaced only while they are stubs.
+    Mint(MintArgs),
+    /// The same operation as `mint`, named for an existing repository.
+    Realign(MintArgs),
 }
+
+#[derive(Debug, ClapArgs)]
+struct MintArgs {
+    /// `owner/name` (default: the `origin` remote).
+    #[arg(long)]
+    repo: Option<String>,
+    /// app | library | tool | theory | docs (default: the deed's, else inferred).
+    #[arg(long)]
+    archetype: Option<String>,
+    /// Copyright year (default: SOURCE_DATE_EPOCH, else this year).
+    #[arg(long)]
+    year: Option<i64>,
+    /// Repository to provision.
+    #[arg(default_value = ".")]
+    target: PathBuf,
+}
+
+/// Exit code for a licence refusal (standard §6): a ledger line, not a crash.
+pub const EXIT_REFUSED: i32 = 3;
 
 pub fn run(args: Args) -> Result<()> {
     let canon = Canon::resolve(args.canon.as_deref())?;
@@ -53,6 +79,48 @@ pub fn run(args: Args) -> Result<()> {
             }
             let code = check::conformance(&target, dev)?;
             std::process::exit(code);
+        }
+        Action::Mint(m) | Action::Realign(m) => {
+            let opts = Options {
+                repo: m.repo,
+                archetype: m.archetype,
+                year: m.year,
+            };
+            match mint::mint(&m.target, &canon, &opts) {
+                Ok(r) => {
+                    println!(
+                        "{} — {} (docs {}), archetype {}, languages {}",
+                        r.slug,
+                        r.licence.code,
+                        r.licence.doc,
+                        r.archetype,
+                        r.langs.join(", ")
+                    );
+                    if let Some(from) = &r.inherited_from {
+                        println!("  inherited set from {from}: re-minted");
+                    }
+                    if let Some(why) = r.licence.unratified {
+                        println!("  UNRATIFIED doc licence: {why}");
+                    }
+                    for (path, act) in &r.files {
+                        let tag = match act {
+                            Act::Created => "create",
+                            Act::Replaced(_) => "replace",
+                            Act::Kept(_) => "keep",
+                            Act::Skipped(_) => "SKIP",
+                        };
+                        println!("  {tag:<8} {path}: {act}");
+                    }
+                    Ok(())
+                }
+                Err(e) => match e.downcast_ref::<Refusal>() {
+                    Some(refusal) => {
+                        eprintln!("provision-set: refused: {refusal}");
+                        std::process::exit(EXIT_REFUSED);
+                    }
+                    None => Err(e),
+                },
+            }
         }
     }
 }

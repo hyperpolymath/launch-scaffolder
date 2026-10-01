@@ -5,3 +5,5 @@
 
 pub mod canon;
 pub mod check;
+pub mod licence;
+pub mod mint;
