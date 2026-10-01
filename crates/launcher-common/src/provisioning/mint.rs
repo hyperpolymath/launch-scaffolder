@@ -206,13 +206,12 @@ pub fn mint(target: &Path, canon: &Canon, opts: &Options) -> Result<Report> {
         (carried, unread) = carry_over_tools(target, hits)?;
     }
     vars.insert("MISE_TOOLS_TOML", mise_tools_toml(&mise_tools, &carried));
-    let act = match banned {
-        Some(hits) if target.join("mise.toml").exists() => m.force(
-            "mise.toml",
-            "mise.toml.tmpl",
-            &vars,
-            &format!("pinned banned tool(s): {hits}{unread}"),
-        )?,
+    let replace_why = banned
+        .as_ref()
+        .filter(|_| target.join("mise.toml").exists())
+        .map(|hits| format!("pinned banned tool(s): {hits}{unread}"));
+    let act = match &replace_why {
+        Some(why) => m.force("mise.toml", "mise.toml.tmpl", &vars, why)?,
         _ => m.minted("mise.toml", "mise.toml.tmpl", &vars)?,
     };
     files.push(("mise.toml".into(), act));
@@ -314,7 +313,34 @@ pub fn mint(target: &Path, canon: &Canon, opts: &Options) -> Result<Report> {
     let act = if opts.offline {
         Act::Skipped("offline: run `mise lock`; provision-check fails until then".into())
     } else {
-        mise_lock(&lib)?
+        let act = mise_lock(&lib)?;
+        let dropped = match &act {
+            Act::Failed(why) => unpinnable(why, &carried),
+            _ => Vec::new(),
+        };
+        match &replace_why {
+            Some(why) if !dropped.is_empty() => {
+                // A carried tool mise cannot pin (a name its registry does not
+                // know, such as the 07-18 sweep's `gnu-sed`) would fail
+                // provision-check for ever: drop it, once, and say so.
+                carried.retain(|(k, _)| !dropped.contains(k));
+                vars.insert("MISE_TOOLS_TOML", mise_tools_toml(&mise_tools, &carried));
+                let why = format!(
+                    "{why}; dropped {} carried tool(s) mise cannot pin: {}",
+                    dropped.len(),
+                    dropped.join(" ")
+                );
+                let toml = m.force("mise.toml", "mise.toml.tmpl", &vars, &why)?;
+                if let Some(f) = files.iter_mut().find(|(p, _)| p == "mise.toml") {
+                    f.1 = toml;
+                }
+                match mise_lock(&lib)? {
+                    Act::Kept(_) => Act::Created,
+                    relocked => relocked,
+                }
+            }
+            _ => act,
+        }
     };
     files.push(("mise.lock".into(), act));
 
@@ -832,6 +858,21 @@ fn mise_lock(lib: &Lib) -> Result<Act> {
     })
 }
 
+/// The carried-over tools named in a `mise-lock-gaps` "does not pin" verdict:
+/// the ones mint itself brought in and may therefore take out again. A canon
+/// tool in the same verdict is not returned, because that is a canon defect.
+fn unpinnable(gap: &str, carried: &[(String, String)]) -> Vec<String> {
+    let Some(rest) = gap.strip_prefix("mise.lock does not pin: ") else {
+        return Vec::new();
+    };
+    let named = rest.split(';').next().unwrap_or("");
+    named
+        .split_whitespace()
+        .filter(|t| carried.iter().any(|(k, _)| k == t))
+        .map(str::to_string)
+        .collect()
+}
+
 /// The first error a failed command reported (mise ends with a version and a
 /// "Run with --verbose" trailer, which name nothing), else its last line, else
 /// its exit status when it said nothing.
@@ -1017,6 +1058,18 @@ mod tests {
         assert_eq!(year_of_days(20_454), 2026); // 2026-01-01
         assert_eq!(year_of_days(20_453), 2025); // 2025-12-31
         assert_eq!(year_of_days(11_016), 2000); // 2000-02-29
+    }
+
+    #[test]
+    fn unpinnable_names_only_carried_tools() {
+        let carried = vec![
+            ("gnu-sed".to_string(), "\"latest\"".to_string()),
+            ("zig".to_string(), "\"0.14\"".to_string()),
+        ];
+        let gap = "mise.lock does not pin: bun gnu-sed; mise lock: failed";
+        assert_eq!(unpinnable(gap, &carried), vec!["gnu-sed".to_string()]);
+        assert!(unpinnable("mise.lock is empty", &carried).is_empty());
+        assert!(unpinnable("mise.lock has no sha256 for: zig/linux-x64", &carried).is_empty());
     }
 
     #[test]
