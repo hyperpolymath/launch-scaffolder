@@ -54,6 +54,14 @@ const MOD_LINE: &str = "mod provision 'build/just/provision.just'";
 /// parse whenever the kept file parsed before, or it is restored, nothing is
 /// removed, and the fold is reported as skipped. Returns the kept file's name
 /// and one report line per other file.
+///
+/// Filesystem errors are propagated and may leave a partial fold. If the kept
+/// file cannot be summarised before folding (including when `just` is absent),
+/// parsing is not required afterwards.
+///
+/// # Panics
+///
+/// Panics if `names` is empty.
 pub fn fold(target: &Path, names: &[&str]) -> Result<(String, Vec<(String, Act)>)> {
     let mut texts = Vec::new();
     for n in names {
@@ -154,6 +162,10 @@ pub fn fold(target: &Path, names: &[&str]) -> Result<(String, Vec<(String, Act)>
 }
 
 /// Merge into `target/name`. `provision_just` is the canon module's text.
+/// Returns `Kept` when already merged, `Replaced` on an accepted merge, or
+/// `Skipped` for conflicts or failed validation by `just --summary`. A rejected
+/// write is restored before returning `Skipped`; filesystem errors, including
+/// restoration failures, are propagated.
 pub fn merge(target: &Path, name: &str, provision_just: &str) -> Result<Act> {
     let path = target.join(name);
     let original =

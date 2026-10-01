@@ -27,6 +27,8 @@ impl std::fmt::Display for Drift {
 }
 
 /// Every engine file under `target` that is absent or not byte-identical to the canon.
+/// Returns an empty list when all match. Missing target files are drift;
+/// other target read errors and canon lookup/read errors are returned as errors.
 pub fn engine_drift(target: &Path, canon: &Canon) -> Result<Vec<Drift>> {
     let mut out = Vec::new();
     for rel in ENGINE_FILES {
@@ -47,6 +49,9 @@ pub fn engine_drift(target: &Path, canon: &Canon) -> Result<Vec<Drift>> {
 
 /// Run the repository's `build/just/provision-check.sh` and return its exit
 /// code. A child killed by a signal is a failure (1), never a pass.
+/// `dev` passes `--dev`, downgrading unfilled repository-specific slots to
+/// warnings. Child output is inherited; failure to start or wait for Bash is
+/// returned as an error, whereas a nonzero child exit is returned as a code.
 pub fn conformance(target: &Path, dev: bool) -> Result<i32> {
     let script = target.join("build/just/provision-check.sh");
     let mut cmd = Command::new("bash");

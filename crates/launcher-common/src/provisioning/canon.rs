@@ -130,6 +130,8 @@ pub enum Canon {
 
 impl Canon {
     /// The explicit override if given, else the baked table.
+    /// Returns an error if the override has no `templates/` directory; individual
+    /// files and the `CANON` reference are read only when requested.
     pub fn resolve(dir: Option<&Path>) -> Result<Self> {
         match dir {
             None => Ok(Canon::Baked),
@@ -143,7 +145,9 @@ impl Canon {
         }
     }
 
-    /// The `standards@<sha>` this canon names.
+    /// The trimmed `CANON` reference, conventionally `standards@<sha>`.
+    /// Its format is not validated. Returns an error if an override's `CANON`
+    /// file cannot be read as UTF-8.
     pub fn reference(&self) -> Result<String> {
         let raw = match self {
             Canon::Baked => BAKED_CANON_REF.to_string(),
@@ -153,7 +157,9 @@ impl Canon {
         Ok(raw.trim().to_string())
     }
 
-    /// The bytes of one canon file.
+    /// The bytes of a canon file, with `rel` relative to `templates/`.
+    /// Returns an error if the baked table has no such entry or reading the
+    /// override file fails.
     pub fn file(&self, rel: &str) -> Result<Cow<'static, [u8]>> {
         match self {
             Canon::Baked => BAKED

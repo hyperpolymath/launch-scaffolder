@@ -16,7 +16,11 @@ use std::path::Path;
 
 const ANCHOR: &str = "[[ai-install]]";
 
-/// Insert `rendered` (the template with the repo's values) into the README.
+/// Insert `rendered` (the template with the repo's values) into `README.adoc`.
+/// Returns `Skipped` if that file is absent and `Kept` if its anchor is already
+/// present. An existing AI-assisted installation section gains only the anchor;
+/// otherwise the rendered content is inserted. Successful writes return
+/// `Replaced`; read, UTF-8 decoding and write errors are propagated.
 pub fn insert(target: &Path, rendered: &str) -> Result<Act> {
     let path = target.join("README.adoc");
     if !path.is_file() {

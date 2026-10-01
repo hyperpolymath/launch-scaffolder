@@ -140,7 +140,15 @@ fn is_licence_name(name: &str) -> bool {
     n.starts_with("LICENSE") || n.starts_with("LICENCE") || n.starts_with("COPYING")
 }
 
-/// Classify `target`, whose repository name is `repo`.
+/// Classify `target`, whose repository name (without its owner) is `repo`.
+/// Root licence files take precedence over the `LICENSES/` fallback. Returns
+/// code, prose and Guix licence identifiers, with an unratified prose note
+/// where applicable.
+///
+/// Refuses excluded repositories, missing or unrecognised licence evidence,
+/// conflicting recognised licences, and PMPL outside the register. Unreadable
+/// directories contribute no files; unreadable or non-UTF-8 files contribute
+/// no recognised signal. Unrecognised files do not veto a recognised licence.
 pub fn classify(target: &Path, repo: &str) -> Result<Licence, Refusal> {
     if OUT_OF_SCOPE.contains(&repo) {
         return Err(Refusal::OutOfScope(repo.to_string()));

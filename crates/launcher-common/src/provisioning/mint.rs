@@ -121,7 +121,17 @@ pub struct Report {
     pub files: Vec<(String, Act)>,
 }
 
-/// Mint (or realign) the provisioning set in `target`.
+/// Mint (or realign) the provisioning set in `target`, returning a per-file report.
+/// Realigns engine files, fills missing or replaceable templates, merges the
+/// Justfile and inserts the README section. Folded secondary configs are removed.
+/// Unless `opts.offline` is set, also locks mise tools and generates missing
+/// Rust crate definitions through Guix.
+///
+/// Licence refusals are returned before any writes. Invalid archetypes, canon
+/// access/decoding errors, filesystem errors and engine invocation or output
+/// errors are propagated; earlier writes are not rolled back. External steps
+/// that run but fail their checks are recorded as `Act::Failed` in an otherwise
+/// successful report. Callers must inspect the report for failures and skips.
 pub fn mint(target: &Path, canon: &Canon, opts: &Options) -> Result<Report> {
     let target = &target
         .canonicalize()
@@ -457,7 +467,9 @@ impl Minter<'_> {
         write_file(self.target, dest, body.as_bytes(), why)
     }
 
-    /// Why `dest` may be (re)written, or `None` when the repository owns it.
+    /// Why `dest`, relative to the target, may be (re)written, or `None` when
+    /// the repository owns it. Any read or UTF-8 error is treated as missing;
+    /// errors from the Guix stub predicate are propagated.
     fn stub_reason(&self, dest: &str) -> Result<Option<String>> {
         let path = self.target.join(dest);
         let Ok(text) = std::fs::read_to_string(&path) else {
@@ -665,7 +677,9 @@ fn toml_key(k: &str) -> String {
 /// A `(tool, TOML value)` pin carried from an existing mise config.
 type Pin = (String, String);
 
-/// Folding through the tools-only template must not discard other settings.
+/// Why folding would discard settings outside `[tools]`, or `None` if neither
+/// mise TOML file has such settings. Missing files and invalid TOML do not
+/// block folding here; errors reading an existing file are propagated.
 fn mise_fold_skip_reason(target: &Path) -> Result<Option<String>> {
     for f in ["mise.toml", ".mise.toml"] {
         let path = target.join(f);
@@ -690,6 +704,8 @@ fn mise_fold_skip_reason(target: &Path) -> Result<Option<String>> {
 /// so nothing in it was in effect to carry. Files are read lowest precedence
 /// first, so a later file's pin of the same tool replaces an earlier one, which
 /// is the pin `mise ls --current` reports as in effect.
+/// `banned` contains whitespace-separated tool names. Unreadable files are
+/// ignored; `.tool-versions` contributes only the first version of each tool.
 fn carry_over_tools(target: &Path, banned: &str) -> Result<(Vec<Pin>, Vec<String>)> {
     let banned: Vec<&str> = banned.split_whitespace().collect();
     let (mut out, mut notes): (Vec<(String, String)>, Vec<String>) = (Vec::new(), Vec::new());
@@ -816,8 +832,11 @@ fn origin_slug(target: &Path) -> Option<String> {
     (!o.is_empty() && !r.is_empty() && !r.contains('/')).then(|| format!("{o}/{r}"))
 }
 
-/// `(version, synopsis, description)`: the Cargo package's, else the README's
-/// first prose paragraph, else the name.
+/// Return `(version, synopsis, description)` from Cargo package metadata.
+/// The version defaults to `0.1.0`; the description falls back to the first
+/// README prose paragraph, then a sentence naming the repository. Whitespace
+/// is collapsed and the synopsis is derived from the description. Unreadable
+/// or invalid metadata is ignored when choosing these fallbacks.
 fn describe(target: &Path, name: &str) -> (String, String, String) {
     let cargo: Option<toml::Table> = std::fs::read_to_string(target.join("Cargo.toml"))
         .ok()
@@ -874,7 +893,8 @@ fn readme_paragraph(target: &Path) -> Option<String> {
     (!para.is_empty()).then(|| para.join(" "))
 }
 
-/// The first sentence, without its full stop, at most 79 characters.
+/// Text before the first `. `, without trailing full stops, limited to 79 UTF-8
+/// bytes. Longer text is shortened at word boundaries and may become empty.
 fn synopsis_of(description: &str) -> String {
     let first = description
         .split(". ")
@@ -970,6 +990,9 @@ pub const GUIX_ENV: &str = "LAUNCH_SCAFFOLDER_GUIX";
 /// Write `build/guix/crates.scm` through the engine's `crates-scm` verb. The
 /// result is accepted only when `guix-stub` then passes on `guix_scm`: a
 /// containerised guix loses its exit status, so the file is the evidence.
+/// Returns `Created` only if the command succeeds and the stub check passes;
+/// otherwise returns `Failed`. Process I/O errors and unexpected predicate
+/// exits are propagated as errors.
 fn crates_scm(lib: &Lib, guix_scm: &str) -> Result<Act> {
     let guix = std::env::var(GUIX_ENV).unwrap_or_else(|_| "guix".into());
     let o = lib.run_env(&["crates-scm"], &[("GUIX", &guix)])?;
@@ -988,6 +1011,9 @@ fn crates_scm(lib: &Lib, guix_scm: &str) -> Result<Act> {
 /// `mise-lock-gaps` already finds every tool pinned and checksummed: bumping
 /// versions is `toolchain-refresh`'s job, not mint's. The target is trusted
 /// for this one process through the environment, not mise's trust database.
+/// Runs with a 600-second timeout. The post-run gap check determines success
+/// regardless of the command's exit status; remaining gaps yield `Act::Failed`.
+/// Process I/O errors and unexpected predicate exits are propagated.
 fn mise_lock(lib: &Lib) -> Result<Act> {
     if lib.predicate(&["mise-lock-gaps"])?.is_none() {
         return Ok(Act::Kept("pinned and checksummed".into()));
@@ -1011,7 +1037,8 @@ fn mise_lock(lib: &Lib) -> Result<Act> {
 
 /// The carried-over tools named in a `mise-lock-gaps` "does not pin" verdict:
 /// the ones mint itself brought in and may therefore take out again. A canon
-/// tool in the same verdict is not returned, because that is a canon defect.
+/// tool absent from `carried` is not returned. A canon tool also present in
+/// `carried` is eligible for removal.
 fn unpinnable(gap: &str, carried: &[(String, String)]) -> Vec<String> {
     let Some(rest) = gap.strip_prefix("mise.lock does not pin: ") else {
         return Vec::new();
@@ -1024,9 +1051,9 @@ fn unpinnable(gap: &str, carried: &[(String, String)]) -> Vec<String> {
         .collect()
 }
 
-/// The first error a failed command reported (mise ends with a version and a
-/// "Run with --verbose" trailer, which name nothing), else its last line, else
-/// its exit status when it said nothing.
+/// From the first stream with a nonblank line, the first error line (mise ends
+/// with a version and a "Run with --verbose" trailer, which name nothing), else
+/// its last nonblank line. Falls back to the exit status if all streams are blank.
 fn last_line(streams: &[&[u8]], status: &std::process::ExitStatus) -> String {
     streams
         .iter()
@@ -1055,7 +1082,10 @@ impl Lib {
         self.run_env(args, &[])
     }
 
-    /// Run a verb of the target's `provision-lib.sh` with extra environment.
+    /// Run a verb of the target's `provision-lib.sh` with extra environment,
+    /// using the target as the working directory and `PROVISION_ROOT`.
+    /// Returns captured output even on nonzero exit; process I/O errors are
+    /// propagated.
     fn run_env(&self, args: &[&str], env: &[(&str, &str)]) -> Result<std::process::Output> {
         Command::new("bash")
             .arg(self.0.join(LIB))
@@ -1102,7 +1132,9 @@ impl Lib {
             .collect())
     }
 
-    /// A predicate verb: exit 0 is "no", exit 1 is "yes, because <stdout>".
+    /// A predicate verb: exit 0 returns `None`, exit 1 returns trimmed stdout
+    /// as `Some`, replacing invalid UTF-8. Other exits, signal termination and
+    /// process I/O failures return errors.
     fn predicate(&self, args: &[&str]) -> Result<Option<String>> {
         let o = self.run(args)?;
         match o.status.code() {

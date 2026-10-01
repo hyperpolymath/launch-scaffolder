@@ -66,8 +66,11 @@ struct MintArgs {
 pub const EXIT_REFUSED: i32 = 3;
 
 /// Run `provision-set`: check a repository, or mint/realign its provisioning
-/// set. Exits 1 on drift or a FAIL, 3 on a licence refusal, 4 when an
-/// external step (`mise lock`, `guix import crate`) failed.
+/// set. Check mode exits 1 on engine drift; otherwise it exits with the
+/// repository checker's code (1 if killed by a signal). Mint/realign exits 3
+/// on a licence refusal and 4 when the report contains a failed external step.
+/// Other canon, check or mint errors are returned to the caller; a mint with
+/// no reported failures returns successfully, even if some files were skipped.
 pub fn run(args: Args) -> Result<()> {
     let canon = Canon::resolve(args.canon.as_deref())?;
     match args.action {
