@@ -344,6 +344,54 @@ mod needs_just {
         }
     }
 
+    /// An estate that cannot be computed is refused before any file changes, and
+    /// a launcher minted with one parses back through the metadata reader.
+    #[test]
+    fn estate_is_validated_before_writes_and_the_launcher_parses_back() {
+        let canon = Canon::resolve(None).unwrap();
+        let repo = scratch("lang/idr", "estate-early");
+        let licence = concat!(env!("CARGO_MANIFEST_DIR"), "/../../LICENSES/MPL-2.0.txt");
+        std::fs::copy(licence, repo.join("LICENSE")).unwrap();
+        let refused = mint::mint(
+            &repo,
+            &canon,
+            &Options {
+                repo: Some("bad--owner/fixture".into()),
+                offline: true,
+                ..Options::default()
+            },
+        );
+        let why = format!("{:#}", refused.as_ref().unwrap_err());
+        assert!(
+            why.contains("not a GitHub owner"),
+            "refused for the wrong reason: {why}"
+        );
+        for rel in ENGINE_FILES {
+            assert!(!repo.join(rel).exists(), "{rel} written before the refusal");
+        }
+        mint::mint(
+            &repo,
+            &canon,
+            &Options {
+                repo: Some("hyperpolymath/fixture".into()),
+                year: Some(2026),
+                offline: true,
+                ..Options::default()
+            },
+        )
+        .unwrap();
+        let launcher = std::fs::read_to_string(repo.join("launcher.sh")).unwrap();
+        assert!(
+            launcher.contains(":beholding-chora #uuid\"0889b37b-defb-831f-973c-e119500db00e\""),
+            "launcher.sh must carry the computed estate id"
+        );
+        assert!(!launcher.contains("__ESTATE_UUID__"));
+        launch_scaffolder_common::metadata_block::parse_from_text(&launcher)
+            .expect("the minted launcher parses")
+            .expect("it carries a metadata block");
+        std::fs::remove_dir_all(repo).unwrap();
+    }
+
     /// Verify offline mint preserves custom recipes as local twins and reports the skipped mise lock.
     #[test]
     fn offline_mint_keeps_custom_recipes_as_local_twins() {

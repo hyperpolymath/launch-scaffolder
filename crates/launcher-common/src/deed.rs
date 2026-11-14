@@ -51,6 +51,9 @@ pub enum Value {
     /// `#u5"name"` — carries the *name* input, not a computed UUID. Nothing in
     /// `launch-scaffolder` needs the digest, so none is derived here.
     Uuid5(String),
+    /// `#uuid"<8-4-4-4-12 hex>"` — an opaque, already-computed id (owner ruling g:
+    /// identity fields carry a v8 id). Kept as written; nothing here interprets it.
+    Uuid(String),
     /// `( … )` in value position, including the empty list `()`.
     List(Vec<Value>),
     /// `'sym` or `'(a b)`. Only symbols and lists may be quoted.
@@ -115,6 +118,7 @@ impl Value {
             Value::Sym(_) => "symbol",
             Value::Bool(_) => "boolean",
             Value::Uuid5(_) => "uuid5",
+            Value::Uuid(_) => "uuid",
             Value::List(_) => "list",
             Value::Quoted(_) => "quoted",
         }
@@ -589,6 +593,31 @@ impl Parser {
     /// `boolean = "#t" / "#f"` and `uuid5 = "#u5" string`.
     fn lex_hash(&mut self) -> Result<Value> {
         debug_assert_eq!(self.peek(), Some('#'));
+        if self.starts_with("#uuid") {
+            for _ in 0..5 {
+                self.bump();
+            }
+            if self.peek() != Some('"') {
+                bail!(
+                    "line {}: uuid must be followed immediately by a string: #uuid\"<id>\"",
+                    self.line
+                );
+            }
+            let body = self.lex_string()?;
+            let shape = [8usize, 4, 4, 4, 12];
+            let parts: Vec<&str> = body.split('-').collect();
+            let ok = parts.len() == shape.len()
+                && parts.iter().zip(shape).all(|(p, n)| {
+                    p.len() == n && p.chars().all(|c| matches!(c, '0'..='9' | 'a'..='f'))
+                });
+            if !ok {
+                bail!(
+                    "line {}: #uuid body must be a lower-case 8-4-4-4-12 hex id, got {body:?}",
+                    self.line
+                );
+            }
+            return Ok(Value::Uuid(body));
+        }
         if self.starts_with("#u5") {
             for _ in 0..3 {
                 self.bump();
