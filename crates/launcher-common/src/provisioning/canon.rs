@@ -21,6 +21,8 @@ use std::path::{Path, PathBuf};
 pub const CANON_ENV: &str = "LAUNCH_SCAFFOLDER_PROVISIONING_CANON";
 
 /// Upstream `standards@<sha>` provenance of the baked table.
+/// The `+estate-uuid` suffix records the one-line launcher.sh.tmpl change that
+/// carries a computed estate v8 id (owner ruling g) in place of the retired #u5.
 /// The `+local-docstrings` suffix records local shell function documentation;
 /// the content digest below pins the complete snapshot, including those comments.
 pub const BAKED_CANON_REF: &str = include_str!("../../../../standards/provisioning/CANON");
@@ -241,5 +243,5 @@ mod tests {
         assert!(BAKED_CANON_REF.trim().starts_with("standards@"));
     }
 
-    const PINNED_DIGEST: &str = "4df3133905d404d16aeec943fd8be37b601c6037988eb69dc0184ac3167d3dcf";
+    const PINNED_DIGEST: &str = "7ba230b31c9be138acabb4e00510f12423e12d8f1b3dfc050cbc41ce73227e57";
 }

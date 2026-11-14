@@ -188,6 +188,20 @@ pub fn mint(target: &Path, canon: &Canon, opts: &Options) -> Result<Report> {
     vars.insert("GUIX_LICENSE", licence.guix.to_string());
     vars.insert("ARCHETYPE", archetype.clone());
     vars.insert("LANGS", langs.join(", "));
+    // `__ESTATE_UUID__` in launcher.sh.tmpl is the estate's v8 id (owner ruling g:
+    // an identity field carries a v8 id, never the retired #u5 literal). It is
+    // computed from the repository owner, and the mint refuses rather than leave
+    // the placeholder in a launcher when the owner cannot be established.
+    if canon_text(canon, "launcher.sh.tmpl")?.contains("__ESTATE_UUID__") {
+        if slug_is_guess {
+            bail!(
+                "cannot determine the estate for {}: no --repo and no GitHub `origin` remote, so `__ESTATE_UUID__` would stay in launcher.sh (pass --repo OWNER/NAME)",
+                target.display()
+            );
+        }
+        let owner = slug.split('/').next().unwrap_or_default();
+        vars.insert("ESTATE_UUID", estate_uuid(owner)?);
+    }
 
     let m = Minter {
         target,
@@ -815,6 +829,29 @@ fn deed_field(deed: &str, key: &str) -> Option<String> {
     })
 }
 
+/// The estate's v8 id for a GitHub owner: profile C (ADR-008) of the preimage
+/// `chora:estate/github.com/<owner>` (CHORA-SPEC section 9, rule C9): the first
+/// 16 bytes of SHA-256, version nibble 8, variant bits 10. Fails for an owner
+/// that is not a GitHub login, so a bad owner never yields a plausible id.
+pub fn estate_uuid(owner: &str) -> Result<String> {
+    use sha2::{Digest, Sha256};
+    let valid = !owner.is_empty()
+        && owner.len() <= 39
+        && owner.chars().all(|c| c.is_ascii_alphanumeric() || c == '-')
+        && !owner.starts_with('-')
+        && !owner.ends_with('-');
+    if !valid {
+        bail!("{owner:?} is not a GitHub owner, so no estate id can be computed for it");
+    }
+    let mut b: [u8; 16] = Sha256::digest(format!("chora:estate/github.com/{owner}").as_bytes())[..16]
+        .try_into()
+        .expect("a SHA-256 digest has 32 bytes");
+    b[6] = (b[6] & 0x0f) | 0x80;
+    b[8] = (b[8] & 0x3f) | 0x80;
+    let h: String = b.iter().map(|x| format!("{x:02x}")).collect();
+    Ok(format!("{}-{}-{}-{}-{}", &h[0..8], &h[8..12], &h[12..16], &h[16..20], &h[20..32]))
+}
+
 /// `owner/name` from the `origin` remote of a GitHub checkout.
 /// Returns `None` if Git fails, its output is not UTF-8, or no slug can be extracted.
 fn origin_slug(target: &Path) -> Option<String> {
@@ -1177,6 +1214,30 @@ mod tests {
     }
 
     /// Verify substitutions are not expanded recursively and unknown slots remain intact.
+    /// The two estate ids the standards record (CHORA-SPEC section 9) are the
+    /// profile C ids of their preimages, so the algorithm is the specified one.
+    #[test]
+    fn estate_uuid_is_the_profile_c_id_of_the_owner() {
+        assert_eq!(
+            estate_uuid("hyperpolymath").unwrap(),
+            "0889b37b-defb-831f-973c-e119500db00e"
+        );
+        assert_eq!(
+            estate_uuid("metadatastician").unwrap(),
+            "1642c392-8eac-8e3f-b762-2898b9344228"
+        );
+        let other = estate_uuid("catachresis-colloquium").unwrap();
+        assert_eq!(&other[14..15], "8", "version nibble");
+        assert!(matches!(&other[19..20], "8" | "9" | "a" | "b"), "variant bits");
+    }
+
+    #[test]
+    fn estate_uuid_refuses_what_is_not_a_github_owner() {
+        for bad in ["", "-x", "x-", "a/b", "a b", "a_b", &"x".repeat(40)] {
+            assert!(estate_uuid(bad).is_err(), "{bad:?} must be refused");
+        }
+    }
+
     #[test]
     fn render_is_single_pass_and_leaves_unknown_slots() {
         let v = vars(&[("A", "__B__ and __init__"), ("B", "x")]);
