@@ -103,7 +103,29 @@ pub fn render_for_repo(
     render_with_estate(config, standard, config_path, &estate)
 }
 
-/// [`render`] with the estate id already known.
+/// Require `id` to be a lower-case 8-4-4-4-12 hex UUID of version 8 with an RFC
+/// 9562 variant (`10`): the only value that may sit in the launcher's
+/// `#uuid"…"` identity literal.
+fn validate_estate_id(id: &str) -> Result<()> {
+    let shape = [8usize, 4, 4, 4, 12];
+    let parts: Vec<&str> = id.split('-').collect();
+    let hex = parts.len() == shape.len()
+        && parts
+            .iter()
+            .zip(shape)
+            .all(|(p, n)| p.len() == n && p.chars().all(|c| matches!(c, '0'..='9' | 'a'..='f')));
+    let version_ok = parts.get(2).is_some_and(|p| p.starts_with('8'));
+    let variant_ok = parts
+        .get(3)
+        .is_some_and(|p| p.starts_with(['8', '9', 'a', 'b']));
+    if !(hex && version_ok && variant_ok) {
+        anyhow::bail!("estate id {id:?} is not a lower-case UUIDv8 (version 8, variant 10)");
+    }
+    Ok(())
+}
+
+/// [`render`] with the estate id already known. The id must be a lower-case
+/// UUIDv8; anything else is refused, so it can never corrupt the deed block.
 pub fn render_with_estate(
     config: &LauncherConfig,
     standard: &LauncherStandard,
@@ -111,6 +133,7 @@ pub fn render_with_estate(
     estate: &str,
 ) -> Result<String> {
     config.validate()?;
+    validate_estate_id(estate)?;
     let mut tera = Tera::default();
     tera.add_raw_template("launcher.sh", LAUNCHER_TEMPLATE)
         .context("registering launcher template with Tera")?;
@@ -563,6 +586,26 @@ mod tests {
     ///
     /// `--repo` takes precedence over the repository's origin, so a config whose
     /// `repo.path` is no checkout at all still mints, and the id is the estate's.
+    #[test]
+    fn a_supplied_estate_id_must_be_a_lower_case_uuid_v8() {
+        let std_ = LauncherStandard::baked().expect("baked standard should parse");
+        let cfg = stapeln_config();
+        for bad in [
+            "",
+            "not-a-uuid",
+            "0889B37B-DEFB-831F-973C-E119500DB00E",
+            "0889b37b-defb-731f-973c-e119500db00e",
+            "0889b37b-defb-831f-173c-e119500db00e",
+            "0889b37b-defb-831f-973c-e119500db00e\"\n#   :x",
+        ] {
+            assert!(
+                render_with_estate(&cfg, &std_, None, bad).is_err(),
+                "{bad:?} must be refused"
+            );
+        }
+        assert!(render_with_estate(&cfg, &std_, None, TEST_ESTATE).is_ok());
+    }
+
     #[test]
     fn an_explicit_repo_overrides_the_origin() {
         let std_ = LauncherStandard::baked().expect("baked standard should parse");
