@@ -152,10 +152,19 @@ pub fn mint(target: &Path, canon: &Canon, opts: &Options) -> Result<Report> {
     // with the placeholder. Whether one is rendered mostly follows from what is
     // on disk, so decide that now and refuse before the engine files change.
     let launcher_now = std::fs::read_to_string(target.join("launcher.sh"));
-    let deed_says_app = std::fs::read_to_string(target.join(DEED))
-        .ok()
-        .and_then(|d| deed_field(&d, "archetype"))
-        .is_some_and(|a| a == "app");
+    // The archetype below ignores a deed inherited from another repo (its `:repo`
+    // differs from this slug), so the early decision must ignore it too.
+    let early_deed = std::fs::read_to_string(target.join(DEED)).ok();
+    let deed_inherited = !slug_is_guess
+        && early_deed
+            .as_deref()
+            .and_then(|d| deed_field(d, "repo"))
+            .is_some_and(|r| r != slug && !r.contains("__"));
+    let deed_says_app = !deed_inherited
+        && early_deed
+            .as_deref()
+            .and_then(|d| deed_field(d, "archetype"))
+            .is_some_and(|a| a == "app");
     let is_app = opts
         .archetype
         .as_deref()

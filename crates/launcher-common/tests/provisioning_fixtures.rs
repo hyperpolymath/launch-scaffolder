@@ -392,6 +392,39 @@ mod needs_just {
         std::fs::remove_dir_all(repo).unwrap();
     }
 
+    /// A deed inherited from another repo (an `app` deed whose `:repo` differs
+    /// from this slug) is ignored when the archetype is chosen, so an invalid
+    /// owner must still be refused before any engine file is written.
+    #[test]
+    fn an_inherited_app_deed_does_not_skip_the_early_estate_check() {
+        let canon = Canon::resolve(None).unwrap();
+        let licence = concat!(env!("CARGO_MANIFEST_DIR"), "/../../LICENSES/MPL-2.0.txt");
+        let repo = scratch("lang/idr", "estate-inherited");
+        std::fs::copy(licence, repo.join("LICENSE")).unwrap();
+        let deed = repo.join(".machine_readable/descriptiles/provisioning_praxis.deed");
+        std::fs::create_dir_all(deed.parent().unwrap()).unwrap();
+        std::fs::write(
+            &deed,
+            "(praxis-deed\n  :repo \"someone/else\"\n  :archetype \"app\"\n)\n",
+        )
+        .unwrap();
+        let refused = mint::mint(
+            &repo,
+            &canon,
+            &Options {
+                repo: Some("bad--owner/project".into()),
+                offline: true,
+                ..Options::default()
+            },
+        );
+        let why = format!("{:#}", refused.unwrap_err());
+        assert!(why.contains("not a GitHub owner"), "wrong refusal: {why}");
+        for rel in ENGINE_FILES {
+            assert!(!repo.join(rel).exists(), "{rel} written before the refusal");
+        }
+        std::fs::remove_dir_all(repo).unwrap();
+    }
+
     /// Verify offline mint preserves custom recipes as local twins and reports the skipped mise lock.
     #[test]
     fn offline_mint_keeps_custom_recipes_as_local_twins() {
