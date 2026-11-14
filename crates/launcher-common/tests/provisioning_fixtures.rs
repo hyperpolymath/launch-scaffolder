@@ -250,6 +250,7 @@ mod needs_just {
                 &Canon::Baked,
                 &Options {
                     offline: true,
+                    repo: Some("hyperpolymath/fixture".into()),
                     ..Options::default()
                 },
             )
@@ -307,6 +308,7 @@ mod needs_just {
                 &Canon::Baked,
                 &Options {
                     offline: true,
+                    repo: Some("hyperpolymath/fixture".into()),
                     ..Options::default()
                 },
             )
@@ -340,6 +342,87 @@ mod needs_just {
             }
             std::fs::remove_dir_all(repo).unwrap();
         }
+    }
+
+    /// An estate that cannot be computed is refused before any file changes, and
+    /// a launcher minted with one parses back through the metadata reader.
+    #[test]
+    fn estate_is_validated_before_writes_and_the_launcher_parses_back() {
+        let canon = Canon::resolve(None).unwrap();
+        let repo = scratch("lang/idr", "estate-early");
+        let licence = concat!(env!("CARGO_MANIFEST_DIR"), "/../../LICENSES/MPL-2.0.txt");
+        std::fs::copy(licence, repo.join("LICENSE")).unwrap();
+        let refused = mint::mint(
+            &repo,
+            &canon,
+            &Options {
+                repo: Some("bad--owner/fixture".into()),
+                offline: true,
+                ..Options::default()
+            },
+        );
+        let why = format!("{:#}", refused.as_ref().unwrap_err());
+        assert!(
+            why.contains("not a GitHub owner"),
+            "refused for the wrong reason: {why}"
+        );
+        for rel in ENGINE_FILES {
+            assert!(!repo.join(rel).exists(), "{rel} written before the refusal");
+        }
+        mint::mint(
+            &repo,
+            &canon,
+            &Options {
+                repo: Some("hyperpolymath/fixture".into()),
+                year: Some(2026),
+                offline: true,
+                ..Options::default()
+            },
+        )
+        .unwrap();
+        let launcher = std::fs::read_to_string(repo.join("launcher.sh")).unwrap();
+        assert!(
+            launcher.contains(":beholding-chora #uuid\"0889b37b-defb-831f-973c-e119500db00e\""),
+            "launcher.sh must carry the computed estate id"
+        );
+        assert!(!launcher.contains("__ESTATE_UUID__"));
+        launch_scaffolder_common::metadata_block::parse_from_text(&launcher)
+            .expect("the minted launcher parses")
+            .expect("it carries a metadata block");
+        std::fs::remove_dir_all(repo).unwrap();
+    }
+
+    /// A deed inherited from another repo (an `app` deed whose `:repo` differs
+    /// from this slug) is ignored when the archetype is chosen, so an invalid
+    /// owner must still be refused before any engine file is written.
+    #[test]
+    fn an_inherited_app_deed_does_not_skip_the_early_estate_check() {
+        let canon = Canon::resolve(None).unwrap();
+        let licence = concat!(env!("CARGO_MANIFEST_DIR"), "/../../LICENSES/MPL-2.0.txt");
+        let repo = scratch("lang/idr", "estate-inherited");
+        std::fs::copy(licence, repo.join("LICENSE")).unwrap();
+        let deed = repo.join(".machine_readable/descriptiles/provisioning_praxis.deed");
+        std::fs::create_dir_all(deed.parent().unwrap()).unwrap();
+        std::fs::write(
+            &deed,
+            "(praxis-deed\n  :repo \"someone/else\"\n  :archetype \"app\"\n)\n",
+        )
+        .unwrap();
+        let refused = mint::mint(
+            &repo,
+            &canon,
+            &Options {
+                repo: Some("bad--owner/project".into()),
+                offline: true,
+                ..Options::default()
+            },
+        );
+        let why = format!("{:#}", refused.unwrap_err());
+        assert!(why.contains("not a GitHub owner"), "wrong refusal: {why}");
+        for rel in ENGINE_FILES {
+            assert!(!repo.join(rel).exists(), "{rel} written before the refusal");
+        }
+        std::fs::remove_dir_all(repo).unwrap();
     }
 
     /// Verify offline mint preserves custom recipes as local twins and reports the skipped mise lock.

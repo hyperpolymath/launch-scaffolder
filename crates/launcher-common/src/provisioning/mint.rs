@@ -147,6 +147,47 @@ pub fn mint(target: &Path, canon: &Canon, opts: &Options) -> Result<Report> {
     let name = slug.rsplit('/').next().unwrap_or(&slug).to_string();
     // Refuse before writing anything (standard §6).
     let licence = licence::classify(target, &name)?;
+    // So is the estate: `__ESTATE_UUID__` in launcher.sh.tmpl is the estate's v8
+    // id (owner ruling g), and a launcher that will be rendered must not be left
+    // with the placeholder. Whether one is rendered mostly follows from what is
+    // on disk, so decide that now and refuse before the engine files change.
+    let launcher_now = std::fs::read_to_string(target.join("launcher.sh"));
+    // The archetype below ignores a deed inherited from another repo (its `:repo`
+    // differs from this slug), so the early decision must ignore it too.
+    let early_deed = std::fs::read_to_string(target.join(DEED)).ok();
+    let deed_inherited = !slug_is_guess
+        && early_deed
+            .as_deref()
+            .and_then(|d| deed_field(d, "repo"))
+            .is_some_and(|r| r != slug && !r.contains("__"));
+    let deed_says_app = !deed_inherited
+        && early_deed
+            .as_deref()
+            .and_then(|d| deed_field(d, "archetype"))
+            .is_some_and(|a| a == "app");
+    let is_app = opts
+        .archetype
+        .as_deref()
+        .map_or(deed_says_app, |a| a == "app");
+    let renders_launcher = match &launcher_now {
+        Ok(s) => generated_launcher(s),
+        Err(_) => !is_app,
+    };
+    let needs_estate = canon_text(canon, "launcher.sh.tmpl")?.contains("__ESTATE_UUID__");
+    let estate_for = || -> Result<String> {
+        if slug_is_guess {
+            bail!(
+                "cannot determine the estate for {}: no --repo and no GitHub `origin` remote, so `__ESTATE_UUID__` would stay in launcher.sh (pass --repo OWNER/NAME)",
+                target.display()
+            );
+        }
+        estate_uuid(slug.split('/').next().unwrap_or_default())
+    };
+    let early_estate = if needs_estate && renders_launcher {
+        Some(estate_for()?)
+    } else {
+        None
+    };
     let mut files = Vec::new();
 
     for rel in ENGINE_FILES {
@@ -188,7 +229,6 @@ pub fn mint(target: &Path, canon: &Canon, opts: &Options) -> Result<Report> {
     vars.insert("GUIX_LICENSE", licence.guix.to_string());
     vars.insert("ARCHETYPE", archetype.clone());
     vars.insert("LANGS", langs.join(", "));
-
     let m = Minter {
         target,
         canon,
@@ -335,7 +375,20 @@ pub fn mint(target: &Path, canon: &Canon, opts: &Options) -> Result<Report> {
             Act::Skipped("an app launcher is minted by `launch-scaffolder mint` from the app's config".into())
         }
         _ => {
-            let body = render(&canon_text(canon, "launcher.sh.tmpl")?, &vars);
+            let tmpl = canon_text(canon, "launcher.sh.tmpl")?;
+            // `__ESTATE_UUID__` is the estate's v8 id (owner ruling g: an identity
+            // field carries a v8 id, never the retired #u5 literal), computed from
+            // the repository owner. Only a launcher that is actually rendered needs
+            // it, so a kept or skipped launcher never demands an owner; but one
+            // that is rendered refuses rather than leave the placeholder behind.
+            if tmpl.contains("__ESTATE_UUID__") {
+                let id = match &early_estate {
+                    Some(id) => id.clone(),
+                    None => estate_for()?,
+                };
+                vars.insert("ESTATE_UUID", id);
+            }
+            let body = render(&tmpl, &vars);
             write_file(target, "launcher.sh", body.as_bytes(), "re-rendered from the deed")?
         }
     };
@@ -815,6 +868,41 @@ fn deed_field(deed: &str, key: &str) -> Option<String> {
     })
 }
 
+/// The estate's v8 id for a GitHub owner: profile C (ADR-008) of the preimage
+/// `chora:estate/github.com/<owner>` (CHORA-SPEC section 9, rule C9): the first
+/// 16 bytes of SHA-256, version nibble 8, variant bits 10. Fails for an owner
+/// that is not a GitHub login, so a bad owner never yields a plausible id.
+pub fn estate_uuid(owner: &str) -> Result<String> {
+    use sha2::{Digest, Sha256};
+    let valid = !owner.is_empty()
+        && owner.len() <= 39
+        && owner.chars().all(|c| c.is_ascii_alphanumeric() || c == '-')
+        && !owner.starts_with('-')
+        && !owner.ends_with('-')
+        && !owner.contains("--");
+    if !valid {
+        bail!("{owner:?} is not a GitHub owner, so no estate id can be computed for it");
+    }
+    // GitHub owner paths are case-insensitive, so the preimage is lower-cased: every
+    // spelling of one owner yields the one estate id.
+    let owner = owner.to_ascii_lowercase();
+    let mut b: [u8; 16] = Sha256::digest(format!("chora:estate/github.com/{owner}").as_bytes())
+        [..16]
+        .try_into()
+        .expect("a SHA-256 digest has 32 bytes");
+    b[6] = (b[6] & 0x0f) | 0x80;
+    b[8] = (b[8] & 0x3f) | 0x80;
+    let h: String = b.iter().map(|x| format!("{x:02x}")).collect();
+    Ok(format!(
+        "{}-{}-{}-{}-{}",
+        &h[0..8],
+        &h[8..12],
+        &h[12..16],
+        &h[16..20],
+        &h[20..32]
+    ))
+}
+
 /// `owner/name` from the `origin` remote of a GitHub checkout.
 /// Returns `None` if Git fails, its output is not UTF-8, or no slug can be extracted.
 fn origin_slug(target: &Path) -> Option<String> {
@@ -827,11 +915,24 @@ fn origin_slug(target: &Path) -> Option<String> {
     if !out.status.success() {
         return None;
     }
-    let url = String::from_utf8(out.stdout).ok()?;
+    slug_from_url(&String::from_utf8(out.stdout).ok()?)
+}
+
+/// `owner/name` from a GitHub origin URL, or `None` for any other host.
+fn slug_from_url(url: &str) -> Option<String> {
     let url = url.trim().trim_end_matches('/').trim_end_matches(".git");
-    let path = url
-        .split_once("github.com")
-        .map(|(_, p)| p.trim_start_matches([':', '/']))?;
+    // The host must be exactly github.com, in a URL (`https://`, `ssh://`) or an
+    // SCP-style (`git@github.com:o/r`) origin: a look-alike such as notgithub.com
+    // is not a GitHub estate.
+    let (authority, path) = match url.split_once("://") {
+        Some((_, rest)) => rest.split_once('/')?,
+        None => url.split_once(':')?,
+    };
+    let host = authority.rsplit('@').next()?;
+    let host = host.split(':').next()?;
+    if !host.eq_ignore_ascii_case("github.com") {
+        return None;
+    }
     let mut parts = path.splitn(2, '/');
     let (o, r) = (parts.next()?, parts.next()?);
     (!o.is_empty() && !r.is_empty() && !r.contains('/')).then(|| format!("{o}/{r}"))
@@ -1177,6 +1278,71 @@ mod tests {
     }
 
     /// Verify substitutions are not expanded recursively and unknown slots remain intact.
+    /// The two estate ids the standards record (CHORA-SPEC section 9) are the
+    /// profile C ids of their preimages, so the algorithm is the specified one.
+    #[test]
+    fn estate_uuid_is_the_profile_c_id_of_the_owner() {
+        assert_eq!(
+            estate_uuid("hyperpolymath").unwrap(),
+            "0889b37b-defb-831f-973c-e119500db00e"
+        );
+        assert_eq!(
+            estate_uuid("metadatastician").unwrap(),
+            "1642c392-8eac-8e3f-b762-2898b9344228"
+        );
+        let other = estate_uuid("catachresis-colloquium").unwrap();
+        assert_eq!(&other[14..15], "8", "version nibble");
+        assert!(
+            matches!(&other[19..20], "8" | "9" | "a" | "b"),
+            "variant bits"
+        );
+    }
+
+    #[test]
+    fn estate_uuid_refuses_what_is_not_a_github_owner() {
+        for bad in [
+            "",
+            "-x",
+            "x-",
+            "a/b",
+            "a b",
+            "a_b",
+            "foo--bar",
+            &"x".repeat(40),
+        ] {
+            assert!(estate_uuid(bad).is_err(), "{bad:?} must be refused");
+        }
+    }
+
+    #[test]
+    fn estate_uuid_ignores_owner_casing() {
+        assert_eq!(
+            estate_uuid("Hyperpolymath").unwrap(),
+            estate_uuid("hyperpolymath").unwrap()
+        );
+    }
+
+    #[test]
+    fn origin_slug_accepts_only_the_github_host() {
+        for ok in [
+            "https://github.com/acme/project.git",
+            "git@github.com:acme/project.git",
+            "ssh://git@github.com/acme/project",
+            "ssh://git@github.com:22/acme/project",
+        ] {
+            assert_eq!(slug_from_url(ok).as_deref(), Some("acme/project"), "{ok}");
+        }
+        for bad in [
+            "https://notgithub.com/acme/project.git",
+            "git@notgithub.com:acme/project.git",
+            "https://github.com.evil.example/acme/project",
+            "https://example.org/acme/project",
+            "/srv/git/acme/project",
+        ] {
+            assert_eq!(slug_from_url(bad), None, "{bad}");
+        }
+    }
+
     #[test]
     fn render_is_single_pass_and_leaves_unknown_slots() {
         let v = vars(&[("A", "__B__ and __init__"), ("B", "x")]);

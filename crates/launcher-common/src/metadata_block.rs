@@ -356,9 +356,13 @@ fn flatten_praxis_deed(
     // against. A tool may not declare its own vocabulary, so a praxis
     // deed without one resolves against nothing.
     match node.field("beholding-chora") {
-        Some(deed::Value::Uuid5(_)) => {}
+        // `#uuid` is the v8 estate id (owner ruling g); `#u5` is still read so a
+        // launcher minted before the ruling keeps parsing until it is re-minted.
+        Some(deed::Value::Uuid(_) | deed::Value::Uuid5(_)) => {}
         Some(other) => {
-            bail!("`:beholding-chora` must be a uuid5 literal (`#u5\"…\"`), got {other:?}")
+            bail!(
+                "`:beholding-chora` must be a `#uuid\"…\"` literal (or a legacy `#u5\"…\"`), got {other:?}"
+            )
         }
         None => bail!("a `praxis-deed` must carry `:beholding-chora`"),
     }
@@ -1293,15 +1297,22 @@ echo hi
         assert!(err.contains("beholding-chora"), "unexpected error: {err}");
     }
 
-    /// Reject a chora reference that is not a UUID5 literal.
+    /// Reject a chora reference that is not a `#uuid` (or legacy `#u5`) literal,
+    /// and read the `#uuid` form the provisioning launcher template emits.
     #[test]
-    fn a_deed_block_with_a_non_uuid5_chora_is_rejected() {
+    fn a_deed_block_with_a_non_uuid_chora_is_rejected_and_uuid_is_read() {
+        let id = "0889b37b-defb-831f-973c-e119500db00e";
+        let ok = deed_sample_with(
+            ":beholding-chora #u5\"estate/chora\"",
+            &format!(":beholding-chora #uuid\"{id}\""),
+        );
+        parse_from_text(&ok).expect("a #uuid chora parses");
         let text = deed_sample_with(
             ":beholding-chora #u5\"estate/chora\"",
             ":beholding-chora \"estate/chora\"",
         );
         let err = format!("{:#}", parse_from_text(&text).unwrap_err());
-        assert!(err.contains("uuid5"), "unexpected error: {err}");
+        assert!(err.contains("#uuid"), "unexpected error: {err}");
     }
 
     /// `Value::str_list` skips non-strings silently, so a symbol or
