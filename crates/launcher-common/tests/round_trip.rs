@@ -20,6 +20,8 @@ use launch_scaffolder_common::{
     config::LauncherConfig, metadata_block, standard::LauncherStandard, template,
 };
 
+/// The estate the committed stapeln artefacts are minted for (hyperpolymath).
+const TEST_ESTATE: &str = "0889b37b-defb-831f-973c-e119500db00e";
 /// The config both committed stapeln artefacts are minted from.
 ///
 /// A committed file rather than a TOML literal here so the CI artefact gate
@@ -33,7 +35,7 @@ const CFG: &str = include_str!(concat!(
 fn mint() -> String {
     let cfg = LauncherConfig::parse(CFG).expect("config parses");
     let std_ = LauncherStandard::baked().expect("baked standard loads");
-    template::render(&cfg, &std_, None).expect("render succeeds")
+    template::render_with_estate(&cfg, &std_, None, TEST_ESTATE).expect("render succeeds")
 }
 
 /// The deed leg: mint, parse, realign, parse.

@@ -868,6 +868,39 @@ fn deed_field(deed: &str, key: &str) -> Option<String> {
     })
 }
 
+/// The estates a launcher may be minted for (owner ruling g, CHORA-SPEC C9).
+pub const KNOWN_ESTATES: [&str; 4] = [
+    "hyperpolymath",
+    "metadatastician",
+    "catachresis-colloquium",
+    "stuff-of-awe",
+];
+
+/// The estate v8 id of the repository at `dir`, from its host-checked GitHub
+/// `origin` (the same source `provision-set mint` uses). Refuses, rather than
+/// guessing, when there is no GitHub origin or the owner is not a known estate.
+pub fn estate_uuid_for_repo(dir: &Path) -> Result<String> {
+    let slug = origin_slug(dir).ok_or_else(|| {
+        anyhow::anyhow!(
+            "cannot determine the estate for {}: it has no GitHub `origin` remote",
+            dir.display()
+        )
+    })?;
+    let owner = slug
+        .split('/')
+        .next()
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    if !KNOWN_ESTATES.contains(&owner.as_str()) {
+        bail!(
+            "{owner:?} (the owner of {}) is not one of the estates {}",
+            dir.display(),
+            KNOWN_ESTATES.join(", ")
+        );
+    }
+    estate_uuid(&owner)
+}
+
 /// The estate's v8 id for a GitHub owner: profile C (ADR-008) of the preimage
 /// `chora:estate/github.com/<owner>` (CHORA-SPEC section 9, rule C9): the first
 /// 16 bytes of SHA-256, version nibble 8, variant bits 10. Fails for an owner

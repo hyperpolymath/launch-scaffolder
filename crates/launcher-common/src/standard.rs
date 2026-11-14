@@ -674,13 +674,15 @@ mod tests {
     ///
     /// They are upstreamed as `hyperpolymath/standards` PRs; until those
     /// land, `diff` against canon reports three added clauses and nothing
-    /// else. Bump the pin and this comment together if either side moves.
+    /// else, plus one identity value: `:beholding-chora` carries the estate v8 id
+    /// (`#uuid"0889b37b-…"`, owner ruling g) where the canon still has `#u5`.
+    /// Bump the pin and this comment together if either side moves.
     #[test]
     fn the_vendored_standard_is_pinned_by_content() {
         use sha2::{Digest, Sha256};
         let got = format!("{:x}", Sha256::digest(BAKED_STANDARD.as_bytes()));
         assert_eq!(
-            got, "29c12fbdb34aa1915d4efa185debe4362af4a2034c66c87e434dca39751bd135",
+            got, "61a917c2a833dcce229f8685ea39bd6843df1a68c19d2225911d41893d8abf1b",
             "standards/launcher-standard_praxis.deed changed; re-vendor deliberately \
              and update this pin in the same commit"
         );
