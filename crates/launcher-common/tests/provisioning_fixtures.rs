@@ -250,6 +250,7 @@ mod needs_just {
                 &Canon::Baked,
                 &Options {
                     offline: true,
+                    repo: Some("hyperpolymath/fixture".into()),
                     ..Options::default()
                 },
             )
@@ -307,6 +308,7 @@ mod needs_just {
                 &Canon::Baked,
                 &Options {
                     offline: true,
+                    repo: Some("hyperpolymath/fixture".into()),
                     ..Options::default()
                 },
             )
