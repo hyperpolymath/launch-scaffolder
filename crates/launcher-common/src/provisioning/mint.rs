@@ -188,21 +188,6 @@ pub fn mint(target: &Path, canon: &Canon, opts: &Options) -> Result<Report> {
     vars.insert("GUIX_LICENSE", licence.guix.to_string());
     vars.insert("ARCHETYPE", archetype.clone());
     vars.insert("LANGS", langs.join(", "));
-    // `__ESTATE_UUID__` in launcher.sh.tmpl is the estate's v8 id (owner ruling g:
-    // an identity field carries a v8 id, never the retired #u5 literal). It is
-    // computed from the repository owner, and the mint refuses rather than leave
-    // the placeholder in a launcher when the owner cannot be established.
-    if canon_text(canon, "launcher.sh.tmpl")?.contains("__ESTATE_UUID__") {
-        if slug_is_guess {
-            bail!(
-                "cannot determine the estate for {}: no --repo and no GitHub `origin` remote, so `__ESTATE_UUID__` would stay in launcher.sh (pass --repo OWNER/NAME)",
-                target.display()
-            );
-        }
-        let owner = slug.split('/').next().unwrap_or_default();
-        vars.insert("ESTATE_UUID", estate_uuid(owner)?);
-    }
-
     let m = Minter {
         target,
         canon,
@@ -349,7 +334,23 @@ pub fn mint(target: &Path, canon: &Canon, opts: &Options) -> Result<Report> {
             Act::Skipped("an app launcher is minted by `launch-scaffolder mint` from the app's config".into())
         }
         _ => {
-            let body = render(&canon_text(canon, "launcher.sh.tmpl")?, &vars);
+            let tmpl = canon_text(canon, "launcher.sh.tmpl")?;
+            // `__ESTATE_UUID__` is the estate's v8 id (owner ruling g: an identity
+            // field carries a v8 id, never the retired #u5 literal), computed from
+            // the repository owner. Only a launcher that is actually rendered needs
+            // it, so a kept or skipped launcher never demands an owner; but one
+            // that is rendered refuses rather than leave the placeholder behind.
+            if tmpl.contains("__ESTATE_UUID__") {
+                if slug_is_guess {
+                    bail!(
+                        "cannot determine the estate for {}: no --repo and no GitHub `origin` remote, so `__ESTATE_UUID__` would stay in launcher.sh (pass --repo OWNER/NAME)",
+                        target.display()
+                    );
+                }
+                let owner = slug.split('/').next().unwrap_or_default();
+                vars.insert("ESTATE_UUID", estate_uuid(owner)?);
+            }
+            let body = render(&tmpl, &vars);
             write_file(target, "launcher.sh", body.as_bytes(), "re-rendered from the deed")?
         }
     };
@@ -839,10 +840,14 @@ pub fn estate_uuid(owner: &str) -> Result<String> {
         && owner.len() <= 39
         && owner.chars().all(|c| c.is_ascii_alphanumeric() || c == '-')
         && !owner.starts_with('-')
-        && !owner.ends_with('-');
+        && !owner.ends_with('-')
+        && !owner.contains("--");
     if !valid {
         bail!("{owner:?} is not a GitHub owner, so no estate id can be computed for it");
     }
+    // GitHub owner paths are case-insensitive, so the preimage is lower-cased: every
+    // spelling of one owner yields the one estate id.
+    let owner = owner.to_ascii_lowercase();
     let mut b: [u8; 16] = Sha256::digest(format!("chora:estate/github.com/{owner}").as_bytes())[..16]
         .try_into()
         .expect("a SHA-256 digest has 32 bytes");
@@ -1233,9 +1238,17 @@ mod tests {
 
     #[test]
     fn estate_uuid_refuses_what_is_not_a_github_owner() {
-        for bad in ["", "-x", "x-", "a/b", "a b", "a_b", &"x".repeat(40)] {
+        for bad in ["", "-x", "x-", "a/b", "a b", "a_b", "foo--bar", &"x".repeat(40)] {
             assert!(estate_uuid(bad).is_err(), "{bad:?} must be refused");
         }
+    }
+
+    #[test]
+    fn estate_uuid_ignores_owner_casing() {
+        assert_eq!(
+            estate_uuid("Hyperpolymath").unwrap(),
+            estate_uuid("hyperpolymath").unwrap()
+        );
     }
 
     #[test]
