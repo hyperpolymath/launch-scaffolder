@@ -485,10 +485,6 @@ mod tests {
             .expect("rendering the stapeln launcher")
     }
 
-    /// A freshly minted launcher carries a block the Phase-1 reader accepts,
-    /// and accepts *as a deed* rather than by falling back to the legacy arm.
-    ///
-
     /// `render` takes the estate from the repository's host-checked GitHub
     /// origin, and refuses (before rendering) a repository with none or one
     /// outside the known estates.
@@ -547,6 +543,9 @@ mod tests {
         std::fs::remove_dir_all(tmp).ok();
     }
 
+    /// A freshly minted launcher carries a block the Phase-1 reader accepts,
+    /// and accepts *as a deed* rather than by falling back to the legacy arm.
+    ///
     #[test]
     fn icon_home_paths_are_expanded_without_losing_shell_quoting() {
         let std_ = LauncherStandard::baked().expect("baked standard should parse");
