@@ -74,7 +74,22 @@ pub fn render(
     standard: &LauncherStandard,
     config_path: Option<&Path>,
 ) -> Result<String> {
+    render_for_repo(config, standard, config_path, None)
+}
+
+/// [`render`] with an explicit `OWNER/NAME` that takes precedence over the
+/// repository's `origin` (the `--repo` flag of `mint` and `realign`).
+pub fn render_for_repo(
+    config: &LauncherConfig,
+    standard: &LauncherStandard,
+    config_path: Option<&Path>,
+    repo_slug: Option<&str>,
+) -> Result<String> {
     config.validate()?;
+    if let Some(slug) = repo_slug {
+        let estate = crate::provisioning::mint::estate_uuid_for_slug(slug)?;
+        return render_with_estate(config, standard, config_path, &estate);
+    }
     let repo = Path::new(&config.repo.path);
     let dir = if repo.is_absolute() {
         repo.to_path_buf()
@@ -546,6 +561,19 @@ mod tests {
     /// A freshly minted launcher carries a block the Phase-1 reader accepts,
     /// and accepts *as a deed* rather than by falling back to the legacy arm.
     ///
+    /// `--repo` takes precedence over the repository's origin, so a config whose
+    /// `repo.path` is no checkout at all still mints, and the id is the estate's.
+    #[test]
+    fn an_explicit_repo_overrides_the_origin() {
+        let std_ = LauncherStandard::baked().expect("baked standard should parse");
+        let cfg = stapeln_config();
+        let out = render_for_repo(&cfg, &std_, None, Some("hyperpolymath/stapeln"))
+            .expect("an explicit repo renders without an origin");
+        assert!(out.contains(&format!(":beholding-chora #uuid\"{TEST_ESTATE}\"")));
+        assert!(render_for_repo(&cfg, &std_, None, Some("someone-else/app")).is_err());
+        assert!(render_for_repo(&cfg, &std_, None, None).is_err());
+    }
+
     #[test]
     fn icon_home_paths_are_expanded_without_losing_shell_quoting() {
         let std_ = LauncherStandard::baked().expect("baked standard should parse");

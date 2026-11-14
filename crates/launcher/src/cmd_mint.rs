@@ -31,6 +31,12 @@ pub struct Args {
     /// Do not mark the output file executable (default is to chmod +x).
     #[arg(long)]
     pub no_chmod: bool,
+
+    /// `OWNER/NAME` of the repository the launcher is for. Its owner picks the
+    /// estate id written as `:beholding-chora`; it takes precedence over the
+    /// GitHub `origin` of `repo.path`, which is used when this is absent.
+    #[arg(long, value_name = "OWNER/NAME")]
+    pub repo: Option<String>,
 }
 
 pub fn run(args: Args, standard_path: Option<&Path>) -> Result<()> {
@@ -38,7 +44,8 @@ pub fn run(args: Args, standard_path: Option<&Path>) -> Result<()> {
         .with_context(|| format!("loading config {}", args.config.display()))?;
 
     let standard = LauncherStandard::resolve(standard_path)?;
-    let script = template::render(&config, &standard, Some(&args.config))?;
+    let script =
+        template::render_for_repo(&config, &standard, Some(&args.config), args.repo.as_deref())?;
 
     if args.stdout {
         print!("{}", script);

@@ -64,6 +64,11 @@ pub struct Args {
     #[arg(long)]
     pub no_chmod: bool,
 
+    /// `OWNER/NAME` of the repository the launchers are for; applies to every
+    /// config realigned in this run and takes precedence over each `origin`.
+    #[arg(long, value_name = "OWNER/NAME")]
+    pub repo: Option<String>,
+
     /// Keep processing after a config fails to parse or render. Default is
     /// to stop at the first error.
     #[arg(long)]
@@ -98,7 +103,13 @@ pub fn run(args: Args, standard_path: Option<&Path>) -> Result<()> {
     let mut failed = 0usize;
 
     for config_path in &configs {
-        let outcome = match realign_one(config_path, &standard, dry_run, args.no_chmod) {
+        let outcome = match realign_one(
+            config_path,
+            &standard,
+            dry_run,
+            args.no_chmod,
+            args.repo.as_deref(),
+        ) {
             Ok(o) => o,
             Err(e) => {
                 if args.keep_going {
@@ -154,10 +165,11 @@ fn realign_one(
     standard: &LauncherStandard,
     dry_run: bool,
     no_chmod: bool,
+    repo: Option<&str>,
 ) -> Result<Outcome> {
     let config = LauncherConfig::load(config_path)
         .with_context(|| format!("loading config {}", config_path.display()))?;
-    let script = template::render(&config, standard, Some(config_path))?;
+    let script = template::render_for_repo(&config, standard, Some(config_path), repo)?;
 
     let parent = config_path.parent().unwrap_or_else(|| Path::new("."));
     let out = parent.join(format!("{}-launcher.sh", config.project.name));
