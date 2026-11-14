@@ -37,7 +37,7 @@
 # (praxis-deed
 #   :schema-version  "1.0.0"
 #   :canonical-name  "{{ app_name | deedstr }}-launcher"
-#   :beholding-chora #u5"estate/chora"
+#   :beholding-chora #uuid"{{ estate_uuid }}"
 #   (artefact :type "launcher" :version "{{ app_version | deedstr }}"
 #             :generator "launch-scaffolder")
 #   (app :name "{{ app_name | deedstr }}" :display "{{ app_display | deedstr }}"

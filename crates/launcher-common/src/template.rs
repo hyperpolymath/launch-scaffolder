@@ -65,12 +65,75 @@ fn deed_list(values: &[String]) -> Result<String> {
     Ok(out.join(" "))
 }
 
+/// Render a launcher for `config`. The launcher's `:beholding-chora` is the
+/// estate v8 id of the repository at `repo.path` (owner ruling g); a repository
+/// with no GitHub `origin`, or one outside the known estates, is refused before
+/// anything is rendered.
 pub fn render(
     config: &LauncherConfig,
     standard: &LauncherStandard,
     config_path: Option<&Path>,
 ) -> Result<String> {
+    render_for_repo(config, standard, config_path, None)
+}
+
+/// [`render`] with an explicit `OWNER/NAME` that takes precedence over the
+/// repository's `origin` (the `--repo` flag of `mint` and `realign`).
+pub fn render_for_repo(
+    config: &LauncherConfig,
+    standard: &LauncherStandard,
+    config_path: Option<&Path>,
+    repo_slug: Option<&str>,
+) -> Result<String> {
     config.validate()?;
+    if let Some(slug) = repo_slug {
+        let estate = crate::provisioning::mint::estate_uuid_for_slug(slug)?;
+        return render_with_estate(config, standard, config_path, &estate);
+    }
+    let repo = Path::new(&config.repo.path);
+    let dir = if repo.is_absolute() {
+        repo.to_path_buf()
+    } else {
+        config_path
+            .and_then(Path::parent)
+            .unwrap_or_else(|| Path::new("."))
+            .join(repo)
+    };
+    let estate = crate::provisioning::mint::estate_uuid_for_repo(&dir)?;
+    render_with_estate(config, standard, config_path, &estate)
+}
+
+/// Require `id` to be a lower-case 8-4-4-4-12 hex UUID of version 8 with an RFC
+/// 9562 variant (`10`): the only value that may sit in the launcher's
+/// `#uuid"…"` identity literal.
+fn validate_estate_id(id: &str) -> Result<()> {
+    let shape = [8usize, 4, 4, 4, 12];
+    let parts: Vec<&str> = id.split('-').collect();
+    let hex = parts.len() == shape.len()
+        && parts
+            .iter()
+            .zip(shape)
+            .all(|(p, n)| p.len() == n && p.chars().all(|c| matches!(c, '0'..='9' | 'a'..='f')));
+    let version_ok = parts.get(2).is_some_and(|p| p.starts_with('8'));
+    let variant_ok = parts
+        .get(3)
+        .is_some_and(|p| p.starts_with(['8', '9', 'a', 'b']));
+    if !(hex && version_ok && variant_ok) {
+        anyhow::bail!("estate id {id:?} is not a lower-case UUIDv8 (version 8, variant 10)");
+    }
+    Ok(())
+}
+
+/// [`render`] with the estate id already known. The id must be a lower-case
+/// UUIDv8; anything else is refused, so it can never corrupt the deed block.
+pub fn render_with_estate(
+    config: &LauncherConfig,
+    standard: &LauncherStandard,
+    config_path: Option<&Path>,
+    estate: &str,
+) -> Result<String> {
+    config.validate()?;
+    validate_estate_id(estate)?;
     let mut tera = Tera::default();
     tera.add_raw_template("launcher.sh", LAUNCHER_TEMPLATE)
         .context("registering launcher template with Tera")?;
@@ -125,6 +188,7 @@ pub fn render(
 
     // --- [repo] --------------------------------------------------------
     ctx.insert("repo_dir", &config.repo.path);
+    ctx.insert("estate_uuid", estate);
 
     // --- [runtime] -----------------------------------------------------
     let kind_str = match config.runtime.kind {
@@ -396,6 +460,8 @@ mod tests {
     use crate::config::{LauncherConfig, Project, Repo, Runtime, RuntimeKind};
     use crate::standard::LauncherStandard;
 
+    const TEST_ESTATE: &str = "0889b37b-defb-831f-973c-e119500db00e";
+
     fn sample_config() -> LauncherConfig {
         LauncherConfig {
             project: Project {
@@ -453,12 +519,104 @@ mod tests {
 
     fn render_stapeln() -> String {
         let std_ = LauncherStandard::baked().expect("baked standard should parse");
-        render(&stapeln_config(), &std_, None).expect("rendering the stapeln launcher")
+        render_with_estate(&stapeln_config(), &std_, None, TEST_ESTATE)
+            .expect("rendering the stapeln launcher")
+    }
+
+    /// `render` takes the estate from the repository's host-checked GitHub
+    /// origin, and refuses (before rendering) a repository with none or one
+    /// outside the known estates.
+    #[test]
+    fn render_takes_the_estate_from_the_repository_origin_and_refuses_otherwise() {
+        let std_ = LauncherStandard::baked().expect("baked standard should parse");
+        let tmp = std::env::temp_dir().join(format!("ls-estate-{}", std::process::id()));
+        let git = |dir: &std::path::Path, args: &[&str]| {
+            let ok = std::process::Command::new("git")
+                .arg("-C")
+                .arg(dir)
+                .args(args)
+                .status()
+                .expect("git runs")
+                .success();
+            assert!(ok, "git {args:?} failed");
+        };
+        let mut cfg = stapeln_config();
+        let cases = [
+            (None, false),
+            (Some("https://github.com/hyperpolymath/app.git"), true),
+            (Some("git@github.com:metadatastician/app.git"), true),
+            (Some("https://github.com/someone-else/app.git"), false),
+            (Some("https://notgithub.com/hyperpolymath/app.git"), false),
+        ];
+        for (i, (origin, accepted)) in cases.into_iter().enumerate() {
+            let repo = tmp.join(format!("r{i}"));
+            std::fs::create_dir_all(&repo).unwrap();
+            git(&repo, &["init", "-q"]);
+            if let Some(url) = origin {
+                git(&repo, &["remote", "add", "origin", url]);
+            }
+            cfg.repo.path = repo.to_string_lossy().into_owned();
+            let out = render(&cfg, &std_, None);
+            assert_eq!(
+                out.is_ok(),
+                accepted,
+                "{origin:?}: {:?}",
+                out.as_ref().err()
+            );
+            if let (Some(url), Ok(script)) = (origin, &out) {
+                let owner = url.split("github.com").nth(1).unwrap();
+                let owner = owner
+                    .trim_start_matches([':', '/'])
+                    .split('/')
+                    .next()
+                    .unwrap();
+                let id = crate::provisioning::mint::estate_uuid(owner).unwrap();
+                assert!(
+                    script.contains(&format!(":beholding-chora #uuid\"{id}\"")),
+                    "{url}: the launcher must carry the estate id"
+                );
+                assert!(!script.contains("#u5\""), "{url}: no retired #u5 literal");
+            }
+        }
+        std::fs::remove_dir_all(tmp).ok();
     }
 
     /// A freshly minted launcher carries a block the Phase-1 reader accepts,
     /// and accepts *as a deed* rather than by falling back to the legacy arm.
     ///
+    /// `--repo` takes precedence over the repository's origin, so a config whose
+    /// `repo.path` is no checkout at all still mints, and the id is the estate's.
+    #[test]
+    fn a_supplied_estate_id_must_be_a_lower_case_uuid_v8() {
+        let std_ = LauncherStandard::baked().expect("baked standard should parse");
+        let cfg = stapeln_config();
+        for bad in [
+            "",
+            "not-a-uuid",
+            "0889B37B-DEFB-831F-973C-E119500DB00E",
+            "0889b37b-defb-731f-973c-e119500db00e",
+            "0889b37b-defb-831f-173c-e119500db00e",
+            "0889b37b-defb-831f-973c-e119500db00e\"\n#   :x",
+        ] {
+            assert!(
+                render_with_estate(&cfg, &std_, None, bad).is_err(),
+                "{bad:?} must be refused"
+            );
+        }
+        assert!(render_with_estate(&cfg, &std_, None, TEST_ESTATE).is_ok());
+    }
+
+    #[test]
+    fn an_explicit_repo_overrides_the_origin() {
+        let std_ = LauncherStandard::baked().expect("baked standard should parse");
+        let cfg = stapeln_config();
+        let out = render_for_repo(&cfg, &std_, None, Some("hyperpolymath/stapeln"))
+            .expect("an explicit repo renders without an origin");
+        assert!(out.contains(&format!(":beholding-chora #uuid\"{TEST_ESTATE}\"")));
+        assert!(render_for_repo(&cfg, &std_, None, Some("someone-else/app")).is_err());
+        assert!(render_for_repo(&cfg, &std_, None, None).is_err());
+    }
+
     #[test]
     fn icon_home_paths_are_expanded_without_losing_shell_quoting() {
         let std_ = LauncherStandard::baked().expect("baked standard should parse");
@@ -466,7 +624,7 @@ mod tests {
         cfg.icon = Some(crate::config::Icon {
             source: "~/icons/app image.png".into(),
         });
-        let script = render(&cfg, &std_, None).expect("renders");
+        let script = render_with_estate(&cfg, &std_, None, TEST_ESTATE).expect("renders");
         assert!(script.contains("ICON_SOURCE=\"${HOME}\"/'icons/app image.png'"));
     }
 
@@ -480,7 +638,13 @@ mod tests {
             "$(touch /tmp/launch-scaffolder-pwned)".into(),
             "it's fine".into(),
         ];
-        let rendered = render(&config, &LauncherStandard::baked().unwrap(), None).unwrap();
+        let rendered = render_with_estate(
+            &config,
+            &LauncherStandard::baked().unwrap(),
+            None,
+            TEST_ESTATE,
+        )
+        .unwrap();
         assert!(rendered.contains(r#"APP_DISPLAY='x"; touch /tmp/launch-scaffolder-pwned; #'"#));
         assert!(rendered.contains(r#"REPO_DIR='/tmp/a"$(touch /tmp/launch-scaffolder-pwned)'"#));
         assert!(rendered.contains(r#"START_COMMAND=('program with spaces' '$(touch /tmp/launch-scaffolder-pwned)' 'it'\''s fine')"#));
@@ -587,7 +751,8 @@ mod tests {
         let mut c = stapeln_config();
         c.project.display = "Sta\"pe\\ln".into();
         let std_ = LauncherStandard::baked().expect("baked standard should parse");
-        let script = render(&c, &std_, None).expect("rendering with a quoted display");
+        let script = render_with_estate(&c, &std_, None, TEST_ESTATE)
+            .expect("rendering with a quoted display");
 
         let block = crate::metadata_block::parse_from_text(&script)
             .expect("a quoted display name must still mint a parseable block")
@@ -635,7 +800,8 @@ mod tests {
         let mut c = stapeln_config();
         c.project.display = "Sta\tpeln".into();
         let std_ = LauncherStandard::baked().expect("baked standard should parse");
-        let script = render(&c, &std_, None).expect("rendering with a tabbed display");
+        let script = render_with_estate(&c, &std_, None, TEST_ESTATE)
+            .expect("rendering with a tabbed display");
 
         let block = crate::metadata_block::parse_from_text(&script)
             .expect("a tab must not make the block unparseable")
@@ -703,7 +869,8 @@ mod tests {
     fn rendered_launcher_starts_with_shebang_on_line_one() {
         let cfg = sample_config();
         let std_ = LauncherStandard::baked().expect("baked standard should parse");
-        let out = render(&cfg, &std_, None).expect("template should render");
+        let out =
+            render_with_estate(&cfg, &std_, None, TEST_ESTATE).expect("template should render");
 
         assert!(
             out.starts_with("#!/usr/bin/env bash\n"),
@@ -728,7 +895,8 @@ mod tests {
         let mut cfg = sample_config();
         cfg.project.license = Some("AGPL-3.0-or-later".into());
         let std_ = LauncherStandard::baked().expect("baked standard should parse");
-        let out = render(&cfg, &std_, None).expect("template should render");
+        let out =
+            render_with_estate(&cfg, &std_, None, TEST_ESTATE).expect("template should render");
 
         let spdx: Vec<&str> = out
             .lines()
@@ -755,7 +923,8 @@ mod tests {
         let cfg = sample_config();
         assert_eq!(cfg.project.license, None);
         let std_ = LauncherStandard::baked().expect("baked standard should parse");
-        let out = render(&cfg, &std_, None).expect("template should render");
+        let out =
+            render_with_estate(&cfg, &std_, None, TEST_ESTATE).expect("template should render");
         assert_eq!(
             out.lines().nth(1),
             Some("# SPDX-License-Identifier: MPL-2.0")
@@ -776,7 +945,7 @@ mod tests {
         // the very next line composes the URL out of it.
         let composed = stapeln_config();
         assert_eq!(composed.runtime.url, None, "fixture config sets no url");
-        let script = render(&composed, &std_, None).expect("renders");
+        let script = render_with_estate(&composed, &std_, None, TEST_ESTATE).expect("renders");
         assert!(
             script.contains("APP_PORT=\"4010\""),
             "the composed arm must state the port it composes from"
@@ -790,7 +959,7 @@ mod tests {
         // second `APP_PORT=` beside it could only contradict it.
         let mut explicit = stapeln_config();
         explicit.runtime.url = Some("http://localhost:4010".into());
-        let script = render(&explicit, &std_, None).expect("renders");
+        let script = render_with_estate(&explicit, &std_, None, TEST_ESTATE).expect("renders");
         assert!(
             !script.contains("APP_PORT="),
             "a launcher with an explicit [runtime].url must not also state the port"
@@ -864,7 +1033,7 @@ mod tests {
         cfg.runtime.pid_file = Some("/var/run/stapeln.pid".into());
         cfg.runtime.log_file = Some("~/logs/stapeln.log".into());
 
-        let script = render(&cfg, &std_, None).expect("renders");
+        let script = render_with_estate(&cfg, &std_, None, TEST_ESTATE).expect("renders");
 
         assert!(
             script.contains("PID_FILE='/var/run/stapeln.pid'"),

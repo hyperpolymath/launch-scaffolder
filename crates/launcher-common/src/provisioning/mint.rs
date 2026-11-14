@@ -868,6 +868,45 @@ fn deed_field(deed: &str, key: &str) -> Option<String> {
     })
 }
 
+/// The estates a launcher may be minted for (owner ruling g, CHORA-SPEC C9).
+pub const KNOWN_ESTATES: [&str; 4] = [
+    "hyperpolymath",
+    "metadatastician",
+    "catachresis-colloquium",
+    "stuff-of-awe",
+];
+
+/// The estate v8 id of the repository at `dir`, from its host-checked GitHub
+/// `origin` (the same source `provision-set mint` uses). Refuses, rather than
+/// guessing, when there is no GitHub origin or the owner is not a known estate.
+pub fn estate_uuid_for_repo(dir: &Path) -> Result<String> {
+    let slug = origin_slug(dir).ok_or_else(|| {
+        anyhow::anyhow!(
+            "cannot determine the estate for {}: it has no GitHub `origin` remote (pass --repo OWNER/NAME)",
+            dir.display()
+        )
+    })?;
+    estate_uuid_for_slug(&slug)
+}
+
+/// The estate v8 id for an explicit `OWNER/NAME` (the `--repo` override, which
+/// takes precedence over any origin). Refuses a malformed slug or an owner that
+/// is not a known estate.
+pub fn estate_uuid_for_slug(slug: &str) -> Result<String> {
+    let (owner, _name) = slug
+        .split_once('/')
+        .filter(|(o, n)| !o.is_empty() && !n.is_empty() && !n.contains('/'))
+        .ok_or_else(|| anyhow::anyhow!("--repo must be OWNER/NAME, got {slug:?}"))?;
+    let owner = owner.to_ascii_lowercase();
+    if !KNOWN_ESTATES.contains(&owner.as_str()) {
+        bail!(
+            "{owner:?} (the owner of {slug}) is not one of the estates {}",
+            KNOWN_ESTATES.join(", ")
+        );
+    }
+    estate_uuid(&owner)
+}
+
 /// The estate's v8 id for a GitHub owner: profile C (ADR-008) of the preimage
 /// `chora:estate/github.com/<owner>` (CHORA-SPEC section 9, rule C9): the first
 /// 16 bytes of SHA-256, version nibble 8, variant bits 10. Fails for an owner
@@ -1311,6 +1350,31 @@ mod tests {
             &"x".repeat(40),
         ] {
             assert!(estate_uuid(bad).is_err(), "{bad:?} must be refused");
+        }
+    }
+
+    #[test]
+    fn an_explicit_repo_slug_picks_the_estate_and_is_validated() {
+        assert_eq!(
+            estate_uuid_for_slug("Hyperpolymath/stapeln").unwrap(),
+            estate_uuid("hyperpolymath").unwrap()
+        );
+        assert_eq!(
+            estate_uuid_for_slug("metadatastician/burble").unwrap(),
+            estate_uuid("metadatastician").unwrap()
+        );
+        for bad in [
+            "",
+            "hyperpolymath",
+            "hyperpolymath/",
+            "/x",
+            "a/b/c",
+            "someone-else/app",
+        ] {
+            assert!(
+                estate_uuid_for_slug(bad).is_err(),
+                "{bad:?} must be refused"
+            );
         }
     }
 

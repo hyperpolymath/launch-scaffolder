@@ -80,9 +80,13 @@ CLI subcommands, in the order you’re likely to use them:
 # ─── mint ──────────────────────────────────────────────────────────────────
 # Generate a launcher script from a config. Writes
 # <config-parent>/<app-name>-launcher.sh by default.
-launch-scaffolder mint examples/stapeln.launcher.fixture.a2ml
-launch-scaffolder mint /path/to/burble.launcher.a2ml -o /tmp/out.sh
-launch-scaffolder mint /path/to/burble.launcher.a2ml --stdout
+launch-scaffolder mint examples/stapeln.launcher.fixture.a2ml --repo hyperpolymath/stapeln
+launch-scaffolder mint /path/to/burble.launcher.a2ml -o /tmp/out.sh --repo OWNER/burble
+launch-scaffolder mint /path/to/burble.launcher.a2ml --stdout --repo OWNER/burble
+# The launcher's :beholding-chora is the estate id of the repository's GitHub
+# owner (taken from the `origin` of repo.path). Where there is no checkout or no
+# GitHub origin, name the repository: --repo OWNER/NAME takes precedence. An
+# unknown owner (not one of the four estates) is refused before anything is written.
 
 # ─── realign ───────────────────────────────────────────────────────────────
 # Bulk re-mint: walk the estate (default = /var/mnt/eclipse/repos) and

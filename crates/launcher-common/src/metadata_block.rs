@@ -44,7 +44,7 @@
 //! # (praxis-deed
 //! #   :schema-version  "1.0.0"
 //! #   :canonical-name  "stapeln-launcher"
-//! #   :beholding-chora #u5"estate/chora"
+//! #   :beholding-chora #uuid"0889b37b-defb-831f-973c-e119500db00e"
 //! #   (artefact :type "launcher" :version "0.1.0"
 //! #             :generator "launch-scaffolder")
 //! #   (app :name "stapeln" :display "Stapeln"
@@ -895,7 +895,7 @@ echo "not the block"
 # (praxis-deed
 #   :schema-version  "1.0.0"
 #   :canonical-name  "stapeln-launcher"
-#   :beholding-chora #u5"estate/chora"
+#   :beholding-chora #uuid"0889b37b-defb-831f-973c-e119500db00e"
 #   (artefact :type "launcher" :version "0.1.0"
 #             :generator "launch-scaffolder")
 #   (app :name "stapeln" :display "Stapeln"
@@ -1192,7 +1192,7 @@ echo hi
             format!("({head}"),
             "  :schema-version  \"1.0.0\"".to_string(),
             "  :canonical-name  \"declared-encoding\"".to_string(),
-            "  :beholding-chora #u5\"estate/chora\"".to_string(),
+            "  :beholding-chora #uuid\"0889b37b-defb-831f-973c-e119500db00e\"".to_string(),
             "  (artefact :type \"launcher\" :version \"0.1.0\"".to_string(),
             "            :generator \"launch-scaffolder\")".to_string(),
             "  (app :name \"x\" :display \"X\"".to_string(),
@@ -1292,7 +1292,10 @@ echo hi
     /// Require a chora reference in every embedded praxis deed.
     #[test]
     fn a_deed_block_without_beholding_chora_is_rejected() {
-        let text = deed_sample_with("#   :beholding-chora #u5\"estate/chora\"\n", "");
+        let text = deed_sample_with(
+            "#   :beholding-chora #uuid\"0889b37b-defb-831f-973c-e119500db00e\"\n",
+            "",
+        );
         let err = format!("{:#}", parse_from_text(&text).unwrap_err());
         assert!(err.contains("beholding-chora"), "unexpected error: {err}");
     }
@@ -1302,15 +1305,12 @@ echo hi
     #[test]
     fn a_deed_block_with_a_non_uuid_chora_is_rejected_and_uuid_is_read() {
         let id = "0889b37b-defb-831f-973c-e119500db00e";
-        let ok = deed_sample_with(
-            ":beholding-chora #u5\"estate/chora\"",
-            &format!(":beholding-chora #uuid\"{id}\""),
-        );
-        parse_from_text(&ok).expect("a #uuid chora parses");
-        let text = deed_sample_with(
-            ":beholding-chora #u5\"estate/chora\"",
-            ":beholding-chora \"estate/chora\"",
-        );
+        let current = format!(":beholding-chora #uuid\"{id}\"");
+        parse_from_text(&deed_sample_with(&current, &current)).expect("a #uuid chora parses");
+        // A launcher minted before the ruling carries the legacy #u5 and still reads.
+        let legacy = deed_sample_with(&current, ":beholding-chora #u5\"estate/chora\"");
+        parse_from_text(&legacy).expect("a legacy #u5 chora still parses");
+        let text = deed_sample_with(&current, ":beholding-chora \"estate/chora\"");
         let err = format!("{:#}", parse_from_text(&text).unwrap_err());
         assert!(err.contains("#uuid"), "unexpected error: {err}");
     }
