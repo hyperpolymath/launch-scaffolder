@@ -213,6 +213,122 @@ mod needs_just {
         assert_eq!(code, 0);
     }
 
+    /// Mint `repo` offline, as realign does. Returns the report or the error text.
+    fn offline_mint(repo: &Path) -> Result<mint::Report, String> {
+        mint::mint(
+            repo,
+            &Canon::Baked,
+            &Options {
+                offline: true,
+                repo: Some("hyperpolymath/fixture".into()),
+                ..Options::default()
+            },
+        )
+        .map_err(|e| format!("{e:#}"))
+    }
+
+    /// A scratch repository removed when dropped, so a test leaves nothing behind.
+    struct Repo(PathBuf);
+    impl std::ops::Deref for Repo {
+        type Target = Path;
+        fn deref(&self) -> &Path {
+            &self.0
+        }
+    }
+    impl Drop for Repo {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+
+    /// A licensed scratch copy of `lang/idr`, in a directory unique to this
+    /// process so concurrent test runs cannot delete each other's repository.
+    fn licensed(tag: &str) -> Repo {
+        let repo = scratch("lang/idr", &format!("{tag}-{}", std::process::id()));
+        std::fs::copy(
+            concat!(env!("CARGO_MANIFEST_DIR"), "/../../LICENSES/MPL-2.0.txt"),
+            repo.join("LICENSE"),
+        )
+        .unwrap();
+        Repo(repo)
+    }
+
+    /// The report row for the estate-channel step, with the channels file path.
+    fn estate_row(report: &mint::Report) -> (String, String) {
+        let (label, act) = report
+            .files
+            .iter()
+            .find(|(p, _)| p.ends_with("(estate channel)"))
+            .expect("estate step reported");
+        (
+            label.trim_end_matches(" (estate channel)").to_string(),
+            act.to_string(),
+        )
+    }
+
+    const ESTATE_URL: &str = "(url \"https://github.com/hyperpolymath/guix-channel\")";
+
+    /// A fresh mint writes the canon guix channel and adds the estate channel once.
+    #[test]
+    fn mint_adds_the_estate_channel_once_and_realign_is_a_no_op() {
+        let repo = licensed("estate-fresh");
+        let report = offline_mint(&repo).unwrap();
+        let (rel, act) = estate_row(&report);
+        assert!(act.contains("estate channel added"), "{act}");
+        let first = std::fs::read_to_string(repo.join(&rel)).unwrap();
+        assert_eq!(first.matches(ESTATE_URL).count(), 1);
+        assert!(first.contains("ae77aeb9543de2661d739104bc4d3803d8c6f38b"));
+        let report = offline_mint(&repo).unwrap();
+        assert!(estate_row(&report).1.contains("already present"));
+        assert_eq!(std::fs::read_to_string(repo.join(&rel)).unwrap(), first);
+    }
+
+    /// A repository's own pin and its other channels survive mint and realign;
+    /// the estate channel is added alongside them, once.
+    #[test]
+    fn multi_channel_file_survives_and_gains_the_estate_entry() {
+        let repo = licensed("estate-multi");
+        let rel = estate_row(&offline_mint(&repo).unwrap()).0;
+        let own = "(list (channel\n       (name 'guix)\n       (url \"https://codeberg.org/guix/guix.git\")\n       (commit \"0123456789abcdef0123456789abcdef01234567\"))\n      ;; repo-owned extra channel\n      (channel\n       (name 'extra)\n       (url \"https://example.org/extra.git\")\n       (commit \"fedcba9876543210fedcba9876543210fedcba98\")))\n";
+        std::fs::write(repo.join(&rel), own).unwrap();
+        let report = offline_mint(&repo).unwrap();
+        assert!(estate_row(&report).1.contains("estate channel added"));
+        let got = std::fs::read_to_string(repo.join(&rel)).unwrap();
+        for keep in [
+            "0123456789abcdef0123456789abcdef01234567",
+            "fedcba9876543210fedcba9876543210fedcba98",
+            ";; repo-owned extra channel",
+            "(name 'extra)",
+        ] {
+            assert!(got.contains(keep), "lost {keep}: {got}");
+        }
+        assert_eq!(got.matches(ESTATE_URL).count(), 1);
+        assert!(got.find("(name 'extra)").unwrap() < got.find("(name 'estate)").unwrap());
+        offline_mint(&repo).unwrap();
+        assert_eq!(std::fs::read_to_string(repo.join(&rel)).unwrap(), got);
+    }
+
+    /// A conflicting estate entry, or a file that cannot be parsed, fails
+    /// loudly and the file is left exactly as it was.
+    #[test]
+    fn conflicting_or_unparseable_channels_fail_loudly_and_are_untouched() {
+        let repo = licensed("estate-refuse");
+        let rel = estate_row(&offline_mint(&repo).unwrap()).0;
+        let good = std::fs::read_to_string(repo.join(&rel)).unwrap();
+        let stale = good.replace("d4c84bde7a728a4a5bbc6bf865ed45e983d01c6d", &"a".repeat(40));
+        assert_ne!(stale, good);
+        let unbalanced = "(list (channel (name 'guix) (url \"u\") (commit \"0123456789abcdef0123456789abcdef01234567\")\n";
+        for (what, text, needle) in [
+            ("conflict", stale.as_str(), "conflicting estate channel"),
+            ("unparseable", unbalanced, "not parseable"),
+        ] {
+            std::fs::write(repo.join(&rel), text).unwrap();
+            let err = offline_mint(&repo).expect_err(what);
+            assert!(err.contains(needle), "{what}: {err}");
+            assert_eq!(std::fs::read_to_string(repo.join(&rel)).unwrap(), text);
+        }
+    }
+
     /// Verify offline mint preserves all mise configs when either contains non-tool settings.
     #[test]
     fn offline_mint_retains_mise_configs_with_non_tool_settings() {
