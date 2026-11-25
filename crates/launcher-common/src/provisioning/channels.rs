@@ -90,7 +90,7 @@ pub enum Outcome {
 /// The estate entry the canon prescribes: the `estate` channel of the canon's
 /// own `channels.scm` if it has one, else the built-in.
 pub fn estate_from_canon(canon_channels_scm: &str) -> Result<ChannelSpec> {
-    let parsed = parse_channels(canon_channels_scm)?;
+    let parsed = parse_channels(canon_channels_scm, true)?;
     Ok(parsed
         .channels
         .into_iter()
@@ -104,14 +104,23 @@ pub fn estate_from_canon(canon_channels_scm: &str) -> Result<ChannelSpec> {
 /// Errors, leaving the caller to leave the file untouched, when the text is not
 /// a single channel list or an existing entry conflicts with `estate`.
 pub fn ensure_estate(text: &str, estate: &ChannelSpec) -> Result<Outcome> {
-    let parsed = parse_channels(text)?;
+    if let Some((_, fp)) = &estate.introduction
+        && !(fp.len() == 40 && fp.chars().all(|c| c.is_ascii_hexdigit()))
+    {
+        bail!("the estate channel's openpgp fingerprint is not 40 hex digits: {fp:?}");
+    }
+    let parsed = parse_channels(text, false)?;
     let want_url = norm_url(&estate.url);
+    // Every entry is checked: an identical estate entry must not hide a stale
+    // or duplicate one, in either order.
+    let mut present = false;
     for c in &parsed.channels {
         let same_name = c.spec.name == estate.name;
         let same_url = norm_url(&c.spec.url) == want_url;
         if same_name || same_url {
-            if c.spec == *estate {
-                return Ok(Outcome::Present);
+            if c.spec == *estate && !present {
+                present = true;
+                continue;
             }
             bail!(
                 "conflicting estate channel: existing entry (name '{}, url {}, commit {}) \
@@ -125,6 +134,9 @@ pub fn ensure_estate(text: &str, estate: &ChannelSpec) -> Result<Outcome> {
                 estate.commit.as_deref().unwrap_or("<none>"),
             );
         }
+    }
+    if present {
+        return Ok(Outcome::Present);
     }
     // Insert after the last element, indented to line up with the first
     // existing channel (column of its opening paren on its own line).
@@ -145,7 +157,7 @@ pub fn ensure_estate(text: &str, estate: &ChannelSpec) -> Result<Outcome> {
     out.push_str(&text_to_insert);
     out.push_str(&text[at..]);
     // The edit must itself parse and now contain the estate, exactly.
-    let check = parse_channels(&out)
+    let check = parse_channels(&out, false)
         .map_err(|e| anyhow!("internal error: edited channels.scm does not parse: {e}"))?;
     if !check.channels.iter().any(|c| c.spec == *estate) {
         bail!("internal error: edited channels.scm does not contain the estate entry");
@@ -285,7 +297,7 @@ impl<'a> Reader<'a> {
     }
 }
 
-fn parse_channels(text: &str) -> Result<Parsed> {
+fn parse_channels(text: &str, strict: bool) -> Result<Parsed> {
     let mut r = Reader {
         s: text,
         b: text.as_bytes(),
@@ -338,7 +350,7 @@ fn parse_channels(text: &str) -> Result<Parsed> {
             _ => bail!("channels.scm: list element at byte {start} is not a `(channel ...)` form"),
         }
         channels.push(Channel {
-            spec: read_channel(&ci[1..], *start)?,
+            spec: read_channel(&ci[1..], *start, strict)?,
             start: *start,
             end: *end,
         });
@@ -359,22 +371,33 @@ fn field<'a>(fields: &'a [Sexp], key: &str) -> Option<&'a [Sexp]> {
     })
 }
 
-fn string_field(fields: &[Sexp], key: &str) -> Option<String> {
-    match field(fields, key)?.first()? {
-        Sexp::Str(s) => Some(s.clone()),
-        _ => None,
+/// A string-valued field: `Ok(None)` when absent, an error when present but not
+/// a literal string (e.g. `(commit (string-append ...))`), which this reader
+/// cannot interpret and must not silently drop. Only the canon is read strictly:
+/// in a repository an unreadable value reads as absent, which cannot match the
+/// canon's entry, so an estate-like channel with one is still a conflict.
+fn string_field(fields: &[Sexp], key: &str, strict: bool) -> Result<Option<String>> {
+    match field(fields, key) {
+        None => Ok(None),
+        Some(v) => match v.first() {
+            Some(Sexp::Str(s)) if v.len() == 1 => Ok(Some(s.clone())),
+            _ if !strict => Ok(None),
+            _ => bail!("channels.scm: `({key} ...)` is not a single literal string"),
+        },
     }
 }
 
-fn read_channel(fields: &[Sexp], at: usize) -> Result<ChannelSpec> {
+fn read_channel(fields: &[Sexp], at: usize, strict: bool) -> Result<ChannelSpec> {
     let name = match field(fields, "name").and_then(|v| v.first()) {
         Some(Sexp::Atom(a)) => a.trim_start_matches('\'').to_string(),
         _ => bail!("channels.scm: channel at byte {at} has no readable `(name 'x)`"),
     };
-    let url = string_field(fields, "url")
+    let url = string_field(fields, "url", strict)?
         .ok_or_else(|| anyhow!("channels.scm: channel '{name} has no readable `(url \"...\")`"))?;
     let introduction = field(fields, "introduction").and_then(|v| match v.first()? {
-        Sexp::List { items, .. } => {
+        Sexp::List { items, .. }
+            if matches!(items.first(), Some(Sexp::Atom(a)) if a == "make-channel-introduction") =>
+        {
             let commit = items.iter().find_map(|i| match i {
                 Sexp::Str(s) => Some(s.clone()),
                 _ => None,
@@ -392,11 +415,18 @@ fn read_channel(fields: &[Sexp], at: usize) -> Result<ChannelSpec> {
         }
         _ => None,
     });
+    // The canon's own entry is read strictly: an introduction this reader cannot
+    // interpret must not be silently dropped from the entry written to repos.
+    if strict && introduction.is_none() && field(fields, "introduction").is_some() {
+        bail!(
+            "channels.scm: channel '{name} has an `(introduction ...)` this reader cannot interpret"
+        );
+    }
     Ok(ChannelSpec {
         name,
         url,
-        branch: string_field(fields, "branch"),
-        commit: string_field(fields, "commit"),
+        branch: string_field(fields, "branch", strict)?,
+        commit: string_field(fields, "commit", strict)?,
         introduction,
     })
 }
@@ -465,7 +495,7 @@ mod tests {
         assert!(out.contains("(commit \"ae77aeb9543de2661d739104bc4d3803d8c6f38b\")"));
         assert!(out.contains("(url \"https://github.com/hyperpolymath/guix-channel\")"));
         assert!(out.contains("\"E0B3 6C1B 28F6 E9E0 A460  3F47 FE6E 34E9 F311 0F92\""));
-        let p = parse_channels(&out).unwrap();
+        let p = parse_channels(&out, false).unwrap();
         let names: Vec<_> = p.channels.iter().map(|c| c.spec.name.as_str()).collect();
         assert_eq!(names, ["guix", "estate"]);
         assert_eq!(p.channels[1].spec, estate());
@@ -485,7 +515,7 @@ mod tests {
             "b".repeat(40)
         );
         let out = added(&src);
-        let p = parse_channels(&out).unwrap();
+        let p = parse_channels(&out, false).unwrap();
         let names: Vec<_> = p.channels.iter().map(|c| c.spec.name.as_str()).collect();
         assert_eq!(names, ["guix", "other", "estate"]);
         assert_eq!(
@@ -529,13 +559,13 @@ mod tests {
         let src = "#| block ( |#\n;; ) line\n(list (channel (name 'guix) (url \"https://x/)(.git\") (commit \"aa\")))\n";
         let out = added(src);
         assert!(out.contains("block ("));
-        assert_eq!(parse_channels(&out).unwrap().channels.len(), 2);
+        assert_eq!(parse_channels(&out, false).unwrap().channels.len(), 2);
     }
 
     #[test]
     fn empty_list_gets_the_entry() {
         let out = added("(list)\n");
-        assert_eq!(parse_channels(&out).unwrap().channels.len(), 1);
+        assert_eq!(parse_channels(&out, false).unwrap().channels.len(), 1);
     }
 
     #[test]
@@ -548,5 +578,55 @@ mod tests {
             panic!()
         };
         assert_eq!(estate_from_canon(&canon).unwrap(), custom);
+    }
+
+    #[test]
+    fn an_identical_entry_does_not_hide_a_stale_duplicate() {
+        let good = added(GUIX_ONLY);
+        let stale = good.replace("d4c84bde7a728a4a5bbc6bf865ed45e983d01c6d", &"a".repeat(40));
+        // identical estate first, stale estate second; and the reverse
+        let both = good.trim_end().trim_end_matches(')').to_string();
+        let one = parse_channels(&stale, false)
+            .unwrap()
+            .channels
+            .pop()
+            .unwrap();
+        let dup_stale = &stale[one.start..one.end];
+        let two = format!("{both}\n      {dup_stale})\n");
+        assert!(ensure_estate(&two, &estate()).is_err());
+        let first = parse_channels(&good, false)
+            .unwrap()
+            .channels
+            .pop()
+            .unwrap();
+        let dup_good = &good[first.start..first.end];
+        let rev = format!(
+            "{}\n      {dup_good})\n",
+            stale.trim_end().trim_end_matches(')')
+        );
+        assert!(ensure_estate(&rev, &estate()).is_err());
+    }
+
+    #[test]
+    fn a_non_ascii_or_short_fingerprint_is_refused_not_a_panic() {
+        for fp in ["AAA\u{e9}", "ABCD", &"G".repeat(40)] {
+            let mut e = estate();
+            e.introduction = Some(("1".repeat(40), fp.to_string()));
+            assert!(ensure_estate(GUIX_ONLY, &e).is_err(), "{fp}");
+        }
+    }
+
+    #[test]
+    fn a_canon_estate_with_a_computed_commit_or_intro_is_refused() {
+        let base = added(GUIX_ONLY);
+        let computed = base.replace(
+            "(commit \"d4c84bde7a728a4a5bbc6bf865ed45e983d01c6d\")",
+            "(commit (string-append \"d4c8\" \"4bde\"))",
+        );
+        assert!(estate_from_canon(&computed).is_err());
+        let intro = base.replace("(make-channel-introduction", "(make-intro");
+        assert!(estate_from_canon(&intro).is_err());
+        // In a repository the same unreadable commit is a conflict, not a pass.
+        assert!(ensure_estate(&computed, &estate()).is_err());
     }
 }

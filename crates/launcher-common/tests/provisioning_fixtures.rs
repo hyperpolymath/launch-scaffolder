@@ -227,15 +227,30 @@ mod needs_just {
         .map_err(|e| format!("{e:#}"))
     }
 
-    /// A licensed scratch copy of `lang/idr`.
-    fn licensed(tag: &str) -> PathBuf {
-        let repo = scratch("lang/idr", tag);
+    /// A scratch repository removed when dropped, so a test leaves nothing behind.
+    struct Repo(PathBuf);
+    impl std::ops::Deref for Repo {
+        type Target = Path;
+        fn deref(&self) -> &Path {
+            &self.0
+        }
+    }
+    impl Drop for Repo {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+
+    /// A licensed scratch copy of `lang/idr`, in a directory unique to this
+    /// process so concurrent test runs cannot delete each other's repository.
+    fn licensed(tag: &str) -> Repo {
+        let repo = scratch("lang/idr", &format!("{tag}-{}", std::process::id()));
         std::fs::copy(
             concat!(env!("CARGO_MANIFEST_DIR"), "/../../LICENSES/MPL-2.0.txt"),
             repo.join("LICENSE"),
         )
         .unwrap();
-        repo
+        Repo(repo)
     }
 
     /// The report row for the estate-channel step, with the channels file path.
