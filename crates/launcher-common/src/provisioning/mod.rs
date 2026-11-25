@@ -4,6 +4,7 @@
 //! the canon it is minted from and the conformance check run against it.
 
 pub mod canon;
+pub mod channels;
 pub mod check;
 pub mod justfile;
 pub mod licence;

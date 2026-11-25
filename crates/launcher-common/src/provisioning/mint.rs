@@ -18,6 +18,7 @@
 //! repository-specific pass (standard §5).
 
 use super::canon::{Canon, ENGINE_FILES};
+use super::channels::{self, Outcome};
 use super::licence::{self, Licence};
 use anyhow::{Context, Result, bail};
 use std::collections::BTreeMap;
@@ -327,6 +328,10 @@ pub fn mint(target: &Path, canon: &Canon, opts: &Options) -> Result<Report> {
     files.push((gm.clone(), m.minted(&gm, "guix/manifest.scm.tmpl", &vars)?));
     let gc = format!("{gpre}channels.scm");
     files.push((gc.clone(), m.minted_bytes(&gc, "guix/channels.scm")?));
+    files.push((
+        format!("{gc} (estate channel)"),
+        ensure_estate_channel(target, canon, &gc)?,
+    ));
     if cargo && !target.join("build/guix/crates.scm").is_file() {
         let act = if opts.offline {
             Act::Skipped(
@@ -482,6 +487,28 @@ pub fn mint(target: &Path, canon: &Canon, opts: &Options) -> Result<Report> {
         inherited_from,
         files,
     })
+}
+
+/// Make sure the repository's `channels.scm` lists the estate channel, as a
+/// structured edit of the channel list (see [`channels`]). Runs on every mint
+/// and realign, after the Guix stub rule has had its say, so it also upgrades
+/// repositories whose `channels.scm` is repository-owned and never rewritten.
+/// A file that cannot be parsed, or that holds a conflicting estate entry, is
+/// an error and is left untouched; earlier writes are not rolled back.
+fn ensure_estate_channel(target: &Path, canon: &Canon, rel: &str) -> Result<Act> {
+    let path = target.join(rel);
+    let canon_text = canon_text(canon, "guix/channels.scm")?;
+    let estate = channels::estate_from_canon(&canon_text)
+        .context("reading the canon's guix/channels.scm")?;
+    let text =
+        std::fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
+    match channels::ensure_estate(&text, &estate).with_context(|| rel.to_string())? {
+        Outcome::Present => Ok(Act::Kept("estate channel already present".into())),
+        Outcome::Added(new) => {
+            std::fs::write(&path, new).with_context(|| format!("writing {}", path.display()))?;
+            Ok(Act::Replaced("estate channel added".into()))
+        }
+    }
 }
 
 struct Minter<'a> {
